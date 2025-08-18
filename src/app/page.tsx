@@ -493,23 +493,33 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Theme Focus */}
+                  {/* Selected Theme Tags - Heavily Emphasized */}
                   {constraints.keywords && constraints.keywords.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Theme Focus</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {constraints.keywords.slice(0, 6).map((tag, index) => (
+                    <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-200">
+                      <div className="flex items-center mb-3">
+                        <h4 className="text-sm font-bold text-gray-800">🎯 Selected Themes</h4>
+                        <span className="ml-2 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                          HEAVILY PRIORITIZED
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {constraints.keywords.slice(0, 8).map((tag, index) => (
                           <span
                             key={`result-tag-${tag}-${index}`}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 border border-green-200"
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-green-600 to-blue-600 text-white shadow-md border"
                           >
-                            {tag.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            ✨ {tag.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </span>
                         ))}
-                        {constraints.keywords.length > 6 && (
-                          <span className="text-xs text-gray-500">+{constraints.keywords.length - 6} more</span>
+                        {constraints.keywords.length > 8 && (
+                          <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg border">
+                            +{constraints.keywords.length - 8} more themes
+                          </span>
                         )}
                       </div>
+                      <p className="text-xs text-gray-600 mt-2 italic">
+                        Cards matching these themes receive massive synergy bonuses (+20 to +200 points) and are prioritized for inclusion.
+                      </p>
                     </div>
                   )}
 
