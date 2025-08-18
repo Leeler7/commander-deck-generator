@@ -14,26 +14,6 @@ interface SystemStats {
     databaseSize: string;
     lastUpdated: string;
   };
-  generation: {
-    totalGenerations: number;
-    avgGenerationTime: number;
-    popularCommanders: Array<{ name: string; count: number }>;
-    avgBudget: number;
-    successRate: number;
-  };
-  performance: {
-    uptime: string;
-    memoryUsage: string;
-    responseTime: number;
-    errorRate: number;
-  };
-  usage: {
-    dailyUsers: number;
-    weeklyUsers: number;
-    monthlyUsers: number;
-    peakHour: string;
-    topPages: Array<{ path: string; views: number }>;
-  };
 }
 
 export default function SystemStatsPage() {
@@ -80,26 +60,6 @@ export default function SystemStatsPage() {
     }
   };
 
-  const exportStats = async () => {
-    try {
-      const response = await fetch('/api/admin/export-stats');
-      if (!response.ok) {
-        throw new Error('Failed to export stats');
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `system-stats-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to export stats');
-    }
-  };
 
   const panelStyle = {
     backgroundColor: 'white',
@@ -137,7 +97,7 @@ export default function SystemStatsPage() {
               <h1 className="text-2xl font-bold text-gray-900" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
                 SYSTEM STATISTICS
               </h1>
-              <p className="text-gray-600">Monitor system performance and usage analytics</p>
+              <p className="text-gray-600">Real database statistics and metrics</p>
             </div>
             <div className="flex items-center space-x-4">
               <label className="flex items-center text-sm">
@@ -176,13 +136,6 @@ export default function SystemStatsPage() {
               disabled={loading}
             >
               {loading ? 'Refreshing...' : 'Refresh Stats'}
-            </button>
-            <button 
-              onClick={exportStats}
-              style={buttonStyle}
-              disabled={loading}
-            >
-              Export Data
             </button>
           </div>
           {stats && (
@@ -255,102 +208,25 @@ export default function SystemStatsPage() {
               </div>
             </div>
 
-            {/* Generation Stats */}
-            <div style={panelStyle}>
-              <h2 className="text-xl font-semibold mb-6 text-gray-900">Deck Generation Statistics</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div style={statCardStyle}>
-                  <div className="text-2xl font-bold text-blue-600">{stats.generation.totalGenerations.toLocaleString()}</div>
-                  <div className="text-sm text-gray-600">Total Generations</div>
+            {/* Future Analytics Note */}
+            <div style={{...panelStyle, backgroundColor: '#f8f9fa', border: '1px dashed #dee2e6'}}>
+              <h2 className="text-xl font-semibold mb-4 text-gray-700">Analytics Coming Soon</h2>
+              <p className="text-gray-600 mb-4">
+                Real-time analytics for deck generation, user activity, and performance metrics will be added in a future update. 
+                Currently showing only verified database statistics.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-50">
+                <div className="text-center p-4 bg-white rounded border-2 border-dashed border-gray-300">
+                  <div className="text-lg font-bold text-gray-400">📊</div>
+                  <div className="text-sm text-gray-500 mt-2">Generation Analytics</div>
                 </div>
-                <div style={statCardStyle}>
-                  <div className="text-2xl font-bold text-green-600">{stats.generation.avgGenerationTime.toFixed(2)}s</div>
-                  <div className="text-sm text-gray-600">Avg Gen Time</div>
+                <div className="text-center p-4 bg-white rounded border-2 border-dashed border-gray-300">
+                  <div className="text-lg font-bold text-gray-400">👥</div>
+                  <div className="text-sm text-gray-500 mt-2">User Activity</div>
                 </div>
-                <div style={statCardStyle}>
-                  <div className="text-2xl font-bold text-purple-600">${stats.generation.avgBudget.toFixed(0)}</div>
-                  <div className="text-sm text-gray-600">Avg Budget</div>
-                </div>
-                <div style={statCardStyle}>
-                  <div className="text-2xl font-bold text-orange-600">{(stats.generation.successRate * 100).toFixed(1)}%</div>
-                  <div className="text-sm text-gray-600">Success Rate</div>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-medium mb-3">Popular Commanders</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {stats.generation.popularCommanders.slice(0, 10).map((commander, index) => (
-                    <div key={commander.name} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-sm font-medium">{commander.name}</span>
-                      <span className="text-sm text-gray-600">{commander.count} decks</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Performance & Usage Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Performance */}
-              <div style={panelStyle}>
-                <h2 className="text-xl font-semibold mb-6 text-gray-900">Performance Metrics</h2>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <span className="text-sm font-medium">System Uptime</span>
-                    <span className="text-sm text-gray-600">{stats.performance.uptime}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <span className="text-sm font-medium">Memory Usage</span>
-                    <span className="text-sm text-gray-600">{stats.performance.memoryUsage}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <span className="text-sm font-medium">Avg Response Time</span>
-                    <span className="text-sm text-gray-600">{stats.performance.responseTime}ms</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <span className="text-sm font-medium">Error Rate</span>
-                    <span className={`text-sm font-medium ${stats.performance.errorRate < 0.05 ? 'text-green-600' : 'text-red-600'}`}>
-                      {(stats.performance.errorRate * 100).toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Usage Stats */}
-              <div style={panelStyle}>
-                <h2 className="text-xl font-semibold mb-6 text-gray-900">Usage Analytics</h2>
-                <div className="grid grid-cols-3 gap-3 mb-6">
-                  <div style={statCardStyle}>
-                    <div className="text-lg font-bold text-blue-600">{stats.usage.dailyUsers}</div>
-                    <div className="text-xs text-gray-600">Daily Users</div>
-                  </div>
-                  <div style={statCardStyle}>
-                    <div className="text-lg font-bold text-green-600">{stats.usage.weeklyUsers}</div>
-                    <div className="text-xs text-gray-600">Weekly Users</div>
-                  </div>
-                  <div style={statCardStyle}>
-                    <div className="text-lg font-bold text-purple-600">{stats.usage.monthlyUsers}</div>
-                    <div className="text-xs text-gray-600">Monthly Users</div>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Peak Hour:</span>
-                    <span className="text-sm text-gray-600">{stats.usage.peakHour}</span>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Top Pages</h3>
-                    {stats.usage.topPages.map((page, index) => (
-                      <div key={page.path} className="flex justify-between items-center text-sm py-1">
-                        <span className="text-gray-600">{page.path}</span>
-                        <span className="font-medium">{page.views}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="text-center p-4 bg-white rounded border-2 border-dashed border-gray-300">
+                  <div className="text-lg font-bold text-gray-400">⚡</div>
+                  <div className="text-sm text-gray-500 mt-2">Performance Metrics</div>
                 </div>
               </div>
             </div>
