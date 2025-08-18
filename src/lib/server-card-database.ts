@@ -421,10 +421,11 @@ export class ServerCardDatabase {
 
   private async loadFromFiles(): Promise<void> {
     try {
-      // On any production environment, try loading from public URL first
-      const isProduction = process.env.NODE_ENV === 'production' || isVercel || process.env.RAILWAY_ENVIRONMENT;
-      if (isProduction) {
-        console.log('🌐 Production environment detected: Attempting to load database from public URL...');
+      // Always try loading from public URL first (unless explicitly local development)
+      const isLocalDev = process.env.NODE_ENV === 'development' && !process.env.VERCEL && !process.env.RAILWAY_ENVIRONMENT;
+      
+      if (!isLocalDev) {
+        console.log('🌐 Non-local environment detected: Attempting to load database from public URL...');
         const loaded = await this.loadFromPublicURL();
         if (loaded) {
           console.log('✅ Successfully loaded database from public URL');
@@ -469,8 +470,10 @@ export class ServerCardDatabase {
         baseUrl = `https://${process.env.VERCEL_URL}`;
       } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
         baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+      } else if (process.env.RAILWAY_STATIC_URL) {
+        baseUrl = process.env.RAILWAY_STATIC_URL;
       } else if (process.env.NODE_ENV === 'production') {
-        // Try to get the current domain from request headers in production
+        // Default to Railway domain for production
         baseUrl = 'https://commander-deck-generator-production.up.railway.app';
       }
       
