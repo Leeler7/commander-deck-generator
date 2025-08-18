@@ -613,7 +613,7 @@ export default function Home() {
             </p>
             <p className="mt-4">
               <a 
-                href="mailto:help@bigdeckenergy.org?subject=Bug%20Report" 
+                href="/contact" 
                 className="inline-flex items-center text-blue-600 hover:text-blue-500"
               >
                 <img 
@@ -622,7 +622,7 @@ export default function Home() {
                   className="inline-block h-5 w-5 mr-1"
                   style={{verticalAlign: 'middle'}}
                 />
-                : Report 1 bug.
+                : Contact target admin.
               </a>
             </p>
           </div>
