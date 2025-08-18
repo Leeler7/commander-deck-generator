@@ -6,6 +6,12 @@ node_modules/
 # Testing
 /coverage
 
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # Next.js
 /.next/
 /out/

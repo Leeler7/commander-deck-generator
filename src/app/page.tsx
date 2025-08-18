@@ -611,6 +611,20 @@ export default function Home() {
             <p className="mt-2">
               This tool is not affiliated with Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.
             </p>
+            <p className="mt-4">
+              <a 
+                href="mailto:help@bigdeckenergy.org?subject=Bug%20Report" 
+                className="inline-flex items-center text-blue-600 hover:text-blue-500"
+              >
+                <img 
+                  src="/tap.png" 
+                  alt="Tap" 
+                  className="inline-block h-5 w-5 mr-1"
+                  style={{verticalAlign: 'middle'}}
+                />
+                : Report 1 bug.
+              </a>
+            </p>
           </div>
         </div>
       </footer>
