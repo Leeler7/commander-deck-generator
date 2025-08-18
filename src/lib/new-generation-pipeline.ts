@@ -1055,16 +1055,79 @@ export class NewDeckGenerator {
     for (const card of cards) {
       let themeBonus = 0;
       
-      // Legacy keyword text matching (for backward compatibility)
+      // Enhanced keyword processing - apply strong bonuses like tags
       if (userKeywords.length > 0) {
+        let keywordMatches = 0;
         const cardText = (card.oracle_text || '').toLowerCase();
         const cardType = card.type_line.toLowerCase();
         const cardName = card.name.toLowerCase();
         
-        for (const keyword of userKeywords) {
-          const keywordLower = keyword.toLowerCase();
-          if (cardText.includes(keywordLower) || cardType.includes(keywordLower) || cardName.includes(keywordLower)) {
-            themeBonus += 5; // User-specified themes get priority
+        try {
+          // Analyze card for mechanics tags to find keyword-related tags
+          const cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
+          
+          for (const keyword of userKeywords) {
+            const keywordLower = keyword.toLowerCase();
+            
+            // Check for direct text/type/name matches
+            if (cardText.includes(keywordLower) || cardType.includes(keywordLower) || cardName.includes(keywordLower)) {
+              themeBonus += 500; // Strong bonus for keyword matches
+              keywordMatches++;
+              this.log(`🎯 KEYWORD MATCH: ${card.name} +500 Strong bonus for '${keyword}' in text/type/name`);
+            }
+            
+            // Find related tags that contain this keyword
+            const relatedTags = cardMechanics.mechanicTags.filter(tag => 
+              tag.name.toLowerCase().includes(keywordLower) || 
+              keywordLower.includes(tag.name.toLowerCase())
+            );
+            
+            for (const relatedTag of relatedTags) {
+              keywordMatches++;
+              let baseBonus = 500;
+              if (relatedTag.priority >= 8) baseBonus = 750;
+              else if (relatedTag.priority >= 5) baseBonus = 600;
+              
+              const confidenceBonus = baseBonus * relatedTag.confidence;
+              themeBonus += Math.round(confidenceBonus);
+              
+              this.log(`🏷️ KEYWORD-TAG MATCH: ${card.name} +${Math.round(confidenceBonus)} for '${keyword}' → ${relatedTag.name}`);
+            }
+            
+            // Check functional roles, archetype relevance for keyword matches
+            if (cardMechanics.functionalRoles.some(role => 
+                role.toLowerCase().includes(keywordLower) || keywordLower.includes(role.toLowerCase())
+              )) {
+              themeBonus += 500;
+              keywordMatches++;
+              this.log(`🛠️ KEYWORD-ROLE MATCH: ${card.name} +500 Strong bonus for '${keyword}' in roles`);
+            }
+            
+            if (cardMechanics.archetypeRelevance.some(arch => 
+                arch.toLowerCase().includes(keywordLower) || keywordLower.includes(arch.toLowerCase())
+              )) {
+              themeBonus += 500;
+              keywordMatches++;
+              this.log(`🏗️ KEYWORD-ARCHETYPE MATCH: ${card.name} +500 Strong bonus for '${keyword}' in archetypes`);
+            }
+          }
+          
+          // Progressive bonus for multiple keyword matches
+          if (keywordMatches >= 2) {
+            const multiKeywordBonus = Math.pow(keywordMatches, 2) * 50;
+            themeBonus += multiKeywordBonus;
+            this.log(`🌟 MULTI-KEYWORD BONUS: ${card.name} +${multiKeywordBonus} for ${keywordMatches} keyword matches`);
+          }
+          
+        } catch (error) {
+          // Fallback to simple text matching with strong bonuses
+          for (const keyword of userKeywords) {
+            const keywordLower = keyword.toLowerCase();
+            if (cardText.includes(keywordLower) || cardType.includes(keywordLower) || cardName.includes(keywordLower)) {
+              themeBonus += 500; // Strong fallback bonus
+              keywordMatches++;
+              this.log(`📝 KEYWORD FALLBACK: ${card.name} +500 Strong bonus for '${keyword}' (fallback)`);
+            }
           }
         }
       }
@@ -1077,17 +1140,21 @@ export class NewDeckGenerator {
           const cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
           
           for (const userTag of userTags) {
-            // Find matching tags in the card's mechanics
+            // Find matching tags in the card's mechanics - improved partial matching
             const matchingTags = cardMechanics.mechanicTags.filter(tag => 
-              tag.name === userTag || tag.name.includes(userTag)
+              tag.name === userTag || 
+              tag.name.includes(userTag) || 
+              userTag.includes(tag.name) ||
+              tag.name.toLowerCase().includes(userTag.toLowerCase()) ||
+              userTag.toLowerCase().includes(tag.name.toLowerCase())
             );
             
             for (const matchingTag of matchingTags) {
               totalTagMatches++;
-              // NUCLEAR bonuses - user selection should OBLITERATE everything
-              // High priority (8-10): 750 points - NUCLEAR dominance
-              // Medium priority (5-7): 600 points - MASSIVE dominance  
-              // Low priority (1-4): 500 points - GUARANTEED dominance
+              // Strong bonuses for user-selected themes
+              // High priority (8-10): 750 points - Very Strong emphasis
+              // Medium priority (5-7): 600 points - Strong emphasis  
+              // Low priority (1-4): 500 points - Moderate emphasis
               let baseBonus = 500;
               if (matchingTag.priority >= 8) baseBonus = 750;
               else if (matchingTag.priority >= 5) baseBonus = 600;
@@ -1098,54 +1165,71 @@ export class NewDeckGenerator {
               this.log(`🎯 USER TAG BOOST: ${card.name} +${Math.round(confidenceBonus)} for ${matchingTag.name} (P${matchingTag.priority}, C${matchingTag.confidence.toFixed(2)})`);
             }
             
-            // Also check functional roles, archetype relevance, etc. - NUCLEAR BONUSES
-            if (cardMechanics.functionalRoles.includes(userTag)) {
-              themeBonus += 500; // NUCLEAR bonus for functional role matches
+            // Check functional roles, archetype relevance, and synergy keywords
+            if (cardMechanics.functionalRoles.some(role => 
+                role === userTag || role.includes(userTag) || userTag.includes(role)
+              )) {
+              themeBonus += 500; // Strong bonus for functional role matches
               totalTagMatches++;
-              this.log(`🛠️ ROLE MATCH: ${card.name} gets +500 NUCLEAR bonus for ${userTag} role`);
+              this.log(`🛠️ ROLE MATCH: ${card.name} gets +500 Strong bonus for ${userTag} role`);
             }
             
-            if (cardMechanics.archetypeRelevance.includes(userTag)) {
-              themeBonus += 500; // NUCLEAR bonus for archetype matches  
+            if (cardMechanics.archetypeRelevance.some(arch => 
+                arch === userTag || arch.includes(userTag) || userTag.includes(arch)
+              )) {
+              themeBonus += 500; // Strong bonus for archetype matches  
               totalTagMatches++;
-              this.log(`🏗️ ARCHETYPE MATCH: ${card.name} gets +500 NUCLEAR bonus for ${userTag} archetype`);
+              this.log(`🏗️ ARCHETYPE MATCH: ${card.name} gets +500 Strong bonus for ${userTag} archetype`);
             }
             
-            if (cardMechanics.synergyKeywords.includes(userTag)) {
-              themeBonus += 500; // NUCLEAR bonus for synergy keywords
+            if (cardMechanics.synergyKeywords.some(kw => 
+                kw === userTag || kw.includes(userTag) || userTag.includes(kw)
+              )) {
+              themeBonus += 500; // Strong bonus for synergy keywords
               totalTagMatches++;
-              this.log(`🔗 SYNERGY MATCH: ${card.name} gets +500 NUCLEAR bonus for ${userTag} synergy`);
+              this.log(`🔗 SYNERGY MATCH: ${card.name} gets +500 Strong bonus for ${userTag} synergy`);
+            }
+            
+            // Check card types, subtypes, and supertypes for keyword matches
+            const typeLine = card.type_line.toLowerCase();
+            const userTagLower = userTag.toLowerCase();
+            if (typeLine.includes(userTagLower)) {
+              themeBonus += 500; // Strong bonus for type/subtype matches
+              totalTagMatches++;
+              this.log(`🔖 TYPE MATCH: ${card.name} gets +500 Strong bonus for ${userTag} in type line`);
             }
           }
           
-          // Progressive bonus system - multiple tag matches get ASTRONOMICAL rewards
+          // Progressive bonus system - multiple tag matches get very strong rewards
           if (totalTagMatches >= 2) {
-            const multiTagBonus = Math.pow(totalTagMatches, 3) * 100; // ASTRONOMICAL: 2 tags = +800, 3 tags = +2700
+            const multiTagBonus = Math.pow(totalTagMatches, 3) * 100; // Very Strong: 2 tags = +800, 3 tags = +2700
             themeBonus += multiTagBonus;
-            this.log(`🌟 MULTI-TAG MULTIPLIER: ${card.name} gets +${multiTagBonus} ASTRONOMICAL bonus for ${totalTagMatches} tag matches`);
+            this.log(`🌟 MULTI-TAG MULTIPLIER: ${card.name} gets +${multiTagBonus} Very Strong bonus for ${totalTagMatches} tag matches`);
           }
           
-          // Super premium cards with 3+ user tags get ABSOLUTE GUARANTEED priority
+          // Premium cards with 3+ user tags get guaranteed priority
           if (totalTagMatches >= 3) {
-            themeBonus += 1000; // ABSOLUTE GUARANTEE these cards obliterate everything
-            this.log(`💎 PREMIUM USER SELECTION: ${card.name} gets +1000 ABSOLUTE GUARANTEE bonus for ${totalTagMatches} tag matches`);
+            themeBonus += 1000; // Guaranteed selection for highly relevant cards
+            this.log(`💎 PREMIUM USER SELECTION: ${card.name} gets +1000 guaranteed priority bonus for ${totalTagMatches} tag matches`);
           }
           
         } catch (error) {
           console.warn(`⚠️ Could not analyze mechanics for ${card.name}:`, error);
-          // Enhanced fallback with NUCLEAR bonuses
+          // Enhanced fallback with strong bonuses
           const cardText = (card.oracle_text || '').toLowerCase();
           const cardName = card.name.toLowerCase();
+          const typeLine = card.type_line.toLowerCase();
+          
           for (const userTag of userTags) {
             const tagLower = userTag.toLowerCase();
-            if (cardText.includes(tagLower) || cardName.includes(tagLower)) {
-              themeBonus += 500; // NUCLEAR fallback bonus (minimum 500 per tag)
+            if (cardText.includes(tagLower) || cardName.includes(tagLower) || typeLine.includes(tagLower)) {
+              themeBonus += 500; // Strong fallback bonus (minimum 500 per tag)
               totalTagMatches++;
-              this.log(`📝 TEXT MATCH: ${card.name} gets +500 NUCLEAR fallback bonus for ${userTag}`);
+              this.log(`📝 TEXT MATCH: ${card.name} gets +500 Strong fallback bonus for ${userTag}`);
             }
           }
           
-          // Even fallback gets ASTRONOMICAL progressive bonus
+          // Even fallback gets very strong progressive bonus
           if (totalTagMatches >= 2) {
             const fallbackMultiBonus = totalTagMatches * 200;
             themeBonus += fallbackMultiBonus;

@@ -493,17 +493,28 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Selected Theme Tags - Heavily Emphasized */}
-                  {constraints.keywords && constraints.keywords.length > 0 && (
+                  {/* Selected Keywords & Theme Tags */}
+                  {((constraints.keyword_focus && constraints.keyword_focus.length > 0) || 
+                    (constraints.keywords && constraints.keywords.length > 0)) && (
                     <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-200">
                       <div className="flex items-center mb-3">
-                        <h4 className="text-sm font-bold text-gray-800">🎯 Selected Themes</h4>
+                        <h4 className="text-sm font-bold text-gray-800">🎯 Selected Themes & Keywords</h4>
                         <span className="ml-2 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
                           HEAVILY PRIORITIZED
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {constraints.keywords.slice(0, 8).map((tag, index) => (
+                        {/* Display Keywords */}
+                        {(constraints.keyword_focus || []).map((keyword, index) => (
+                          <span
+                            key={`result-keyword-${keyword}-${index}`}
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md border"
+                          >
+                            🔍 {keyword.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        ))}
+                        {/* Display Tags */}
+                        {(constraints.keywords || []).slice(0, 8).map((tag, index) => (
                           <span
                             key={`result-tag-${tag}-${index}`}
                             className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-green-600 to-blue-600 text-white shadow-md border"
@@ -511,14 +522,14 @@ export default function Home() {
                             ✨ {tag.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </span>
                         ))}
-                        {constraints.keywords.length > 8 && (
+                        {(constraints.keywords || []).length > 8 && (
                           <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg border">
-                            +{constraints.keywords.length - 8} more themes
+                            +{(constraints.keywords || []).length - 8} more themes
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-gray-600 mt-2 italic">
-                        Cards matching these themes receive NUCLEAR synergy bonuses (+500 to +5000+ points) and OBLITERATE all other cards.
+                        Keywords and tags matching these themes receive very strong synergy bonuses (+500 to +5000+ points) with high selection priority.
                       </p>
                     </div>
                   )}
