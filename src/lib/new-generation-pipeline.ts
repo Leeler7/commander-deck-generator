@@ -1084,13 +1084,13 @@ export class NewDeckGenerator {
             
             for (const matchingTag of matchingTags) {
               totalTagMatches++;
-              // EXTREME bonuses - user selection should DOMINATE everything
-              // High priority (8-10): 150 points - MASSIVE dominance over built-in synergies
-              // Medium priority (5-7): 100 points - very strong emphasis
-              // Low priority (1-4): 75 points - still beats most built-in synergies
-              let baseBonus = 75;
-              if (matchingTag.priority >= 8) baseBonus = 150;
-              else if (matchingTag.priority >= 5) baseBonus = 100;
+              // NUCLEAR bonuses - user selection should OBLITERATE everything
+              // High priority (8-10): 750 points - NUCLEAR dominance
+              // Medium priority (5-7): 600 points - MASSIVE dominance  
+              // Low priority (1-4): 500 points - GUARANTEED dominance
+              let baseBonus = 500;
+              if (matchingTag.priority >= 8) baseBonus = 750;
+              else if (matchingTag.priority >= 5) baseBonus = 600;
               
               const confidenceBonus = baseBonus * matchingTag.confidence;
               themeBonus += Math.round(confidenceBonus);
@@ -1098,58 +1098,58 @@ export class NewDeckGenerator {
               this.log(`🎯 USER TAG BOOST: ${card.name} +${Math.round(confidenceBonus)} for ${matchingTag.name} (P${matchingTag.priority}, C${matchingTag.confidence.toFixed(2)})`);
             }
             
-            // Also check functional roles, archetype relevance, etc. - EXTREME BONUSES
+            // Also check functional roles, archetype relevance, etc. - NUCLEAR BONUSES
             if (cardMechanics.functionalRoles.includes(userTag)) {
-              themeBonus += 120; // MASSIVE bonus for functional role matches
+              themeBonus += 500; // NUCLEAR bonus for functional role matches
               totalTagMatches++;
-              this.log(`🛠️ ROLE MATCH: ${card.name} gets +120 MASSIVE bonus for ${userTag} role`);
+              this.log(`🛠️ ROLE MATCH: ${card.name} gets +500 NUCLEAR bonus for ${userTag} role`);
             }
             
             if (cardMechanics.archetypeRelevance.includes(userTag)) {
-              themeBonus += 100; // HUGE bonus for archetype matches  
+              themeBonus += 500; // NUCLEAR bonus for archetype matches  
               totalTagMatches++;
-              this.log(`🏗️ ARCHETYPE MATCH: ${card.name} gets +100 HUGE bonus for ${userTag} archetype`);
+              this.log(`🏗️ ARCHETYPE MATCH: ${card.name} gets +500 NUCLEAR bonus for ${userTag} archetype`);
             }
             
             if (cardMechanics.synergyKeywords.includes(userTag)) {
-              themeBonus += 80; // STRONG bonus for synergy keywords
+              themeBonus += 500; // NUCLEAR bonus for synergy keywords
               totalTagMatches++;
-              this.log(`🔗 SYNERGY MATCH: ${card.name} gets +80 STRONG bonus for ${userTag} synergy`);
+              this.log(`🔗 SYNERGY MATCH: ${card.name} gets +500 NUCLEAR bonus for ${userTag} synergy`);
             }
           }
           
-          // Progressive bonus system - multiple tag matches get INSANE exponential rewards
+          // Progressive bonus system - multiple tag matches get ASTRONOMICAL rewards
           if (totalTagMatches >= 2) {
-            const multiTagBonus = Math.pow(totalTagMatches, 3) * 25; // INSANE: 2 tags = +200, 3 tags = +675
+            const multiTagBonus = Math.pow(totalTagMatches, 3) * 100; // ASTRONOMICAL: 2 tags = +800, 3 tags = +2700
             themeBonus += multiTagBonus;
-            this.log(`🌟 MULTI-TAG MULTIPLIER: ${card.name} gets +${multiTagBonus} INSANE bonus for ${totalTagMatches} tag matches`);
+            this.log(`🌟 MULTI-TAG MULTIPLIER: ${card.name} gets +${multiTagBonus} ASTRONOMICAL bonus for ${totalTagMatches} tag matches`);
           }
           
-          // Super premium cards with 3+ user tags get GUARANTEED priority selection
+          // Super premium cards with 3+ user tags get ABSOLUTE GUARANTEED priority
           if (totalTagMatches >= 3) {
-            themeBonus += 300; // GUARANTEE these cards dominate everything
-            this.log(`💎 PREMIUM USER SELECTION: ${card.name} gets +300 GUARANTEE bonus for ${totalTagMatches} tag matches`);
+            themeBonus += 1000; // ABSOLUTE GUARANTEE these cards obliterate everything
+            this.log(`💎 PREMIUM USER SELECTION: ${card.name} gets +1000 ABSOLUTE GUARANTEE bonus for ${totalTagMatches} tag matches`);
           }
           
         } catch (error) {
           console.warn(`⚠️ Could not analyze mechanics for ${card.name}:`, error);
-          // Enhanced fallback with EXTREME bonuses
+          // Enhanced fallback with NUCLEAR bonuses
           const cardText = (card.oracle_text || '').toLowerCase();
           const cardName = card.name.toLowerCase();
           for (const userTag of userTags) {
             const tagLower = userTag.toLowerCase();
             if (cardText.includes(tagLower) || cardName.includes(tagLower)) {
-              themeBonus += 80; // EXTREME fallback bonus (was 3)
+              themeBonus += 500; // NUCLEAR fallback bonus (minimum 500 per tag)
               totalTagMatches++;
-              this.log(`📝 TEXT MATCH: ${card.name} gets +80 EXTREME fallback bonus for ${userTag}`);
+              this.log(`📝 TEXT MATCH: ${card.name} gets +500 NUCLEAR fallback bonus for ${userTag}`);
             }
           }
           
-          // Even fallback gets MAJOR progressive bonus
+          // Even fallback gets ASTRONOMICAL progressive bonus
           if (totalTagMatches >= 2) {
-            const fallbackMultiBonus = totalTagMatches * 50;
+            const fallbackMultiBonus = totalTagMatches * 200;
             themeBonus += fallbackMultiBonus;
-            this.log(`📈 FALLBACK MULTI-BONUS: ${card.name} gets +${fallbackMultiBonus} MAJOR bonus for multiple text matches`);
+            this.log(`📈 FALLBACK MULTI-BONUS: ${card.name} gets +${fallbackMultiBonus} ASTRONOMICAL bonus for multiple text matches`);
           }
         }
       }

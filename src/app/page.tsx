@@ -518,7 +518,7 @@ export default function Home() {
                         )}
                       </div>
                       <p className="text-xs text-gray-600 mt-2 italic">
-                        Cards matching these themes receive EXTREME synergy bonuses (+75 to +1000+ points) and DOMINATE card selection.
+                        Cards matching these themes receive NUCLEAR synergy bonuses (+500 to +5000+ points) and OBLITERATE all other cards.
                       </p>
                     </div>
                   )}
