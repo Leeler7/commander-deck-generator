@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Database Explorer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #2c3e50;
+            text-align: center;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .card-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+
+        .card-item {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .card-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .card-item:last-child {
+            border-bottom: none;
+        }
+
+        .card-name {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 2px;
+        }
+
+        .card-type {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+
+        .card-cost {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .card-details {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .oracle-text {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            white-space: pre-line;
+            border: 1px solid #e9ecef;
+            margin: 15px 0;
+        }
+
+        .metadata {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            font-size: 12px;
+            margin: 15px 0;
+        }
+
+        .metadata div {
+            padding: 2px 0;
+        }
+
+        .mechanics-section {
+            margin: 15px 0;
+        }
+
+        .mechanics-overview {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border-radius: 12px;
+            font-size: 12px;
+            border: 1px solid #bbdefb;
+        }
+
+        .mechanic-tag {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 8px;
+            margin: 5px 0;
+            font-size: 12px;
+            background-color: #fafafa;
+        }
+
+        .tag-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .tag-name {
+            font-weight: bold;
+        }
+
+        .priority-badge {
+            background-color: #f5f5f5;
+            color: #666;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .tag-meta {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .tag-evidence {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .loading, .error, .empty {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            background-color: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 4px;
+            color: #c53030;
+            margin-bottom: 15px;
+        }
+
+        .info {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .card-list {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Card Database Explorer</h1>
+        
+        <div class="grid">
+            <div class="panel">
+                <h2>Search Cards</h2>
+                
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Type card name..."
+                    autocomplete="off"
+                >
+                
+                <div id="cardInfo" class="info">Loading cards...</div>
+                
+                <div class="card-list" id="cardList">
+                    <div class="loading">Loading cards...</div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>Card Details</h2>
+                
+                <div id="errorMessage" class="error" style="display: none;"></div>
+                
+                <div id="cardDetails" class="card-details">
+                    <div class="empty">
+                        Select a card from the list to view its details and comprehensive tagging analysis.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allCards = [];
+        let selectedCard = null;
+        let loading = false;
+
+        const searchInput = document.getElementById('searchInput');
+        const cardList = document.getElementById('cardList');
+        const cardDetails = document.getElementById('cardDetails');
+        const cardInfo = document.getElementById('cardInfo');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Load card list on page load
+        async function loadCardNames() {
+            try {
+                loading = true;
+                updateCardInfo('Loading cards...');
+                
+                const response = await fetch('/api/cards/list');
+                if (!response.ok) throw new Error('Failed to load cards');
+                
+                const data = await response.json();
+                allCards = data.cards || [];
+                
+                updateCardInfo(`Loaded ${allCards.length.toLocaleString()} cards`);
+                filterAndDisplayCards();
+                
+            } catch (error) {
+                showError('Failed to load cards: ' + error.message);
+                cardList.innerHTML = '<div class="error">Failed to load cards</div>';
+            } finally {
+                loading = false;
+            }
+        }
+
+        // Filter and display cards based on search
+        function filterAndDisplayCards() {
+            const searchTerm = searchInput.value.toLowerCase();
+            let filteredCards;
+            
+            if (!searchTerm) {
+                filteredCards = allCards.slice(0, 100); // Show more cards by default
+            } else {
+                filteredCards = allCards
+                    .filter(card => card.name.toLowerCase().includes(searchTerm))
+                    .slice(0, 100); // Show more matching cards
+            }
+
+            updateCardInfo(
+                `Showing ${filteredCards.length} of ${allCards.length.toLocaleString()} cards` + 
+                (searchTerm ? ` matching "${searchInput.value}"` : '')
+            );
+
+            displayCards(filteredCards);
+        }
+
+        // Display cards in the list
+        function displayCards(cards) {
+            if (cards.length === 0) {
+                cardList.innerHTML = '<div class="empty">No cards found matching your search.</div>';
+                return;
+            }
+
+            cardList.innerHTML = cards.map(card => `
+                <div class="card-item" onclick="loadCardDetails('${escapeHtml(card.name)}')">
+                    <div class="card-name">${escapeHtml(card.name)}</div>
+                    <div class="card-type">${escapeHtml(card.type_line || '')}</div>
+                    <div class="card-cost">${escapeHtml(card.mana_cost || '')} • CMC ${card.cmc || 0}</div>
+                </div>
+            `).join('');
+        }
+
+        // Load detailed card information
+        async function loadCardDetails(cardName) {
+            try {
+                loading = true;
+                hideError();
+                cardDetails.innerHTML = '<div class="loading">Loading card details...</div>';
+                
+                const response = await fetch(`/api/debug/card-analysis?card=${encodeURIComponent(cardName)}`);
+                if (!response.ok) throw new Error('Failed to load card details');
+                
+                const data = await response.json();
+                selectedCard = {
+                    ...data.card,
+                    mechanics: data.mechanics
+                };
+                
+                displayCardDetails(selectedCard);
+                
+            } catch (error) {
+                showError('Failed to load card details: ' + error.message);
+            } finally {
+                loading = false;
+            }
+        }
+
+        // Display detailed card information
+        function displayCardDetails(card) {
+            const mechanicsHtml = card.mechanics ? `
+                <div class="mechanics-section">
+                    <h4>Mechanics Analysis</h4>
+                    <div class="mechanics-overview">
+                        <div><strong>Primary Type:</strong> ${escapeHtml(card.mechanics.primaryType || '')}</div>
+                        <div><strong>Power Level:</strong> ${card.mechanics.powerLevel || 0}/10</div>
+                    </div>
+                    
+                    ${card.mechanics.functionalRoles && Array.isArray(card.mechanics.functionalRoles) && card.mechanics.functionalRoles.length > 0 ? `
+                        <div style="margin-bottom: 10px;">
+                            <strong style="font-size: 12px;">Functional Roles:</strong>
+                            <div style="margin-top: 5px;">
+                                ${card.mechanics.functionalRoles.map(role => 
+                                    `<span class="tag">${escapeHtml(role)}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="mechanics-section">
+                    <h4>Mechanic Tags (${card.mechanics.mechanicTags ? card.mechanics.mechanicTags.length : 0})</h4>
+                    <div style="max-height: 200px; overflow-y: auto;">
+                        ${card.mechanics.mechanicTags && Array.isArray(card.mechanics.mechanicTags) && card.mechanics.mechanicTags.length > 0
+                            ? card.mechanics.mechanicTags
+                                .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+                                .map(tag => `
+                                    <div class="mechanic-tag">
+                                        <div class="tag-header">
+                                            <span class="tag-name">${escapeHtml(tag.name || '')}</span>
+                                            <span class="priority-badge">P${tag.priority || 0}</span>
+                                        </div>
+                                        <div class="tag-meta">
+                                            Category: ${escapeHtml(tag.category || '')} | Confidence: ${Math.round((tag.confidence || 0) * 100)}%
+                                        </div>
+                                        ${tag.evidence && Array.isArray(tag.evidence) && tag.evidence.length > 0 ? `
+                                            <div class="tag-evidence">
+                                                Evidence: ${escapeHtml(tag.evidence.join(', '))}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `).join('')
+                            : '<div class="empty">No mechanic tags available</div>'
+                        }
+                    </div>
+                </div>
+            ` : '';
+
+            cardDetails.innerHTML = `
+                <h3 class="card-title">${escapeHtml(card.name)}</h3>
+                <div style="font-size: 14px; color: #666; margin: 5px 0;">${escapeHtml(card.type_line || '')}</div>
+                <div style="font-size: 14px; color: #666; margin: 5px 0;">
+                    ${escapeHtml(card.mana_cost || '')} • CMC ${card.cmc || 0}
+                </div>
+                
+                ${card.power && card.toughness ? `
+                    <div style="font-size: 14px; color: #666; margin: 5px 0;">
+                        Power/Toughness: ${escapeHtml(card.power)}/${escapeHtml(card.toughness)}
+                    </div>
+                ` : ''}
+                
+                <div style="margin: 15px 0;">
+                    <h4 style="font-size: 14px; font-weight: bold; margin: 0 0 8px 0;">Oracle Text</h4>
+                    <div class="oracle-text">
+                        ${escapeHtml(card.oracle_text || 'No oracle text')}
+                    </div>
+                </div>
+                
+                <div style="margin: 15px 0;">
+                    <h4 style="font-size: 14px; font-weight: bold; margin: 0 0 8px 0;">Metadata</h4>
+                    <div class="metadata">
+                        <div><strong>Rarity:</strong> ${escapeHtml(card.rarity || '')}</div>
+                        <div><strong>Set:</strong> ${escapeHtml(card.set_name || '')}</div>
+                        ${card.edhrec_rank ? `<div><strong>EDHREC Rank:</strong> ${card.edhrec_rank}</div>` : ''}
+                    </div>
+                </div>
+                
+                ${mechanicsHtml}
+            `;
+        }
+
+        // Utility functions
+        function updateCardInfo(text) {
+            cardInfo.textContent = text;
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', filterAndDisplayCards);
+
+        // Load initial data
+        loadCardNames();
+    </script>
+</body>
+</html>

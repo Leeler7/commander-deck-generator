@@ -1,0 +1,18 @@
+{
+  "name": "commander-deck-generator-tools",
+  "version": "1.0.0",
+  "description": "Administration tools for the Commander Deck Generator",
+  "scripts": {
+    "retag": "node retag-database.js",
+    "fetch": "node fetch-new-cards.js",
+    "help": "echo \"Available commands:\\n  npm run retag [-- options]   - Re-tag all cards with comprehensive system\\n  npm run fetch [-- options]   - Fetch new cards from Scryfall\\n\\nFor detailed options, run:\\n  node retag-database.js --help\\n  node fetch-new-cards.js --help\""
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "author": "Commander Deck Generator",
+  "license": "MIT"
+}

@@ -1,0 +1,2266 @@
+ ✓ Starting...
+ ✓ Ready in 1376ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.4s
+ GET / 200 in 2810ms
+ ✓ Compiled /api/database/status in 166ms
+Loaded 35471 cards from local database
+ GET /api/database/status 200 in 1022ms
+ ✓ Compiled /api/commanders/search in 105ms
+ GET /api/commanders/search?q=Norin 200 in 254ms
+ GET /api/commanders/search?q=Norin%20the%20Wary 200 in 103ms
+Starting scheduled sync service...
+ ✓ Compiled /api/generate in 161ms
+Loaded 35471 cards from local database
+🎯 Starting structured pipeline for Norin the Wary with colors [R]
+📋 Phase 1: Color Filtering
+   Searching with query: color<=R legal:commander -type:land
+🚀 Searching local database for color identity: R
+🚀 Found 165 non-land cards in local database
+🚫 applyConstraintFilters: Excluding Celebr-8000 from Un-set: unf
+📊 applyConstraintFilters: Including 11/34 artifacts (weight=1, rate=30%)
+📊 applyConstraintFilters: Including 64/84 creatures (weight=7, rate=76%)
+📊 applyConstraintFilters: Including 5/6 enchantments (weight=6, rate=68%)
+📊 applyConstraintFilters: Including 11/21 instants (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 10/18 sorcerys (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 1/1 planeswalkers (weight=1, rate=30%)
+📊 applyConstraintFilters: Final pool after weight filtering: 102 cards
+   Added 102 cards from base search
+   Searching colorless cards: color:colorless legal:commander -type:land (type:artifact OR oracle:"any color")
+🚀 Searching local database for color identity:
+🚀 Found 169 non-land cards in local database
+📊 applyConstraintFilters: Including 4/13 artifacts (weight=1, rate=30%)
+📊 applyConstraintFilters: Including 75/98 creatures (weight=7, rate=76%)
+📊 applyConstraintFilters: Including 14/20 enchantments (weight=6, rate=68%)
+📊 applyConstraintFilters: Including 11/20 instants (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 10/18 sorcerys (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 0/0 planeswalkers (weight=1, rate=30%)
+📊 applyConstraintFilters: Final pool after weight filtering: 114 cards
+   Added 114 colorless cards
+   Total unique cards after color filtering: 198
+   Found 198 cards in color identity
+🔍 Phase 2: Keyword Synergy Analysis
+   Commander synergy themes:
+   High synergy cards: 38, Generic cards: 160
+   Identified 198 cards with keyword synergies
+⚖️ Phase 3: User Weight Application
+   Applying weights: creatures=7, artifacts=1, enchantments=6, instants=4, sorceries=4, planeswalkers=1
+   Excluded 0 cards due to zero weights
+   Kept 198 cards with user weight preferences applied
+   198 cards after user weight filtering
+🏗️ Phase 4: EDH Ratio-Based Role Assignment
+   Creating comprehensive card pool for budget optimizer
+   Final pool size: 198 cards
+✅ Structured pipeline complete
+   Processing 198 cards from comprehensive pool
+   Total unique cards available: 198
+   Translating user weights into role targets: creatures=7, artifacts=1, enchantments=6, instants=4, sorceries=4
+   Role target transformations based on card type weights:
+     Ramp: 15 → 4 (artifact weight: 1, multiplier: 0.20)
+     Removal: 11 → 9 (spell avg: 4.0, multiplier: 0.80)
+     Protection: 4 → 5 (enchantment weight: 6, multiplier: 1.20)
+     Synergy: 15 → 21 (creature weight: 7, multiplier: 1.40)
+     Draw: 14 → 11 (sorcery weight: 4, multiplier: 0.80)
+💎 Card type targets based on weights: {
+  artifacts: '3 (weight: 1)',
+  creatures: '23 (weight: 7)',
+  enchantments: '20 (weight: 6)',
+  instants: '13 (weight: 4)',
+  sorceries: '13 (weight: 4)',
+  planeswalkers: '3 (weight: 1)'
+}
+💎 Added creatures: Solemn Simulacrum (1/23)
+💎 Added creatures: Surly Badgersaur (2/23)
+💎 Added creatures: Seedship Agrarian (3/23)
+💎 Added creatures: Ruthless Knave (4/23)
+💎 Added creatures: Greta, Sweettooth Scourge (5/23)
+💎 Added creatures: Seasoned Pyromancer (6/23)
+💎 Added creatures: Phyrexian Dragon Engine (7/23)
+💎 Added creatures: Marketback Walker (8/23)
+💎 Added creatures: Toluz, Clever Conductor (9/23)
+💎 Added creatures: Refurbished Familiar (10/23)
+💎 Added creatures: Bedlam Reveler (11/23)
+💎 Added creatures: Errand-Rider of Gondor (12/23)
+💎 Added enchantments: Kindred Discovery (1/20)
+💎 Added creatures: Unscrupulous Contractor (13/23)
+💎 Added creatures: Friendly Teddy (14/23)
+💎 Added instants: Unfortunate Accident (1/13)
+💎 Added sorceries: Raze (1/13)
+💎 Added creatures: Dawnbringer Cleric (15/23)
+💎 Added creatures: Goblin Trashmaster (16/23)
+💎 Added creatures: Goblin Settler (17/23)
+💎 Added creatures: Vizier of Deferment (18/23)
+💎 Added creatures: Crypt Creeper (19/23)
+💎 Added creatures: Kalitas, Bloodchief of Ghet (20/23)
+💎 Added instants: Eldrazi Confluence (2/13)
+💎 Added creatures: Pharika's Mender (21/23)
+💎 Added enchantments: Stormchaser's Talent (2/20)
+💎 Added enchantments: Etchings of the Chosen (3/20)
+💎 Added creatures: Patchwork Gnomes (22/23)
+💎 Added creatures: Darkling Stalker (23/23)
+💎 Added artifacts: Talisman of Progress (1/3)
+💎 Added enchantments: Utopia Sprawl (4/20)
+💎 Added enchantments: Waste Not (5/20)
+💎 Added enchantments: One with the Kami (6/20)
+💎 Added enchantments: Discreet Retreat (7/20)
+💎 Added enchantments: Ghirapur Aether Grid (8/20)
+💎 Added enchantments: Hot Pursuit (9/20)
+💎 Added enchantments: Long List of the Ents (10/20)
+💎 Added enchantments: Dragon Fangs (11/20)
+💎 Added enchantments: Demonic Vigor (12/20)
+💎 Added enchantments: Dungeon Delver (13/20)
+💎 Added enchantments: Rage Reflection (14/20)
+💎 Added sorceries: Witch's Mark (2/13)
+💎 Added enchantments: Food Fight (15/20)
+💎 Added enchantments: Ghitu War Cry (16/20)
+💎 Added enchantments: Chamber of Manipulation (17/20)
+💎 Added sorceries: Cruel Ultimatum (3/13)
+💎 Added sorceries: Saheeli's Artistry (4/13)
+💎 Added instants: Refocus (3/13)
+💎 Added sorceries: Road of Return (5/13)
+💎 Added instants: Gnawing Crescendo (4/13)
+💎 Added sorceries: World at War (6/13)
+💎 Added instants: Deny the Divine (5/13)
+💎 Added sorceries: Goblin Gathering (7/13)
+💎 Added sorceries: Strategic Betrayal (8/13)
+💎 Added instants: Conduct Electricity (6/13)
+💎 Added instants: Harvest Pyre (7/13)
+💎 Added instants: Thunderclap (8/13)
+💎 Added instants: Veil of Summer (9/13)
+💎 Added instants: Blur (10/13)
+💎 Added sorceries: Thunderherd Migration (9/13)
+💎 Added instants: Arcbond (11/13)
+💎 Added sorceries: Collective Voyage (10/13)
+💎 Added sorceries: Delete (11/13)
+💎 Added instants: Faithless Salvaging (12/13)
+💎 Added sorceries: Pyretic Charge (12/13)
+💎 Added sorceries: Theft of Dreams (13/13)
+💎 Added instants: Hurl into History (13/13)
+💎 Added artifacts: Nettlecyst (2/3)
+💎 Added artifacts: Spine of Ish Sah (3/3)
+💎 Added planeswalkers: Zariel, Archduke of Avernus (1/3)
+Land calculation: avgCMC=3.31, producers=7, cantrips=5, searchers=0, recommended=38
+🎯 Starting structured pipeline for Norin the Wary with colors [R]
+📋 Phase 1: Color Filtering
+   Searching with query: color<=R legal:commander -type:land
+🚀 Searching local database for color identity: R
+🚀 Found 165 non-land cards in local database
+🚫 applyConstraintFilters: Excluding Celebr-8000 from Un-set: unf
+📊 applyConstraintFilters: Including 11/34 artifacts (weight=1, rate=30%)
+📊 applyConstraintFilters: Including 64/84 creatures (weight=7, rate=76%)
+📊 applyConstraintFilters: Including 5/6 enchantments (weight=6, rate=68%)
+📊 applyConstraintFilters: Including 11/21 instants (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 10/18 sorcerys (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 1/1 planeswalkers (weight=1, rate=30%)
+📊 applyConstraintFilters: Final pool after weight filtering: 102 cards
+   Added 102 cards from base search
+   Searching colorless cards: color:colorless legal:commander -type:land (type:artifact OR oracle:"any color")
+🚀 Searching local database for color identity:
+🚀 Found 169 non-land cards in local database
+📊 applyConstraintFilters: Including 4/13 artifacts (weight=1, rate=30%)
+📊 applyConstraintFilters: Including 75/98 creatures (weight=7, rate=76%)
+📊 applyConstraintFilters: Including 14/20 enchantments (weight=6, rate=68%)
+📊 applyConstraintFilters: Including 11/20 instants (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 10/18 sorcerys (weight=4, rate=52%)
+📊 applyConstraintFilters: Including 0/0 planeswalkers (weight=1, rate=30%)
+📊 applyConstraintFilters: Final pool after weight filtering: 114 cards
+   Added 114 colorless cards
+   Total unique cards after color filtering: 198
+   Found 198 cards in color identity
+🔍 Phase 2: Keyword Synergy Analysis
+   Commander synergy themes:
+   High synergy cards: 38, Generic cards: 160
+   Identified 198 cards with keyword synergies
+⚖️ Phase 3: User Weight Application
+   Applying weights: creatures=7, artifacts=1, enchantments=6, instants=4, sorceries=4, planeswalkers=1
+   Excluded 0 cards due to zero weights
+   Kept 198 cards with user weight preferences applied
+   198 cards after user weight filtering
+🏗️ Phase 4: EDH Ratio-Based Role Assignment
+   Creating comprehensive card pool for budget optimizer
+   Final pool size: 198 cards
+✅ Structured pipeline complete
+   Processing 198 cards from comprehensive pool
+   Total unique cards available: 198
+   Translating user weights into role targets: creatures=7, artifacts=1, enchantments=6, instants=4, sorceries=4
+   Role target transformations based on card type weights:
+     Ramp: 15 → 4 (artifact weight: 1, multiplier: 0.20)
+     Removal: 11 → 9 (spell avg: 4.0, multiplier: 0.80)
+     Protection: 4 → 5 (enchantment weight: 6, multiplier: 1.20)
+     Synergy: 15 → 21 (creature weight: 7, multiplier: 1.40)
+     Draw: 14 → 11 (sorcery weight: 4, multiplier: 0.80)
+💎 Card type targets based on weights: {
+  artifacts: '3 (weight: 1)',
+  creatures: '19 (weight: 7)',
+  enchantments: '16 (weight: 6)',
+  instants: '11 (weight: 4)',
+  sorceries: '11 (weight: 4)',
+  planeswalkers: '3 (weight: 1)'
+}
+💎 Added creatures: Solemn Simulacrum (1/19)
+💎 Added creatures: Surly Badgersaur (2/19)
+💎 Added creatures: Seedship Agrarian (3/19)
+💎 Added creatures: Ruthless Knave (4/19)
+💎 Added creatures: Greta, Sweettooth Scourge (5/19)
+💎 Added creatures: Seasoned Pyromancer (6/19)
+💎 Added creatures: Phyrexian Dragon Engine (7/19)
+💎 Added creatures: Marketback Walker (8/19)
+💎 Added creatures: Toluz, Clever Conductor (9/19)
+💎 Added creatures: Refurbished Familiar (10/19)
+💎 Added creatures: Bedlam Reveler (11/19)
+💎 Added creatures: Errand-Rider of Gondor (12/19)
+💎 Added enchantments: Kindred Discovery (1/16)
+💎 Added creatures: Unscrupulous Contractor (13/19)
+💎 Added creatures: Friendly Teddy (14/19)
+💎 Added instants: Unfortunate Accident (1/11)
+💎 Added sorceries: Raze (1/11)
+💎 Added creatures: Dawnbringer Cleric (15/19)
+💎 Added creatures: Goblin Trashmaster (16/19)
+💎 Added creatures: Goblin Settler (17/19)
+💎 Added creatures: Vizier of Deferment (18/19)
+💎 Added creatures: Crypt Creeper (19/19)
+💎 Added instants: Eldrazi Confluence (2/11)
+💎 Added instants: Deny the Divine (3/11)
+💎 Added enchantments: Stormchaser's Talent (2/16)
+💎 Added enchantments: Etchings of the Chosen (3/16)
+💎 Added sorceries: Road of Return (2/11)
+💎 Added artifacts: Sword of Light and Shadow (1/3)
+💎 Added artifacts: Talisman of Progress (2/3)
+💎 Added enchantments: Utopia Sprawl (4/16)
+💎 Added enchantments: Waste Not (5/16)
+💎 Added enchantments: One with the Kami (6/16)
+💎 Added enchantments: Discreet Retreat (7/16)
+💎 Added enchantments: Ghirapur Aether Grid (8/16)
+💎 Added enchantments: Hot Pursuit (9/16)
+💎 Added enchantments: Long List of the Ents (10/16)
+💎 Added enchantments: Dragon Fangs (11/16)
+💎 Added enchantments: Demonic Vigor (12/16)
+💎 Added enchantments: Dungeon Delver (13/16)
+💎 Added enchantments: Rage Reflection (14/16)
+💎 Added sorceries: Witch's Mark (3/11)
+💎 Added enchantments: Food Fight (15/16)
+💎 Added enchantments: Ghitu War Cry (16/16)
+💎 Added sorceries: Cruel Ultimatum (4/11)
+💎 Added sorceries: Saheeli's Artistry (5/11)
+💎 Added instants: Refocus (4/11)
+💎 Added instants: Gnawing Crescendo (5/11)
+💎 Added sorceries: World at War (6/11)
+💎 Added sorceries: Goblin Gathering (7/11)
+💎 Added sorceries: Strategic Betrayal (8/11)
+💎 Added instants: Conduct Electricity (6/11)
+💎 Added instants: Harvest Pyre (7/11)
+💎 Added instants: Thunderclap (8/11)
+💎 Added instants: Veil of Summer (9/11)
+💎 Added instants: Blur (10/11)
+💎 Added sorceries: Thunderherd Migration (9/11)
+💎 Added instants: Arcbond (11/11)
+💎 Added sorceries: Collective Voyage (10/11)
+💎 Added sorceries: Delete (11/11)
+💎 Added artifacts: Nettlecyst (3/3)
+💎 Added planeswalkers: Zariel, Archduke of Avernus (1/3)
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Generated 26 lands (target was 38)
+Final deck composition: 61 non-lands + 26 lands = 87 total
+Removing illegal card: Seedship Agrarian - Color Identity Violation
+Removing illegal card: Ruthless Knave - Color Identity Violation
+Removing illegal card: Greta, Sweettooth Scourge - Color Identity Violation
+Removing illegal card: Toluz, Clever Conductor - Color Identity Violation
+Removing illegal card: Refurbished Familiar - Color Identity Violation
+Removing illegal card: Errand-Rider of Gondor - Color Identity Violation
+Removing illegal card: Kindred Discovery - Color Identity Violation
+Removing illegal card: Unscrupulous Contractor - Color Identity Violation
+Removing illegal card: Unfortunate Accident - Color Identity Violation
+Removing illegal card: Dawnbringer Cleric - Color Identity Violation
+Removing illegal card: Vizier of Deferment - Color Identity Violation
+Removing illegal card: Crypt Creeper - Color Identity Violation
+Removing illegal card: Deny the Divine - Color Identity Violation
+Removing illegal card: Stormchaser's Talent - Color Identity Violation
+Removing illegal card: Etchings of the Chosen - Color Identity Violation
+Removing illegal card: Road of Return - Color Identity Violation
+Removing illegal card: Talisman of Progress - Color Identity Violation
+Removing illegal card: Utopia Sprawl - Color Identity Violation
+Removing illegal card: Waste Not - Color Identity Violation
+Removing illegal card: One with the Kami - Color Identity Violation
+Removing illegal card: Discreet Retreat - Color Identity Violation
+Removing illegal card: Long List of the Ents - Color Identity Violation
+Removing illegal card: Dragon Fangs - Color Identity Violation
+Removing illegal card: Demonic Vigor - Color Identity Violation
+Removing illegal card: Dungeon Delver - Color Identity Violation
+Removing illegal card: Cruel Ultimatum - Color Identity Violation
+Removing illegal card: Saheeli's Artistry - Color Identity Violation
+Removing illegal card: Refocus - Color Identity Violation
+Removing illegal card: Strategic Betrayal - Color Identity Violation
+Removing illegal card: Veil of Summer - Color Identity Violation
+Removing illegal card: Blur - Color Identity Violation
+Removing illegal card: Thunderherd Migration - Color Identity Violation
+Removing illegal card: Collective Voyage - Color Identity Violation
+Finding replacement for illegal card: Seedship Agrarian (Role: Ramp)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Arcane Signet: 24.0 points
+Found replacement: Arcane Signet for Seedship Agrarian
+Finding replacement for illegal card: Ruthless Knave (Role: Ramp)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Exotic Orchard: 38.0 points
+Found replacement: Exotic Orchard for Ruthless Knave
+Finding replacement for illegal card: Greta, Sweettooth Scourge (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Mind Stone: 60.5 points
+Found replacement: Mind Stone for Greta, Sweettooth Scourge
+Finding replacement for illegal card: Toluz, Clever Conductor (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Commander's Sphere: 60.5 points
+Found replacement: Commander's Sphere for Toluz, Clever Conductor
+Finding replacement for illegal card: Refurbished Familiar (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Skullclamp: 30.5 points
+Found replacement: Skullclamp for Refurbished Familiar
+Finding replacement for illegal card: Errand-Rider of Gondor (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for The One Ring: 48.5 points
+Found replacement: The One Ring for Errand-Rider of Gondor
+Finding replacement for illegal card: Kindred Discovery (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Faithless Looting: 40.0 points
+Found replacement: Faithless Looting for Kindred Discovery
+Finding replacement for illegal card: Unscrupulous Contractor (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for War Room: 38.0 points
+Found replacement: War Room for Unscrupulous Contractor
+Finding replacement for illegal card: Unfortunate Accident (Role: Removal/Interaction)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Vandalblast: 28.0 points
+Found replacement: Vandalblast for Unfortunate Accident
+Finding replacement for illegal card: Dawnbringer Cleric (Role: Removal/Interaction)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Abrade: 28.0 points
+Found replacement: Abrade for Dawnbringer Cleric
+Finding replacement for illegal card: Vizier of Deferment (Role: Removal/Interaction)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Red Elemental Blast: 32.5 points
+Found replacement: Red Elemental Blast for Vizier of Deferment
+Finding replacement for illegal card: Crypt Creeper (Role: Removal/Interaction)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Demolition Field: 75.5 points
+Found replacement: Demolition Field for Crypt Creeper
+Finding replacement for illegal card: Deny the Divine (Role: Removal/Interaction)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Pyroblast: 54.0 points
+Found replacement: Pyroblast for Deny the Divine
+Finding replacement for illegal card: Stormchaser's Talent (Role: Protection)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Sol Ring: 25.5 points
+Found replacement: Sol Ring for Stormchaser's Talent
+Finding replacement for illegal card: Etchings of the Chosen (Role: Protection)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Reliquary Tower: 3.0 points
+Found replacement: Reliquary Tower for Etchings of the Chosen
+Finding replacement for illegal card: Road of Return (Role: Protection)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Swiftfoot Boots: 15.5 points
+Found replacement: Swiftfoot Boots for Road of Return
+Finding replacement for illegal card: Talisman of Progress (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Purphoros, God of the Forge: 93.5 points
+Found replacement: Purphoros, God of the Forge for Talisman of Progress
+Finding replacement for illegal card: Utopia Sprawl (Role: Ramp)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Path of Ancestry: 43.0 points
+Found replacement: Path of Ancestry for Utopia Sprawl
+Finding replacement for illegal card: Waste Not (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Idol of Oblivion: 30.5 points
+Found replacement: Idol of Oblivion for Waste Not
+Finding replacement for illegal card: One with the Kami (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Purphoros, Bronze-Blooded: 42.5 points
+Found replacement: Purphoros, Bronze-Blooded for One with the Kami
+Finding replacement for illegal card: Discreet Retreat (Role: Ramp)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Fellwar Stone: 25.5 points
+Found replacement: Fellwar Stone for Discreet Retreat
+Finding replacement for illegal card: Long List of the Ents (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Purphoros's Intervention: 5.5 points
+Found replacement: Purphoros's Intervention for Long List of the Ents
+Finding replacement for illegal card: Dragon Fangs (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Rage of Purphoros: -5.0 points
+Found replacement: Rage of Purphoros for Dragon Fangs
+Finding replacement for illegal card: Demonic Vigor (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Horn of Gondor: 10.5 points
+Found replacement: Horn of Gondor for Demonic Vigor
+Finding replacement for illegal card: Dungeon Delver (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Hanweir Garrison: 43.0 points
+Found replacement: Hanweir Garrison for Dungeon Delver
+Finding replacement for illegal card: Cruel Ultimatum (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Sensei's Divining Top: 31.5 points
+Found replacement: Sensei's Divining Top for Cruel Ultimatum
+Finding replacement for illegal card: Saheeli's Artistry (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Drannith Ruins: 25.5 points
+Found replacement: Drannith Ruins for Saheeli's Artistry
+Finding replacement for illegal card: Refocus (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Thrill of Possibility: 33.0 points
+Found replacement: Thrill of Possibility for Refocus
+Finding replacement for illegal card: Strategic Betrayal (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Erkenbrand, Lord of Westfold: 47.5 points
+Found replacement: Erkenbrand, Lord of Westfold for Strategic Betrayal
+Finding replacement for illegal card: Veil of Summer (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Big Score: 72.5 points
+Found replacement: Big Score for Veil of Summer
+Finding replacement for illegal card: Blur (Role: Draw/Advantage)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Vanquisher's Banner: 27.5 points
+Found replacement: Vanquisher's Banner for Blur
+Finding replacement for illegal card: Thunderherd Migration (Role: Ramp)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Chromatic Lantern: 25.5 points
+Found replacement: Chromatic Lantern for Thunderherd Migration
+Finding replacement for illegal card: Collective Voyage (Role: Synergy/Wincon)
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Error searching by color identity: Error: HTTP 404: Not Found
+    at fetchWithRetry (src\lib\scryfall.ts:66:14)
+    at async (src\lib\scryfall.ts:94:23)
+    at async (src\lib\scryfall.ts:15:25)
+    at async RateLimiter.processQueue (src\lib\scryfall.ts:43:8)
+  64 |
+  65 |       if (!response.ok) {
+> 66 |         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+     |              ^
+  67 |       }
+  68 |
+  69 |       return response;
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Advanced score for Rally at the Hornburg: 10.5 points
+Found replacement: Rally at the Hornburg for Collective Voyage
+Per-card budget validation failed: 3 cards exceed $20 limit
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Detected ETB damage strategy for Norin the Wary
+Commander Norin the Wary deep abilities detected: [
+  {
+    type: 'etb_damage_engine',
+    keywords: [
+      'impact tremors',
+      'purphoros',
+      'terror of the peaks',
+      'panharmonicon',
+      'genesis chamber',
+      'enters the battlefield'
+    ],
+    priority: 18,
+    context: 'damage_over_time_strategy'
+  },
+  {
+    type: 'tribal',
+    keywords: [ 'human', 'warrior' ],
+    priority: 9,
+    context: 'commander_types_and_oracle'
+  },
+  {
+    type: 'attack_trigger',
+    keywords: [ 'exile', 'creature' ],
+    priority: 13,
+    context: 'a_player_casts_a_spell_or_a_creature_attacks_causes_exile_norin'
+  },
+  {
+    type: 'self_blink',
+    keywords: [ 'exile', 'return', 'flicker', 'blink' ],
+    priority: 15,
+    context: 'self_protection'
+  }
+]
+Tribal analysis for Norin the Wary: found creature types: []
+🏴 Norin the Wary identified as tribal commander
+ POST /api/generate 200 in 102652ms

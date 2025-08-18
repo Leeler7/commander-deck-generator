@@ -1,0 +1,239 @@
+
+Commander Deck Building & Synergy Handbook (Algorithm-Focused, Commander/EDH)
+Author: Prepared for Lee — August 13, 2025
+
+Purpose
+-------
+This handbook distills widely-accepted Commander deck building practices into precise, testable heuristics you can encode into an algorithm that generates strong, explainable EDH decks under power and budget constraints. Where possible, guidance is grounded in published references (see Citations), then translated into rules you can implement directly.
+
+Core Principles of a Good Commander Deck
+----------------------------------------
+1) Clear Game Plan
+   - Identify win conditions first (primary and backup), then select enablers, card advantage, interaction, and the manabase to reach them efficiently.
+
+2) Consistency
+   - Ensure sufficient mana sources and early plays; add redundancy for effects that define your plan (e.g., multiple “draw engines” or “token makers” instead of singletons that don’t recur).
+   - Prefer cards that overlap roles (ramp that fixes, draw that also adds permanents, removal stapled to bodies).
+
+3) Efficiency
+   - Favor low-to-mid mana value (MV) cards unless your commander rewards higher MV.
+   - Prefer repeatable value (engines) or multi-modal cards to minimize dead draws.
+
+4) Interaction & Resilience
+   - Include single-target removal, board wipes, and stack interaction where available; add protection and recursion so you can rebuild after sweepers.
+
+5) Legality & Identity
+   - Obey singleton rules, color identity, and ban list; the commander defines permitted colors and often the archetype (Rules: mtgcommander.net/rules).
+
+Structural Baselines (Starting Templates)
+-----------------------------------------
+These are widely-cited “good starting points” you should then tune by commander, meta, and power/budget settings.
+
+A) MTGGoldfish “Checklist” (casual to semi-competitive)
+   - 50 mana sources total (≈37 lands + 13 ramp)
+   - 10 card draw
+   - 6 targeted removal (spread across creatures/artifacts/enchantments)
+   - 3 board wipes (±1 depending on creature density)
+   - 2 graveyard recursion
+   - 2 flexible tutors (increase with higher power and budget)
+   - 1 graveyard hate
+   - 1 “I win” card
+   - Fill remaining slots with synergy/theme pieces
+   (Source: MTGGoldfish – “The Power of a Deckbuilding Checklist”, Mar 11, 2020)
+
+B) Cardsphere “Structure” (similar proportions)
+   - 48–50 mana sources (lands + ramp)
+   - 10 draw/advantage
+   - 10 removal (mix of targeted and mass)
+   - 5 protection
+   - 3–5 finishers
+   - 20–25 synergy/theme cards
+   (Source: Cardsphere – “Building a Commander Deck – Part Two: Structure”, Feb 26, 2021)
+
+C) EDHREC “Build a Commander Deck” (process-focused)
+   - Start by explicitly adding wincons; then add enablers, interaction, ramp, and lands; treat template numbers as guidelines that bend to the commander’s plan.
+   (Source: EDHREC – “How to Build a Commander Deck”, Nov 25, 2024)
+
+Manabase & Ramp Heuristics (Algorithm-Ready)
+--------------------------------------------
+1) Land Count: Start at 37 lands for a typical casual/semi-competitive build (turn 8–12 finish window), then adjust:
+   - -1 land for every 2 reliable nonland ramp sources (mana rocks/dorks/land ramp) you include.
+   - -1 to -2 lands for very low curve decks (avg MV ≤2.2) with heavy ramp.
+   - +1–2 lands for high curve (avg MV ≥3.5) or if your plan requires frequent 5–7 MV plays.
+   (Goldfish checklist; corroborated by five-color manabase article showing “50 mana sources” guideline.)
+
+2) Ramp Count: Target ~13 nonland ramp/fixing effects at baseline for casual/semi-competitive decks; scale by need:
+   - Artifact-heavy or Green decks may prefer artifact dorks/rocks or land ramp respectively.
+   - For higher power, ramp can increase (16–20 in cEDH shells).
+
+3) Color Fixing Targets (Pragmatic Karsten-Style Approach):
+   - For a spell you need to cast on curve, aim for 90%+ probability of having the required colors by that turn.
+   - Practical rule-of-thumb in 3+ colors: secure ~10–12 sources of each primary color (including rocks and land ramp that fetch basics or typed duals).
+   - In five-color, bias toward Green if you rely on Nature’s Lore / Farseek / Wood Elves style ramp that fetch typed duals; include typed duals (e.g., Canopy Vista, Cinder Glade) to synergize with Green land-ramp lines.
+   (Goldfish “Five-Color Manabase” article summarizing this approach and citing Karsten’s colored-source math.)
+
+4) Land Typing & Utility:
+   - Prioritize lands that enter untapped early; add a small package of utility lands (2–6) that support the plan (tutorable lands, manlands, recursion lands), but don’t over-dilute color fixing.
+
+5) Curve Targets by Power:
+   - Casual (aim to close on turns 8–12): avg MV ≈ 2.8–3.4; curve peaks at MV2–3; limited fast mana.
+   - High-power (turns 5–8): avg MV ≈ 2.3–2.9; more 0–2 MV interaction and acceleration.
+   - cEDH (turns 3–5): avg MV ≤ 2.2; heavy 0–1 MV rocks/dorks, compact wincons; tutors abundant.
+
+Interaction & Protection
+------------------------
+1) Targeted Removal: ~6 dedicated slots; diversify across permanent types you can’t answer incidentally (creature, artifact, enchantment, planeswalker, problematic lands).
+
+2) Sweepers: 2–4; fewer in creature-light/control shells; more if you regularly need resets.
+
+3) Stack Interaction: If in blue/white/red/black, include some number of counters/deflections/tax pieces proportional to power (e.g., 0–2 casual, 3–6 high power, 8+ at cEDH).
+
+4) Protection: 3–5 ways to safeguard key threats or the commander (hexproof/indestructible, boots/greaves, Teferi’s Protection-type effects, recursion).
+
+Card Advantage & Engines
+------------------------
+- Aim for ~8–12 draw/advantage effects (more if your commander doesn’t provide it).
+- Prioritize repeatable engines (e.g., incremental draw, ETB abuse, token-making + Skullclamp) that keep your hand full while advancing your plan.
+
+Tutors & Redundancy
+-------------------
+- Casual: 0–2 flexible tutors; prefer “fair” tutors (MV ≥2, conditional) to maintain variety.
+- High-power: 2–6, focused on compact wincons or silver bullets.
+- cEDH: Many tutors; consistency is paramount.
+- Regardless of tutor count, add functional redundancy: multiple cards that accomplish similar roles so failures are graceful.
+
+Graveyard, Hate, & Meta Tools
+-----------------------------
+- Include at least one graveyard hate piece (scalable with meta).
+- Add flexible hate where needed (artifact/enchantment hate in green/white; bounce/counter in blue; edict/exile in black; artifact hate in red/green).
+- Ensure answers don’t disable your own core plan.
+
+Synergy: Definitions & Categories (Detection Heuristics)
+--------------------------------------------------------
+Synergy occurs when Card A materially increases the value of Card B or of your commander/plan beyond the sum of their standalone value. Encode synergy scoring by tagging cards and awarding points for meaningful tag overlaps.
+
+Primary synergy categories and example tags:
+1) Tribal: “Elf”, “Zombie”, “Dragon”; anthem lords; tutors keyed to type.
+2) Mechanic/Keyword: Landfall, Prowess, Constellation, Magecraft, Connive, Energy, Investigate, Treasures, Food.
+3) Resource Engines: Tokens, Sacrifice, ETB/LTB recursion, Reanimator, Draw-Discard (“Looting”), Mill/Self-mill.
+4) Combo Lines: Two- or three-card deterministic wins; mark as “combo” and gate by power setting and user toggles.
+5) Cost Reduction & Mana Engines: Cost reducers (Electromancer, Urza Lord High Artificer), burst/recurring ramp, ritual loops.
+6) “On-Attack/On-Cast” Triggers: Extra combats, cast-ahead effects, storm-like lines.
+7) Stax/Tax: Resource denial components (Rule of Law, Drannith Magistrate) — enable only at higher power or if toggled.
+8) Protection/Resilience: Hexproof/Indestructible, Blink/Flicker, Indestructible-enablers, Self-recursion.
+9) Tutorable Packages: Cards that enable land-tutor lines, transmute lines, Recruiters, etc.
+
+Commander–Card Fit (Matchmaking Heuristics)
+-------------------------------------------
+A card is a “good match” when it:
+1) Advances the commander’s primary game plan or exploits its rules text/trigger cadence.
+2) Shares color identity and curve goals, filling a needed role (ramp/draw/removal/protection/wincon).
+3) Scales with commander on board (e.g., extra combats for attack triggers; cheap cantrips for Prowess/Magecraft; permanents to fuel “cast/ETB” triggers).
+4) Enables “package” lines the commander loves (e.g., typed lands + land ramp; tokens + sacrifice outlets; artifacts + improvise/affinity).
+5) Doesn’t collide with exclusions (no extra turns/LD/stax if toggled out; avoid nonbos that undercut the plan).
+
+Algorithm: From Commander to 100 Cards
+--------------------------------------
+Inputs: commander name, color identity, target power 1–10, budget (total and per-card), toggles (allow combos, fast mana, LD, extra turns, stax), meta flags (graveyard, artifacts, tokens heavy, etc.).
+
+Step 0 — Legality & Identity
+- Validate commander legality (commander legal, not banned). Enforce deck=100, singleton rule, color identity restrictions.
+
+Step 1 — Profile the Commander
+- Extract tags from oracle text and staple archetypes (tribal, +1/+1 counters, spellslinger, artifacts, landfall, lifegain, reanimator, blink, tokens, storm, prison, voltron).
+- Determine desired cadence (attack/ETB/cast/activated) and resource focus (creatures, spells, lands, artifacts).
+
+Step 2 — Set Quantitative Targets
+- Choose structural template based on power (see “Structural Baselines”), then adjust:
+  • Lands: start 37; modify by curve and ramp count. 
+  • Ramp: start 13; more for higher power or 3–5C fixing. 
+  • Draw: 8–12. 
+  • Removal: 6 singles + 2–4 wipes. 
+  • Protection: 3–5. 
+  • Tutors: 0–2 casual; scale up with power. 
+  • Wincons: 1–3 primary lines + backup.
+- Lock a curve target (average MV) consistent with desired finish turn.
+
+Step 3 — Build Candidate Pools
+- Use color identity–filtered searches to assemble candidates per role. Score each candidate with:
+  • Role fitness (does it actually ramp/draw/remove?)
+  • Synergy score (tag overlap with commander/plan)
+  • Efficiency score (MV-to-impact; repeatability; modality)
+  • Budget score (price vs cap; existence of cheaper analogs)
+  • Popularity signal (edhrec_rank as a weak prior, not a mandate)
+- Disqualify cards violating toggles (e.g., infinite combo lines if disabled).
+
+Step 4 — Compose the List (Greedy + Repair)
+- Greedily fill role quotas with the highest composite score per role while respecting color balance and curve targets.
+- Apply “package awareness”: if adding A implies best-in-slot support B and C (e.g., Skullclamp → token makers; Constellation → cheap enchantments), raise B and C’s scores.
+- If budget exceeded, run a bounded knapsack repair pass: replace most expensive low-synergy cards with cheaper functional analogs (e.g., Demonic Tutor → Diabolic Intent → Profane Tutor → Grim Tutor depending on budget).
+- Maintain “anchor” exceptions: keep 1–2 irreplaceable lynchpins if they define the archetype; economize around them.
+
+Step 5 — Mana Base Construction
+- Compute required colored sources for early plays (turns 1–3) using relaxed Karsten style goals; prefer typed duals that synergize with your ramp (Forest typed if using Nature’s Lore/Farseek packages).
+- Select lands to hit colored-source targets; add 2–6 utility lands without compromising early untapped colored sources.
+- Tune land count based on final ramp suite.
+
+Step 6 — Validation & Sanity Checks
+- Confirm legal composition: 1 commander + 99 others; singleton; color identity.
+- Check role counts vs targets; check curve bins (MV1/2/3/4+ distribution); check “answers coverage” (can answer at least artifacts, enchantments, creatures, problematic permanents).
+- Emit warnings (e.g., too few early plays, graveyard hate missing, too many tapped lands).
+
+Step 7 — Explanations & Export
+- For each card, emit “Role, MV, Synergy tags, Budget note, Why now.”
+- Provide price totals, per-card caps, and a “swap to budget analogs” diff.
+
+Power-Level Mapping (Policy Knobs)
+----------------------------------
+Define a JSON policy table keyed by power 1–10 to control:
+- Tutors: max count and types allowed (broad vs narrow).
+- Fast Mana: allow Sol Ring only (≤6); allow zero-mana rocks at ≥8; cap total accel by MV bin.
+- Combos: none at ≤5 (if “No combos” toggle is on); soft synergies 6–7; deterministic two-card wins allowed at 8–10.
+- Stax/Tax: disabled ≤6 unless user opts in; allowed ≥7 (light) and ≥8 (heavy).
+- Average MV targets and interaction density per tier.
+
+Common Packages (Turnkey Add-Ons)
+---------------------------------
+- Land Ramp Package (Green): Nature’s Lore / Three Visits / Farseek / Skyshroud Claim + Forest typed duals (Cinder Glade, Canopy Vista, etc.).
+- Draw Engines: Phyrexian Arena-type, Guardian Project/Beast Whisperer in creature shells, Coastal Piracy/Bident in token/tempo shells.
+- Protection: Swiftfoot Boots/Lightning Greaves; Heroic Intervention/Flawless Maneuver/Teferi’s Protection (budget permitting).
+- Graveyard Hate: Soul-Guide Lantern / Relic of Progenitus / Scavenging Ooze / Unlicensed Hearse (color dependent).
+- Removal Suite: Mix exile and destroy; include at least one answer to each permanent type your colors struggle with.
+
+Quality & Anti-Pattern Checks
+-----------------------------
+- Too many do-nothing 5+ MV cards without ramp → cut top-end or add ramp.
+- Overloaded on answers with no pressure → add proactive threats/engines.
+- Nonbos (e.g., symmetrical tax that hurts you more than opponents) → replace with asymmetrical or plan-consistent tools.
+- Excess tapped lands in low-curve/high-power shells → increase untapped duals/fetches/rocks.
+- Redundancy gaps (e.g., only one sac outlet in sacrifice deck) → add backups.
+
+Putting It All Together (Algorithm Pseudocode Sketch)
+-----------------------------------------------------
+1. profile = analyze_commander(commander_card)
+2. targets = set_targets(power, profile, toggles, budget)
+3. pools = fetch_candidates(color_identity, role=ALL, constraints=toggles)
+4. score = w1*role_fit + w2*synergy + w3*efficiency + w4*budget + w5*popularity
+5. deck = greedy_fill_by_role(pools, targets, score, curve/identity/banlist guards)
+6. deck = repair_budget_with_analogs(deck, budget, per_card_cap)
+7. manabase = build_manabase(deck, profile, color_targets, land_count_rules)
+8. validate(deck + manabase); emit_warnings()
+9. explain(deck + manabase); export()
+
+Legal & Format Facts (Hard Constraints)
+--------------------------------------
+- 100 cards exactly, including the commander; singleton (except basic lands and cards that override it); obey color identity; start at 40 life; commander tax applies; 21 commander damage lethal. (Official rules: mtgcommander.net/rules)
+
+Citations (Key Sources)
+-----------------------
+- Official Commander Rules & Color Identity definition: https://mtgcommander.net/index.php/rules/
+- Philosophy of Commander (context for power expectations): https://mtgcommander.net/index.php/the-philosophy-of-commander/
+- MTGGoldfish, “The Power of a Deckbuilding Checklist” (mana/draw/removal baselines; tuning): https://www.mtggoldfish.com/articles/the-power-of-a-deckbuilding-checklist-commander-quickie
+- MTGGoldfish, “How To Build The Best Five-Color Manabase At Any Budget” (50 mana sources baseline; colored-source targets; typed duals with Green ramp): https://www.mtggoldfish.com/articles/how-to-build-the-best-five-color-manabase-at-any-budget-commander-quickie
+- Cardsphere, “Building a Commander Deck – Part Two: Structure” (role counts including protection & finishers): https://blog.cardsphere.com/building-a-commander-deck-part-two-structure/
+- EDHREC, “How to Build a Commander Deck” (process-first approach; start with wincons): https://edhrec.com/articles/how-to-build-a-commander-deck
+
+Notes on Variance & Tuning
+--------------------------
+- Templates are starting points; the optimal mix depends on commander text, local meta, and power definition. The algorithm should learn from play data: track dead draws, mana screw/flood rates, and adjust role targets automatically.
+- Always include a human-readable rationale so users can tweak policy knobs with confidence.
