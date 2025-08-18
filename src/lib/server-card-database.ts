@@ -421,9 +421,10 @@ export class ServerCardDatabase {
 
   private async loadFromFiles(): Promise<void> {
     try {
-      // On Vercel, try loading from public URL first
-      if (isVercel) {
-        console.log('🌐 Vercel detected: Attempting to load database from public URL...');
+      // On any production environment, try loading from public URL first
+      const isProduction = process.env.NODE_ENV === 'production' || isVercel || process.env.RAILWAY_ENVIRONMENT;
+      if (isProduction) {
+        console.log('🌐 Production environment detected: Attempting to load database from public URL...');
         const loaded = await this.loadFromPublicURL();
         if (loaded) {
           console.log('✅ Successfully loaded database from public URL');
@@ -462,7 +463,16 @@ export class ServerCardDatabase {
   private async loadFromPublicURL(): Promise<boolean> {
     try {
       // Try to load from public database files (gzipped for size)
-      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+      let baseUrl = 'http://localhost:3000';
+      
+      if (process.env.VERCEL_URL) {
+        baseUrl = `https://${process.env.VERCEL_URL}`;
+      } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+        baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+      } else if (process.env.NODE_ENV === 'production') {
+        // Try to get the current domain from request headers in production
+        baseUrl = 'https://commander-deck-generator-production.up.railway.app';
+      }
       
       console.log(`🌐 Loading compressed cards from: ${baseUrl}/database/cards.json.gz`);
       const cardsResponse = await fetch(`${baseUrl}/database/cards.json.gz`);
