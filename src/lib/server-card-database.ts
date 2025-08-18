@@ -45,27 +45,19 @@ export class ServerCardDatabase {
       // Load existing data from files
       await this.loadFromFiles();
       
-      // Check if we need initial sync
+      // Check if we successfully loaded cards
       if (this.cards.size === 0) {
-        console.log('No card database found, scheduling initial sync...');
-        // Start initial sync in background (don't block initialization)
+        console.log('❌ No cards loaded from GitHub database - this is an error');
+        console.log('🔄 As fallback, will try manual sync (but GitHub should work)');
+        // Only sync as absolute fallback
         setImmediate(() => {
           this.performFullSync().catch(error => {
-            console.error('Initial sync failed:', error);
+            console.error('Fallback sync failed:', error);
           });
         });
       } else {
-        console.log(`Loaded ${this.cards.size} cards from local database`);
-        
-        // Check if we need to update (if older than 24 hours)
-        if (this.needsSync()) {
-          console.log('Database is outdated, scheduling background sync...');
-          setImmediate(() => {
-            this.performFullSync().catch(error => {
-              console.error('Background sync failed:', error);
-            });
-          });
-        }
+        console.log(`✅ Successfully loaded ${this.cards.size} cards from external database`);
+        // Don't sync if external database loaded successfully
       }
 
       this.initialized = true;
@@ -421,18 +413,14 @@ export class ServerCardDatabase {
 
   private async loadFromFiles(): Promise<void> {
     try {
-      // Always try loading from public URL first (unless explicitly local development)
-      const isLocalDev = process.env.NODE_ENV === 'development' && !process.env.VERCEL && !process.env.RAILWAY_ENVIRONMENT;
-      
-      if (!isLocalDev) {
-        console.log('🌐 Non-local environment detected: Attempting to load database from public URL...');
-        const loaded = await this.loadFromPublicURL();
-        if (loaded) {
-          console.log('✅ Successfully loaded database from public URL');
-          return;
-        }
-        console.log('⚠️ Failed to load from public URL, falling back to local files...');
+      // Always try external GitHub database first
+      console.log('🌐 Loading database from external GitHub repository...');
+      const loaded = await this.loadFromPublicURL();
+      if (loaded) {
+        console.log('✅ Successfully loaded database from GitHub');
+        return;
       }
+      console.log('⚠️ Failed to load from GitHub, falling back to local files...');
 
       // Load sync status
       if (fs.existsSync(STATUS_FILE)) {
