@@ -178,7 +178,7 @@ class MTGJSONPricingService {
     };
     
     const estimatedPrice = rarityPrices[card.rarity?.toLowerCase() as keyof typeof rarityPrices] || 0.50;
-    console.log(`⚠️ Using rarity estimate for ${card.name} (${card.rarity}): $${estimatedPrice}`);
+    // Using rarity estimate for pricing
     
     return { price: estimatedPrice, source: 'rarity-estimate' };
   }

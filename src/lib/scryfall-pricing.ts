@@ -50,7 +50,7 @@ class ScryfallPricingService {
       }
 
       // If no local price, fetch from Scryfall API
-      console.log(`🔍 Fetching price for ${card.name} from Scryfall API...`);
+      // Fetching price for card from Scryfall API
       
       // Use the card's ID to get the exact card
       const response = await this.rateLimitedFetch(

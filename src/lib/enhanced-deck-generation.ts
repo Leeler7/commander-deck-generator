@@ -46,24 +46,31 @@ export interface EnhancedDeckResult {
 }
 
 export class EnhancedDeckGenerator {
+  private verbose = process.env.NODE_ENV === 'development';
+
+  private log(message: string): void {
+    if (this.verbose) {
+      this.log(message);
+    }
+  }
   
   /**
    * Generate a complete deck using the enhanced system
    */
   async generateDeck(options: EnhancedGenerationOptions): Promise<EnhancedDeckResult> {
-    console.log('🚀 Starting enhanced deck generation...');
-    console.log('👑 Commander:', options.commander.name);
-    console.log('🎯 Power Level:', options.powerLevel || 7);
-    console.log('💰 Budget:', options.totalBudget || 'Unlimited');
-    console.log('🎚️ Weights:', options.constraints.card_type_weights);
+    this.log('🚀 Starting enhanced deck generation...');
+    this.log('👑 Commander:', options.commander.name);
+    this.log('🎯 Power Level:', options.powerLevel || 7);
+    this.log('💰 Budget:', options.totalBudget || 'Unlimited');
+    this.log('🎚️ Weights:', options.constraints.card_type_weights);
     
     // Step 1: Commander Profiling
-    console.log('\n📊 Step 1: Analyzing commander...');
+    this.log('\n📊 Step 1: Analyzing commander...');
     const commanderProfile = commanderProfiler.profile(options.commander);
-    console.log(`✅ Commander profile complete: ${commanderProfile.primaryArchetype} with ${commanderProfile.tags.length} mechanical tags`);
+    this.log(`✅ Commander profile complete: ${commanderProfile.primaryArchetype} with ${commanderProfile.tags.length} mechanical tags`);
     
     // Step 2: Policy Selection
-    console.log('\n🎯 Step 2: Setting deck policy...');
+    this.log('\n🎯 Step 2: Setting deck policy...');
     const userWeights = options.constraints.card_type_weights || {
       creatures: 5, artifacts: 5, enchantments: 5,
       instants: 5, sorceries: 5, planeswalkers: 5
@@ -77,34 +84,34 @@ export class EnhancedDeckGenerator {
       options.maxCardBudget
     );
     
-    console.log('✅ Policy generated with role targets and curve hints');
+    this.log('✅ Policy generated with role targets and curve hints');
     
     // Step 3: Calculate Percentage Weights and Quotas
-    console.log('\n📐 Step 3: Calculating type quotas...');
+    this.log('\n📐 Step 3: Calculating type quotas...');
     const percentageWeights = percentageWeightingSystem.calculatePercentageWeights(userWeights);
     const typeQuotas = percentageWeightingSystem.calculateTypeQuotas(percentageWeights, 60);
     
     // Step 4: Build Candidate Pools
-    console.log('\n🏗️ Step 4: Building candidate pools...');
+    this.log('\n🏗️ Step 4: Building candidate pools...');
     const candidatePools = await candidatePoolBuilder.buildPools(
       options.commander,
       commanderProfile,
       policy
     );
     
-    console.log(`✅ Built ${Object.keys(candidatePools.pools).length} role pools with ${candidatePools.allCandidates.length} total candidates`);
+    this.log(`✅ Built ${Object.keys(candidatePools.pools).length} role pools with ${candidatePools.allCandidates.length} total candidates`);
     
     // Step 5: Apply Percentage Quotas to Pool
-    console.log('\n🎚️ Step 5: Applying percentage quotas...');
+    this.log('\n🎚️ Step 5: Applying percentage quotas...');
     const { filteredCards, typeDistribution } = percentageWeightingSystem.applyQuotasToCardPool(
       candidatePools.allCandidates,
       typeQuotas
     );
     
-    console.log(`✅ Filtered to ${filteredCards.length} cards respecting quotas`);
+    this.log(`✅ Filtered to ${filteredCards.length} cards respecting quotas`);
     
     // Step 6: Role-Based Selection
-    console.log('\n🎪 Step 6: Selecting cards by role...');
+    this.log('\n🎪 Step 6: Selecting cards by role...');
     const selectedCards = await this.selectCardsByRole(
       filteredCards,
       candidatePools,
@@ -112,10 +119,10 @@ export class EnhancedDeckGenerator {
       typeQuotas
     );
     
-    console.log(`✅ Selected ${selectedCards.length} non-land cards`);
+    this.log(`✅ Selected ${selectedCards.length} non-land cards`);
     
     // Step 7: Manabase Generation
-    console.log('\n🏞️ Step 7: Generating manabase...');
+    this.log('\n🏞️ Step 7: Generating manabase...');
     const manabase = await this.generateManabase(
       options.commander,
       selectedCards,
@@ -123,10 +130,10 @@ export class EnhancedDeckGenerator {
       options.constraints
     );
     
-    console.log(`✅ Generated ${manabase.length}-card manabase`);
+    this.log(`✅ Generated ${manabase.length}-card manabase`);
     
     // Step 8: Synergy Analysis
-    console.log('\n🔗 Step 8: Analyzing synergies...');
+    this.log('\n🔗 Step 8: Analyzing synergies...');
     const allSelectedCards = [...selectedCards, ...manabase];
     const synergyGraph = synergyAnalyzer.buildSynergyGraph(
       allSelectedCards.map(card => ({ ...card, roleScores: {}, synergyScore: 0, powerScore: 0, budgetScore: 0, curveScore: 0, totalScore: 0, roleRelevance: [], selectionPriority: 0 })),
@@ -136,10 +143,10 @@ export class EnhancedDeckGenerator {
     
     const cohesion = synergyAnalyzer.calculateDeckCohesion(synergyGraph, allSelectedCards.map(card => ({ ...card, roleScores: {}, synergyScore: 0, powerScore: 0, budgetScore: 0, curveScore: 0, totalScore: 0, roleRelevance: [], selectionPriority: 0 })));
     
-    console.log(`✅ Synergy analysis complete: ${cohesion.overallCohesion.toFixed(1)}/10 cohesion`);
+    this.log(`✅ Synergy analysis complete: ${cohesion.overallCohesion.toFixed(1)}/10 cohesion`);
     
     // Step 9: Convert to DeckCards
-    console.log('\n📋 Step 9: Finalizing deck...');
+    this.log('\n📋 Step 9: Finalizing deck...');
     const commanderCard = this.convertToDeckCard(options.commander, 'Commander', 'The deck\'s leader and main synergy focus');
     const nonlandCards = selectedCards.map(card => 
       this.convertToDeckCard(card, this.determineCardRole(card), this.generateSynergyNotes(card, commanderProfile))
@@ -149,7 +156,7 @@ export class EnhancedDeckGenerator {
     );
     
     // Step 10: Validation and Analysis
-    console.log('\n✅ Step 10: Validation and final analysis...');
+    this.log('\n✅ Step 10: Validation and final analysis...');
     const quotaCompliance = percentageWeightingSystem.validateDeckAgainstQuotas(
       allSelectedCards,
       typeQuotas
@@ -174,8 +181,8 @@ export class EnhancedDeckGenerator {
       improvements: this.generateImprovementSuggestions(quotaCompliance, cohesion)
     };
     
-    console.log('\n🎉 Enhanced deck generation complete!');
-    console.log(`📊 Final stats: ${result.nonlandCards.length + result.lands.length + 1} total cards, $${result.totalPrice.toFixed(2)}, ${result.synergyScore.toFixed(1)}/10 synergy`);
+    this.log('\n🎉 Enhanced deck generation complete!');
+    this.log(`📊 Final stats: ${result.nonlandCards.length + result.lands.length + 1} total cards, $${result.totalPrice.toFixed(2)}, ${result.synergyScore.toFixed(1)}/10 synergy`);
     
     return result;
   }
@@ -216,7 +223,7 @@ export class EnhancedDeckGenerator {
       const target = roleTargets[role]?.target || 0;
       if (target === 0) continue;
       
-      console.log(`🎯 Selecting ${target} cards for ${role}...`);
+      this.log(`🎯 Selecting ${target} cards for ${role}...`);
       
       let selected = 0;
       for (const candidate of pool.candidates) {
@@ -228,7 +235,7 @@ export class EnhancedDeckGenerator {
         const typeQuota = typeQuotas[cardType];
         
         if (typeQuota && currentTypeCount >= typeQuota.max) {
-          console.log(`⚠️ Skipping ${candidate.name} - ${cardType} quota exceeded (${currentTypeCount}/${typeQuota.max})`);
+          this.log(`⚠️ Skipping ${candidate.name} - ${cardType} quota exceeded (${currentTypeCount}/${typeQuota.max})`);
           continue;
         }
         
@@ -243,16 +250,16 @@ export class EnhancedDeckGenerator {
         }
         selected++;
         
-        console.log(`✅ Selected ${candidate.name} for ${role} (${cardType}: ${typeSelections[cardType]}/${typeQuota?.max || '∞'})`);
+        this.log(`✅ Selected ${candidate.name} for ${role} (${cardType}: ${typeSelections[cardType]}/${typeQuota?.max || '∞'})`);
       }
       
-      console.log(`📊 ${role}: Selected ${selected}/${target} cards`);
+      this.log(`📊 ${role}: Selected ${selected}/${target} cards`);
     }
     
     // Fill remaining slots with best available cards (up to quotas)
     const remainingSlots = 60 - selectedCards.length; // Assuming 60 non-land cards
     if (remainingSlots > 0) {
-      console.log(`🔄 Filling ${remainingSlots} remaining slots...`);
+      this.log(`🔄 Filling ${remainingSlots} remaining slots...`);
       
       const availableCards = candidateCards.filter(card => 
         !selectedCards.some(selected => selected.name === card.name)
@@ -288,10 +295,10 @@ export class EnhancedDeckGenerator {
         filled++;
       }
       
-      console.log(`✅ Filled ${filled} additional slots`);
+      this.log(`✅ Filled ${filled} additional slots`);
     }
     
-    console.log('📊 Final type distribution:', typeSelections);
+    this.log('📊 Final type distribution:', typeSelections);
     return selectedCards;
   }
   
@@ -309,7 +316,7 @@ export class EnhancedDeckGenerator {
     const landTarget = policy.composition.lands.target;
     const colorIdentity = commander.color_identity;
     
-    console.log(`🏞️ Generating ${landTarget}-card manabase for ${colorIdentity.join('')} identity`);
+    this.log(`🏞️ Generating ${landTarget}-card manabase for ${colorIdentity.join('')} identity`);
     
     // Search for lands matching color identity
     const candidateLands = serverCardDatabase.searchByFilters({
@@ -369,7 +376,7 @@ export class EnhancedDeckGenerator {
       }
     }
     
-    console.log(`✅ Generated ${manabase.length}-card manabase (${premiumLandCount} nonbasic, ${manabase.length - premiumLandCount} basic)`);
+    this.log(`✅ Generated ${manabase.length}-card manabase (${premiumLandCount} nonbasic, ${manabase.length - premiumLandCount} basic)`);
     return manabase.slice(0, landTarget);
   }
   

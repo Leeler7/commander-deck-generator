@@ -36,6 +36,13 @@ export class NewDeckGenerator {
   private scryfallClient = scryfallClient;
   private localDatabase = serverCardDatabase;
   private mechanicsTagger = new CardMechanicsTagger();
+  private verbose = process.env.NODE_ENV === 'development';
+
+  private log(message: string): void {
+    if (this.verbose) {
+      this.log(message);
+    }
+  }
 
   async generateDeck(
     commanderName: string,
@@ -48,7 +55,7 @@ export class NewDeckGenerator {
       // Check if database has cards, if not, perform sync
       const allCards = this.localDatabase.getAllCards();
       if (allCards.length === 0) {
-        console.log('⚠️ Database is empty, performing initial sync...');
+        this.log('⚠️ Database is empty, performing initial sync...');
         await this.localDatabase.performFullSync();
       }
       
@@ -59,25 +66,25 @@ export class NewDeckGenerator {
       }
       
       const commander = commanderValidation.card;
-      console.log(`🎯 NEW PIPELINE: Generating deck for ${commander.name}`);
+      this.log(`🎯 NEW PIPELINE: Generating deck for ${commander.name}`);
 
       // STEP 1: Color match the commander
-      console.log('📋 STEP 1: Color matching cards to commander');
+      this.log('📋 STEP 1: Color matching cards to commander');
       const colorMatchedCards = await this.step1_ColorMatchCommander(commander);
-      console.log(`✅ Found ${colorMatchedCards.length} color-matched cards`);
+      this.log(`✅ Found ${colorMatchedCards.length} color-matched cards`);
 
       // STEP 2: Determine synergy score based on the commander
-      console.log('🔍 STEP 2: Calculating synergy scores');
+      this.log('🔍 STEP 2: Calculating synergy scores');
       const synergyScored = await this.step2_ScoreSynergy(colorMatchedCards, commander);
-      console.log(`✅ Scored ${synergyScored.length} cards for synergy`);
+      this.log(`✅ Scored ${synergyScored.length} cards for synergy`);
 
       // STEP 3: Consider additional keywords from user and increase synergy score
-      console.log('🏷️ STEP 3: Applying user theme bonuses');
+      this.log('🏷️ STEP 3: Applying user theme bonuses');
       const themeEnhanced = await this.step3_ApplyUserThemes(synergyScored, constraints);
-      console.log(`✅ Applied theme bonuses to ${themeEnhanced.length} cards`);
+      this.log(`✅ Applied theme bonuses to ${themeEnhanced.length} cards`);
 
       // STEP 4: Narrow card pool to recommended ratios based on sliders
-      console.log('⚖️ STEP 4: Applying ratio constraints');
+      this.log('⚖️ STEP 4: Applying ratio constraints');
       const ratioFiltered = await this.step4_ApplyRatios(themeEnhanced, constraints.card_type_weights || {
         creatures: 5,
         artifacts: 5, 
@@ -86,26 +93,26 @@ export class NewDeckGenerator {
         sorceries: 5,
         planeswalkers: 1
       }, colorMatchedCards, commander);
-      console.log(`✅ Filtered to ${ratioFiltered.length} cards based on ratios`);
+      this.log(`✅ Filtered to ${ratioFiltered.length} cards based on ratios`);
 
       // STEP 5: Check price of cards
-      console.log('💰 STEP 5: Evaluating card prices');
+      this.log('💰 STEP 5: Evaluating card prices');
       const priceEvaluated = await this.step5_EvaluatePrices(ratioFiltered, constraints);
-      console.log(`✅ Evaluated prices for ${priceEvaluated.length} cards`);
+      this.log(`✅ Evaluated prices for ${priceEvaluated.length} cards`);
 
       // STEP 6: No budget substitution (removed budget filtering)
-      console.log('✅ STEP 6: Skipping budget filtering - all cards eligible based on synergy');
+      this.log('✅ STEP 6: Skipping budget filtering - all cards eligible based on synergy');
       const budgetOptimized = priceEvaluated; // No substitution needed
 
       // STEP 7: Check if deck is 100 cards (99 + commander)
-      console.log('📊 STEP 7: Validating deck size');
+      this.log('📊 STEP 7: Validating deck size');
       const deckSizeValidated = await this.step7_ValidateDeckSize(budgetOptimized, commander, constraints.card_type_weights);
-      console.log(`✅ Deck validated: ${deckSizeValidated.length} cards + commander = ${deckSizeValidated.length + 1} total`);
+      this.log(`✅ Deck validated: ${deckSizeValidated.length} cards + commander = ${deckSizeValidated.length + 1} total`);
 
       // STEP 8: Fill empty slots with synergy cards
-      console.log('🎯 STEP 8: Filling gaps with synergy cards');
+      this.log('🎯 STEP 8: Filling gaps with synergy cards');
       const finalDeck = await this.step8_FillWithSynergy(deckSizeValidated, commander, themeEnhanced, constraints);
-      console.log(`✅ Final deck: ${finalDeck.length} cards + commander = ${finalDeck.length + 1} total`);
+      this.log(`✅ Final deck: ${finalDeck.length} cards + commander = ${finalDeck.length + 1} total`);
 
       // Separate lands from non-lands
       const nonlandCards: DeckCard[] = [];
@@ -160,7 +167,7 @@ export class NewDeckGenerator {
       };
       
       if (commanderPricing.source.startsWith('MTGJSON')) {
-        console.log(`👑 Commander enhanced pricing: ${commander.name} = $${commanderPricing.price.toFixed(2)} (${commanderPricing.source})`);
+        this.log(`👑 Commander enhanced pricing: ${commander.name} = $${commanderPricing.price.toFixed(2)} (${commanderPricing.source})`);
       }
 
       // Final adjustment to ensure exactly 99 cards
@@ -171,7 +178,7 @@ export class NewDeckGenerator {
       
       
       if (currentTotal !== targetTotal) {
-        console.log(`🔧 Adjusting deck size from ${currentTotal} to ${targetTotal}`);
+        this.log(`🔧 Adjusting deck size from ${currentTotal} to ${targetTotal}`);
         
         if (currentTotal > targetTotal) {
           // Remove excess cards (prefer removing lands first, then lowest score non-lands)
@@ -179,7 +186,7 @@ export class NewDeckGenerator {
           if (finalLands.length > 34 && excess <= finalLands.length - 34) {
             // Can trim just lands
             finalLands = finalLands.slice(0, finalLands.length - excess);
-            console.log(`🔧 Trimmed ${excess} lands to reach target size`);
+            this.log(`🔧 Trimmed ${excess} lands to reach target size`);
           } else {
             // Need to trim both lands and nonlands
             const landReduction = Math.max(0, finalLands.length - 34);
@@ -257,14 +264,14 @@ export class NewDeckGenerator {
               trimmedNonPW.push(...kept);
               
               if (typeReduction > 0) {
-                console.log(`  Trimmed ${typeReduction} ${typeName}(s) from ${typeCards.length} to ${kept.length}`);
+                this.log(`  Trimmed ${typeReduction} ${typeName}(s) from ${typeCards.length} to ${kept.length}`);
               }
             }
             
             // Recombine, preserving all planeswalkers
             finalNonlands = [...planeswalkers, ...trimmedNonPW];
             
-            console.log(`🔧 Trimmed ${landReduction} lands and ${nonlandReduction} nonlands proportionally (preserved ${planeswalkers.length} planeswalkers)`);
+            this.log(`🔧 Trimmed ${landReduction} lands and ${nonlandReduction} nonlands proportionally (preserved ${planeswalkers.length} planeswalkers)`);
           }
         } else {
           // Add more basic lands to reach target
@@ -275,17 +282,17 @@ export class NewDeckGenerator {
       }
       
       const finalTotal = finalNonlands.length + finalLands.length;
-      console.log(`📊 Final deck composition: ${finalNonlands.length} non-lands + ${finalLands.length} lands = ${finalTotal} total + commander = ${finalTotal + 1}`);
+      this.log(`📊 Final deck composition: ${finalNonlands.length} non-lands + ${finalLands.length} lands = ${finalTotal} total + commander = ${finalTotal + 1}`);
 
       // Analyze mana curve
       const curveAnalysis = performManaCurveAnalysis(finalNonlands, commander);
       const commanderArchetype = determineArchetype(commander);
-      console.log(`📈 MANA CURVE ANALYSIS:`);
-      console.log(`  Archetype: ${commanderArchetype}`);
-      console.log(`  Average CMC: ${(finalNonlands.reduce((sum, c) => sum + (c.cmc || 0), 0) / finalNonlands.length).toFixed(2)}`);
-      console.log(`  Distribution: 0=${curveAnalysis.current[0]}, 1=${curveAnalysis.current[1]}, 2=${curveAnalysis.current[2]}, 3=${curveAnalysis.current[3]}, 4=${curveAnalysis.current[4]}, 5=${curveAnalysis.current[5]}, 6+=${curveAnalysis.current[6]}`);
+      this.log(`📈 MANA CURVE ANALYSIS:`);
+      this.log(`  Archetype: ${commanderArchetype}`);
+      this.log(`  Average CMC: ${(finalNonlands.reduce((sum, c) => sum + (c.cmc || 0), 0) / finalNonlands.length).toFixed(2)}`);
+      this.log(`  Distribution: 0=${curveAnalysis.current[0]}, 1=${curveAnalysis.current[1]}, 2=${curveAnalysis.current[2]}, 3=${curveAnalysis.current[3]}, 4=${curveAnalysis.current[4]}, 5=${curveAnalysis.current[5]}, 6+=${curveAnalysis.current[6]}`);
       if (curveAnalysis.recommendations.length > 0) {
-        console.log(`  Recommendations:`, curveAnalysis.recommendations);
+        this.log(`  Recommendations:`, curveAnalysis.recommendations);
       }
 
       // Final validation (after deck size adjustment)
@@ -365,27 +372,27 @@ export class NewDeckGenerator {
       
       // Method 1: Check set codes
       if (unSets.includes(setCode)) {
-        console.log(`🚫 STEP1: Excluding Un-set card: ${card.name} from set ${card.set}`);
+        this.log(`🚫 STEP1: Excluding Un-set card: ${card.name} from set ${card.set}`);
         return false;
       }
       
       // Method 2: Check set names for Un-set indicators
       const unSetNames = ['unfinity', 'unhinged', 'unstable', 'unglued'];
       if (unSetNames.some(unSetName => setName.includes(unSetName))) {
-        console.log(`🚫 STEP1: Excluding Un-set card: ${card.name} from set name ${card.set_name}`);
+        this.log(`🚫 STEP1: Excluding Un-set card: ${card.name} from set name ${card.set_name}`);
         return false;
       }
       
       // Method 3: Check for Stickers type (Un-set mechanic)
       if (typeLine === 'stickers' || typeLine.includes('sticker')) {
-        console.log(`🚫 STEP1: Excluding Stickers card: ${card.name}`);
+        this.log(`🚫 STEP1: Excluding Stickers card: ${card.name}`);
         return false;
       }
       
       // Method 4: Additional Un-set card name detection (very specific patterns)
       const unSetKeywords = ['_____', 'gotcha', 'awol'];
       if (unSetKeywords.some(keyword => cardName.includes(keyword))) {
-        console.log(`🚫 STEP1: Excluding likely Un-set card by name: ${card.name}`);
+        this.log(`🚫 STEP1: Excluding likely Un-set card by name: ${card.name}`);
         return false;
       }
       
@@ -398,16 +405,16 @@ export class NewDeckGenerator {
    * Calculate how well each card synergizes with the commander using comprehensive tagging
    */
   private async step2_ScoreSynergy(cards: ScryfallCard[], commander: ScryfallCard): Promise<ScoredCard[]> {
-    console.log('🎯 ENHANCED SYNERGY: Using comprehensive tagging system for synergy analysis...');
+    this.log('🎯 ENHANCED SYNERGY: Using comprehensive tagging system for synergy analysis...');
     
     // Analyze commander with comprehensive tagging system
     const commanderMechanics = await this.mechanicsTagger.analyzeCardEnhanced(commander);
     const commanderProfile = tagSynergyScorer.analyzeCommander(commander, commanderMechanics);
     
-    console.log(`👑 Commander Analysis: ${commander.name}`);
-    console.log(`   Tags: ${commanderProfile.tags.join(', ')}`);
-    console.log(`   Strategies: ${commanderProfile.strategies.join(', ')}`);
-    console.log(`   Total mechanic tags: ${commanderMechanics.mechanicTags.length}`);
+    this.log(`👑 Commander Analysis: ${commander.name}`);
+    this.log(`   Tags: ${commanderProfile.tags.join(', ')}`);
+    this.log(`   Strategies: ${commanderProfile.strategies.join(', ')}`);
+    this.log(`   Total mechanic tags: ${commanderMechanics.mechanicTags.length}`);
     
     // Pre-load MTGJSON keywords for enhanced synergy detection (fallback)
     await mtgjsonKeywords.getKeywordCategories();
@@ -432,7 +439,7 @@ export class NewDeckGenerator {
       
       // Enhanced logging for high-synergy cards
       if (totalSynergyScore >= 15 || tagBasedSynergy >= 10) {
-        console.log(`🎯 HIGH SYNERGY: ${card.name} = ${totalSynergyScore.toFixed(1)} (tag-based: ${tagBasedSynergy.toFixed(1)}, basic: ${basicSynergyScore}, keyword: ${keywordSynergy.score})`);
+        this.log(`🎯 HIGH SYNERGY: ${card.name} = ${totalSynergyScore.toFixed(1)} (tag-based: ${tagBasedSynergy.toFixed(1)}, basic: ${basicSynergyScore}, keyword: ${keywordSynergy.score})`);
         
         if (cardMechanics.mechanicTags.length > 0) {
           const topTags = cardMechanics.mechanicTags
@@ -440,12 +447,12 @@ export class NewDeckGenerator {
             .slice(0, 3)
             .map(tag => `${tag.name}(P${tag.priority})`)
             .join(', ');
-          console.log(`   Top tags: ${topTags}`);
+          this.log(`   Top tags: ${topTags}`);
         }
       }
       
       if (keywordSynergy.score > 0) {
-        console.log(`🎯 KEYWORD SYNERGY: ${card.name} gets +${keywordSynergy.score} synergy (${keywordSynergy.analysis})`);
+        this.log(`🎯 KEYWORD SYNERGY: ${card.name} gets +${keywordSynergy.score} synergy (${keywordSynergy.analysis})`);
       }
       
       return {
@@ -470,10 +477,10 @@ export class NewDeckGenerator {
       ? tagBasedCards.reduce((sum, card) => sum + ((card as any).tagBasedSynergyScore || 0), 0) / tagBasedCards.length
       : 0;
     
-    console.log(`📊 SYNERGY SUMMARY:`);
-    console.log(`   Cards with tag-based synergy: ${tagBasedCards.length}/${scoredCards.length}`);
-    console.log(`   Average tag-based synergy: ${averageTagSynergy.toFixed(1)}`);
-    console.log(`   Cards with total synergy ≥ 15: ${scoredCards.filter(c => c.finalScore >= 15).length}`);
+    this.log(`📊 SYNERGY SUMMARY:`);
+    this.log(`   Cards with tag-based synergy: ${tagBasedCards.length}/${scoredCards.length}`);
+    this.log(`   Average tag-based synergy: ${averageTagSynergy.toFixed(1)}`);
+    this.log(`   Cards with total synergy ≥ 15: ${scoredCards.filter(c => c.finalScore >= 15).length}`);
     
     return scoredCards;
   }
@@ -542,7 +549,7 @@ export class NewDeckGenerator {
     for (const tribalType of commanderTribalBonuses) {
       if (cardType.includes(tribalType) || cardText.includes(tribalType)) {
         synergy += 20; // Massive bonus for commander's primary tribal types
-        console.log(`🎯 TRIBAL BOOST: ${card.name} gets +20 synergy for ${tribalType} tribal`);
+        this.log(`🎯 TRIBAL BOOST: ${card.name} gets +20 synergy for ${tribalType} tribal`);
       }
     }
     
@@ -603,7 +610,7 @@ export class NewDeckGenerator {
           cardText.includes('whenever a land you control enters') ||
           cardText.includes('when a land enters the battlefield')) {
         synergy += 20; // Maximum synergy for landfall cards
-        console.log(`🏔️ LANDFALL SYNERGY: ${card.name} gets +20 synergy for landfall mechanics`);
+        this.log(`🏔️ LANDFALL SYNERGY: ${card.name} gets +20 synergy for landfall mechanics`);
       }
       
       // Land matters cards - High synergy
@@ -612,7 +619,7 @@ export class NewDeckGenerator {
           cardText.includes('equal to the number of lands') ||
           cardText.includes('lands you control have')) {
         synergy += 15; // High synergy for land count matters
-        console.log(`🌍 LAND COUNT: ${card.name} gets +15 synergy for caring about land count`);
+        this.log(`🌍 LAND COUNT: ${card.name} gets +15 synergy for caring about land count`);
       }
       
       // Ramping cards - Good synergy (but not as high as landfall)
@@ -623,7 +630,7 @@ export class NewDeckGenerator {
           cardText.includes('cultivate') ||
           cardText.includes('kodama\'s reach')) {
         synergy += 12; // Good synergy for ramp spells
-        console.log(`🌱 RAMP SYNERGY: ${card.name} gets +12 synergy for land ramp`);
+        this.log(`🌱 RAMP SYNERGY: ${card.name} gets +12 synergy for land ramp`);
       }
       
       // Extra land drops - Great synergy
@@ -632,7 +639,7 @@ export class NewDeckGenerator {
           cardText.includes('additional land each turn') ||
           cardText.includes('extra land')) {
         synergy += 18; // Very high synergy for extra land drops
-        console.log(`🏞️ EXTRA LANDS: ${card.name} gets +18 synergy for additional land drops`);
+        this.log(`🏞️ EXTRA LANDS: ${card.name} gets +18 synergy for additional land drops`);
       }
       
       // Specific high-synergy landfall cards
@@ -663,7 +670,7 @@ export class NewDeckGenerator {
       
       if (landfallSynergyCards.some(name => cardName.includes(name))) {
         synergy += 22; // Maximum synergy for known landfall combo pieces
-        console.log(`🎯 PREMIUM LANDFALL: ${card.name} gets +22 synergy as premium landfall card`);
+        this.log(`🎯 PREMIUM LANDFALL: ${card.name} gets +22 synergy as premium landfall card`);
       }
     }
 
@@ -682,7 +689,7 @@ export class NewDeckGenerator {
             commanderName.includes('omnath') || commanderName.includes('tatyova') || 
             commanderText.includes('lands enter the battlefield')) {
           synergy += 15; // Fetchlands are premium for landfall
-          console.log(`🎯 FETCHLAND SYNERGY: ${card.name} gets +15 synergy for landfall triggering`);
+          this.log(`🎯 FETCHLAND SYNERGY: ${card.name} gets +15 synergy for landfall triggering`);
         }
       }
 
@@ -695,7 +702,7 @@ export class NewDeckGenerator {
             commanderText.includes('graveyard') || commanderName.includes('meren') ||
             commanderName.includes('karador') || commanderName.includes('gitrog')) {
           synergy += 12; // Sacrifice lands for sacrifice strategies
-          console.log(`🎯 SACRIFICE LAND: ${card.name} gets +12 synergy for sacrifice synergy`);
+          this.log(`🎯 SACRIFICE LAND: ${card.name} gets +12 synergy for sacrifice synergy`);
         }
       }
 
@@ -705,23 +712,23 @@ export class NewDeckGenerator {
             commanderName.includes('saheeli') || commanderName.includes('urza') ||
             commanderName.includes('jhoira') || commanderName.includes('breya')) {
           synergy += 10; // Artifact lands for artifact synergy
-          console.log(`🎯 ARTIFACT LAND: ${card.name} gets +10 synergy for artifact synergy`);
+          this.log(`🎯 ARTIFACT LAND: ${card.name} gets +10 synergy for artifact synergy`);
         }
       }
 
       // Utility lands with activated abilities
       if (cardText.includes('tap:') && !cardText.includes('add')) {
         synergy += 6; // Base utility land bonus
-        console.log(`🎯 UTILITY LAND: ${card.name} gets +6 synergy for utility abilities`);
+        this.log(`🎯 UTILITY LAND: ${card.name} gets +6 synergy for utility abilities`);
         
         // Extra synergy for specific utility types
         if (cardText.includes('draw a card') && commanderText.includes('draw')) {
           synergy += 6; // Card draw lands for draw commanders
-          console.log(`🎯 DRAW UTILITY: ${card.name} gets +6 extra synergy for draw utility`);
+          this.log(`🎯 DRAW UTILITY: ${card.name} gets +6 extra synergy for draw utility`);
         }
         if (cardText.includes('destroy target') && commanderText.includes('destroy')) {
           synergy += 6; // Removal lands for removal commanders
-          console.log(`🎯 REMOVAL UTILITY: ${card.name} gets +6 extra synergy for removal utility`);
+          this.log(`🎯 REMOVAL UTILITY: ${card.name} gets +6 extra synergy for removal utility`);
         }
       }
 
@@ -730,7 +737,7 @@ export class NewDeckGenerator {
         if (commanderText.includes('attack') || commanderText.includes('creature') ||
             commanderText.includes('power') && commanderText.includes('toughness')) {
           synergy += 8; // Creature lands for creature-focused strategies
-          console.log(`🎯 CREATURE LAND: ${card.name} gets +8 synergy for creature synergy`);
+          this.log(`🎯 CREATURE LAND: ${card.name} gets +8 synergy for creature synergy`);
         }
       }
 
@@ -749,7 +756,7 @@ export class NewDeckGenerator {
           tribes.forEach(tribe => {
             if (commanderText.includes(tribe) || commanderType.includes(tribe)) {
               synergy += 8; // Tribal land synergy
-              console.log(`🎯 TRIBAL LAND: ${card.name} gets +8 synergy for ${tribe} tribal`);
+              this.log(`🎯 TRIBAL LAND: ${card.name} gets +8 synergy for ${tribe} tribal`);
             }
           });
         }
@@ -763,7 +770,7 @@ export class NewDeckGenerator {
             cardName.includes('mana confluence') || cardName.includes('exotic orchard') ||
             cardName.includes('reflecting pool')) {
           synergy += 8; // Premium fixing for 3+ color decks
-          console.log(`🎯 PREMIUM FIXING: ${card.name} gets +8 synergy for multicolor fixing`);
+          this.log(`🎯 PREMIUM FIXING: ${card.name} gets +8 synergy for multicolor fixing`);
         }
       }
 
@@ -773,14 +780,14 @@ export class NewDeckGenerator {
           !cardText.includes('scry') && !cardText.includes('gain') && 
           !cardText.includes('draw') && !cardText.includes('search')) {
         synergy -= 3; // Penalize pure tap lands slightly
-        console.log(`🚫 TAP LAND PENALTY: ${card.name} gets -3 synergy for entering tapped`);
+        this.log(`🚫 TAP LAND PENALTY: ${card.name} gets -3 synergy for entering tapped`);
       }
 
       // Bonus for lands that come in untapped with conditions we can meet
       if (cardText.includes('enters the battlefield tapped unless') ||
           cardText.includes('enters tapped unless')) {
         synergy += 4; // Bonus for conditional untapped lands
-        console.log(`🎯 CONDITIONAL UNTAPPED: ${card.name} gets +4 synergy for conditional untapped`);
+        this.log(`🎯 CONDITIONAL UNTAPPED: ${card.name} gets +4 synergy for conditional untapped`);
       }
     }
 
@@ -798,7 +805,7 @@ export class NewDeckGenerator {
           cardText.includes('gets +1/+1') ||
           cardText.includes('proliferate')) {
         synergy += 18;
-        console.log(`🎯 +1/+1 COUNTER SYNERGY: ${card.name} gets +18 synergy for counter mechanics`);
+        this.log(`🎯 +1/+1 COUNTER SYNERGY: ${card.name} gets +18 synergy for counter mechanics`);
       }
       
       // Hydra-specific counter synergies (Hydras typically enter with counters)
@@ -812,7 +819,7 @@ export class NewDeckGenerator {
             cardName.includes('primal vigor') ||
             cardName.includes('branching evolution')) {
           synergy += 35; // Maximum synergy for counter doublers - these are the best cards
-          console.log(`🐍 HYDRA COUNTER DOUBLER: ${card.name} gets +35 synergy for counter doubling with Hydras`);
+          this.log(`🐍 HYDRA COUNTER DOUBLER: ${card.name} gets +35 synergy for counter doubling with Hydras`);
         }
         // GOOD: Adding exactly one additional counter (weaker than doubling)
         else if ((cardText.includes('additional +1/+1 counter') && !cardText.includes('double')) ||
@@ -822,7 +829,7 @@ export class NewDeckGenerator {
                  cardName.includes('long list of the ents')) {
           // These add only 1 extra counter, much weaker than doubling
           synergy += 12; // Lower synergy for single counter additions
-          console.log(`🐍 HYDRA COUNTER ADDER: ${card.name} gets +12 synergy for adding single counters`);
+          this.log(`🐍 HYDRA COUNTER ADDER: ${card.name} gets +12 synergy for adding single counters`);
         }
         
         // Cards that care about creatures with counters (but not "encounter" or other false positives)
@@ -830,7 +837,7 @@ export class NewDeckGenerator {
             (cardText.includes('with') || cardText.includes('has')) &&
             !cardText.includes('encounter')) {
           synergy += 15;
-          console.log(`🎯 COUNTER MATTERS: ${card.name} gets +15 synergy for caring about creatures with counters`);
+          this.log(`🎯 COUNTER MATTERS: ${card.name} gets +15 synergy for caring about creatures with counters`);
         }
         
         // Penalty for enchantments that create non-Hydra creatures without broader utility
@@ -843,7 +850,7 @@ export class NewDeckGenerator {
               cardText.includes('army') || cardText.includes('human') ||
               cardText.includes('soldier') || cardText.includes('knight')) {
             synergy -= 8; // Penalty for creating irrelevant creature types
-            console.log(`🐍 HYDRA MISMATCH: ${card.name} gets -8 synergy for creating non-synergistic creatures`);
+            this.log(`🐍 HYDRA MISMATCH: ${card.name} gets -8 synergy for creating non-synergistic creatures`);
           }
         }
       }
@@ -858,13 +865,13 @@ export class NewDeckGenerator {
       
       if (cardType.includes('artifact') && !cardType.includes('land')) {
         synergy += 12;
-        console.log(`⚙️ ARTIFACT SYNERGY: ${card.name} gets +12 synergy for being an artifact`);
+        this.log(`⚙️ ARTIFACT SYNERGY: ${card.name} gets +12 synergy for being an artifact`);
       }
       
       if (cardText.includes('artifact') && 
           (cardText.includes('whenever you cast') || cardText.includes('artifact enters'))) {
         synergy += 15;
-        console.log(`🔧 ARTIFACT MATTERS: ${card.name} gets +15 synergy for artifact synergy`);
+        this.log(`🔧 ARTIFACT MATTERS: ${card.name} gets +15 synergy for artifact synergy`);
       }
     }
 
@@ -874,7 +881,7 @@ export class NewDeckGenerator {
       const costReductionSynergy = this.calculateCostReductionSynergy(card, commander, cardText, commanderText);
       if (costReductionSynergy > 0) {
         synergy += costReductionSynergy;
-        console.log(`💰 COST REDUCTION SYNERGY: ${card.name} gets +${costReductionSynergy} synergy from ${commander.name}'s cost reduction`);
+        this.log(`💰 COST REDUCTION SYNERGY: ${card.name} gets +${costReductionSynergy} synergy from ${commander.name}'s cost reduction`);
       }
     }
 
@@ -882,7 +889,7 @@ export class NewDeckGenerator {
     const conditionalPenalty = this.calculateConditionalRevealPenalty(card, commander, cardText, commanderText);
     if (conditionalPenalty > 0) {
       synergy -= conditionalPenalty;
-      console.log(`🚫 CONDITIONAL PENALTY: ${card.name} loses -${conditionalPenalty} synergy for requiring unsupported creature types`);
+      this.log(`🚫 CONDITIONAL PENALTY: ${card.name} loses -${conditionalPenalty} synergy for requiring unsupported creature types`);
     }
 
     // Shared keywords and mechanics
@@ -923,7 +930,7 @@ export class NewDeckGenerator {
       if (planeswalkerName.includes('ugin')) {
         if (!commanderText.includes('colorless') && commander.color_identity.length > 0) {
           synergy -= 8; // Heavy penalty for Ugin in colored decks without colorless synergy
-          console.log(`🚫 ANTI-SYNERGY: ${card.name} penalized for poor color synergy in ${commander.name} deck`);
+          this.log(`🚫 ANTI-SYNERGY: ${card.name} penalized for poor color synergy in ${commander.name} deck`);
         }
       } else {
         // Give thematic bonuses for planeswalkers that fit color identity strategies
@@ -936,7 +943,7 @@ export class NewDeckGenerator {
               cardText.includes('deals damage') || cardText.includes('damage to each') ||
               planeswalkerName.includes('chandra')) {
             synergy += 8;
-            console.log(`🔥 RED SYNERGY: ${card.name} gets +8 synergy for red damage effects`);
+            this.log(`🔥 RED SYNERGY: ${card.name} gets +8 synergy for red damage effects`);
           }
           
           // Mana and land synergies (good for red ramp/acceleration)
@@ -944,14 +951,14 @@ export class NewDeckGenerator {
               cardText.includes('mountain') || cardText.includes('red mana') ||
               planeswalkerName.includes('koth')) {
             synergy += 7;
-            console.log(`⛰️ MANA SYNERGY: ${card.name} gets +7 synergy for mana/mountain synergy`);
+            this.log(`⛰️ MANA SYNERGY: ${card.name} gets +7 synergy for mana/mountain synergy`);
           }
           
           // Artifact synergies (good for red artifact strategies)
           if (cardText.includes('artifact') && (cardText.includes('create') || cardText.includes('return')) ||
               planeswalkerName.includes('daretti')) {
             synergy += 7;
-            console.log(`⚙️ ARTIFACT SYNERGY: ${card.name} gets +7 synergy for artifact synergy`);
+            this.log(`⚙️ ARTIFACT SYNERGY: ${card.name} gets +7 synergy for artifact synergy`);
           }
         }
         
@@ -962,7 +969,7 @@ export class NewDeckGenerator {
               cardText.includes('return') && cardText.includes('graveyard') ||
               planeswalkerName.includes('liliana')) {
             synergy += 8;
-            console.log(`💀 BLACK SYNERGY: ${card.name} gets +8 synergy for sacrifice/graveyard effects`);
+            this.log(`💀 BLACK SYNERGY: ${card.name} gets +8 synergy for sacrifice/graveyard effects`);
           }
         }
         
@@ -973,7 +980,7 @@ export class NewDeckGenerator {
               cardText.includes('creatures you control get') ||
               planeswalkerName.includes('elspeth') || planeswalkerName.includes('ajani')) {
             synergy += 8;
-            console.log(`👼 WHITE SYNERGY: ${card.name} gets +8 synergy for token/anthem effects`);
+            this.log(`👼 WHITE SYNERGY: ${card.name} gets +8 synergy for token/anthem effects`);
           }
         }
         
@@ -988,14 +995,14 @@ export class NewDeckGenerator {
                 cardText.includes('creature token') ||
                 planeswalkerName.includes('garruk')) {
               synergy += 15; // Higher synergy for generic creature support
-              console.log(`🌿 CREATURE SYNERGY: ${card.name} gets +15 synergy for creature buffs/tokens`);
+              this.log(`🌿 CREATURE SYNERGY: ${card.name} gets +15 synergy for creature buffs/tokens`);
             }
             
             // Penalty for tribal-specific planeswalkers that don't fit the strategy
             if ((cardText.includes('wolf') && !cardText.includes('creature')) ||
                 (cardText.includes('beast') && !cardText.includes('creature'))) {
               synergy -= 5; // Reduce synergy for specific tribal that doesn't match
-              console.log(`🌿 TRIBAL PENALTY: ${card.name} gets -5 synergy for mismatched tribal focus`);
+              this.log(`🌿 TRIBAL PENALTY: ${card.name} gets -5 synergy for mismatched tribal focus`);
             }
           }
           
@@ -1004,7 +1011,7 @@ export class NewDeckGenerator {
               cardText.includes('land') && cardText.includes('search') ||
               planeswalkerName.includes('nissa')) {
             synergy += 6; // Lower than creature buffs
-            console.log(`🌿 GREEN SYNERGY: ${card.name} gets +6 synergy for creature/land effects`);
+            this.log(`🌿 GREEN SYNERGY: ${card.name} gets +6 synergy for creature/land effects`);
           }
         }
         
@@ -1015,14 +1022,14 @@ export class NewDeckGenerator {
               cardText.includes('instant') || cardText.includes('sorcery') ||
               planeswalkerName.includes('jace') || planeswalkerName.includes('teferi')) {
             synergy += 8;
-            console.log(`🌊 BLUE SYNERGY: ${card.name} gets +8 synergy for card draw/spell effects`);
+            this.log(`🌊 BLUE SYNERGY: ${card.name} gets +8 synergy for card draw/spell effects`);
           }
         }
         
         // Generic planeswalker baseline - all planeswalkers get some value
         if (synergy < 5) {
           synergy += 4; // Baseline synergy for any reasonable planeswalker
-          console.log(`📜 PLANESWALKER BASELINE: ${card.name} gets +4 baseline planeswalker synergy`);
+          this.log(`📜 PLANESWALKER BASELINE: ${card.name} gets +4 baseline planeswalker synergy`);
         }
       }
     }
@@ -1087,7 +1094,7 @@ export class NewDeckGenerator {
               const confidenceBonus = baseBonus * matchingTag.confidence;
               themeBonus += Math.round(confidenceBonus);
               
-              console.log(`🎯 THEME BONUS: ${card.name} +${Math.round(confidenceBonus)} for ${matchingTag.name} (P${matchingTag.priority}, C${matchingTag.confidence.toFixed(2)})`);
+              this.log(`🎯 THEME BONUS: ${card.name} +${Math.round(confidenceBonus)} for ${matchingTag.name} (P${matchingTag.priority}, C${matchingTag.confidence.toFixed(2)})`);
             }
           }
         } catch (error) {
@@ -1163,11 +1170,11 @@ export class NewDeckGenerator {
     // Determine target mana curve for this commander (fallback to midrange if no commander)
     const archetype = commander ? determineArchetype(commander) : 'midrange';
     const targetCurve = CURVE_ARCHETYPES[archetype];
-    console.log(`🎯 Commander archetype: ${archetype}`);
+    this.log(`🎯 Commander archetype: ${archetype}`);
     
     const applyProportionalFilter = (typeCards: ScoredCard[], weight: number, typeName: string): ScoredCard[] => {
       if (weight === 0) {
-        console.log(`🚫 Excluding all ${typeName}s (weight = 0)`);
+        this.log(`🚫 Excluding all ${typeName}s (weight = 0)`);
         return [];
       }
       
@@ -1209,13 +1216,13 @@ export class NewDeckGenerator {
       // Count how many high-synergy cards we're including
       const highSynergyIncluded = result.filter(card => card.finalScore >= 50).length;
       
-      console.log(`📊 Including ${result.length}/${typeCards.length} ${typeName}s (weight=${weight}, target=${proportionalTarget}, high-synergy included=${highSynergyIncluded})`);
+      this.log(`📊 Including ${result.length}/${typeCards.length} ${typeName}s (weight=${weight}, target=${proportionalTarget}, high-synergy included=${highSynergyIncluded})`);
       
       // Special logging for tribal creatures and high-value types
       if (typeName === 'creature' && highSynergyIncluded > 0) {
         const tribalCards = result.filter(card => card.finalScore >= 80);
         if (tribalCards.length > 0) {
-          console.log(`  🎯 Tribal/high-value ${typeName}s:`, tribalCards.slice(0, 5).map(c => `${c.name} (${c.finalScore})`));
+          this.log(`  🎯 Tribal/high-value ${typeName}s:`, tribalCards.slice(0, 5).map(c => `${c.name} (${c.finalScore})`));
         }
       }
       
@@ -1230,7 +1237,7 @@ export class NewDeckGenerator {
     
     // Special handling for planeswalkers - treat as exact count, not ratio
     const planeswalkerCount = weights.planeswalkers;
-    console.log(`🎯 PLANESWALKER DEBUG: Requested ${planeswalkerCount}, available ${cardsByType.planeswalkers.length}`);
+    this.log(`🎯 PLANESWALKER DEBUG: Requested ${planeswalkerCount}, available ${cardsByType.planeswalkers.length}`);
     
     if (planeswalkerCount > 0) {
       let availablePlaneswalkers = cardsByType.planeswalkers;
@@ -1238,12 +1245,12 @@ export class NewDeckGenerator {
       // For planeswalker requests > 5, always expand the search to ensure we have enough options
       // This addresses the issue where high planeswalker counts fail due to limited pool
       if ((planeswalkerCount > 5 || availablePlaneswalkers.length < planeswalkerCount) && allColorMatched) {
-        console.log(`🔍 Expanding planeswalker search to original color-matched pool (requested: ${planeswalkerCount}, filtered: ${availablePlaneswalkers.length})`);
+        this.log(`🔍 Expanding planeswalker search to original color-matched pool (requested: ${planeswalkerCount}, filtered: ${availablePlaneswalkers.length})`);
         const allPlaneswalkers = allColorMatched.filter(card => 
           card.type_line.toLowerCase().includes('planeswalker')
         );
         
-        console.log(`🔍 Found ${allPlaneswalkers.length} total planeswalkers in color-matched pool`);
+        this.log(`🔍 Found ${allPlaneswalkers.length} total planeswalkers in color-matched pool`);
         
         // Merge and deduplicate by ID
         const pwMap = new Map<string, ScoredCard>();
@@ -1259,26 +1266,26 @@ export class NewDeckGenerator {
         });
         
         availablePlaneswalkers = Array.from(pwMap.values());
-        console.log(`🎯 Expanded planeswalker pool from ${cardsByType.planeswalkers.length} to ${availablePlaneswalkers.length}`);
+        this.log(`🎯 Expanded planeswalker pool from ${cardsByType.planeswalkers.length} to ${availablePlaneswalkers.length}`);
       }
       
       if (availablePlaneswalkers.length > 0) {
         const sortedPlaneswalkers = availablePlaneswalkers.sort((a, b) => b.finalScore - a.finalScore);
         
         // Debug: Show top planeswalkers and their scores
-        console.log(`🎯 PLANESWALKER CANDIDATES (top 5):`);
+        this.log(`🎯 PLANESWALKER CANDIDATES (top 5):`);
         sortedPlaneswalkers.slice(0, Math.min(5, sortedPlaneswalkers.length)).forEach((pw, i) => {
-          console.log(`  ${i + 1}. ${pw.name} (score: ${pw.finalScore}, affordable: ${pw.isAffordable})`);
+          this.log(`  ${i + 1}. ${pw.name} (score: ${pw.finalScore}, affordable: ${pw.isAffordable})`);
         });
         
         const selectedPlaneswalkers = sortedPlaneswalkers.slice(0, Math.min(planeswalkerCount, sortedPlaneswalkers.length));
         filtered.push(...selectedPlaneswalkers);
-        console.log(`🎯 Including exactly ${selectedPlaneswalkers.length} planeswalkers (requested: ${planeswalkerCount})`);
+        this.log(`🎯 Including exactly ${selectedPlaneswalkers.length} planeswalkers (requested: ${planeswalkerCount})`);
         selectedPlaneswalkers.forEach(pw => {
-          console.log(`  ✅ Selected: ${pw.name} (score: ${pw.finalScore})`);
+          this.log(`  ✅ Selected: ${pw.name} (score: ${pw.finalScore})`);
         });
       } else {
-        console.log(`🚫 No planeswalkers available`);
+        this.log(`🚫 No planeswalkers available`);
       }
     }
     
@@ -1314,9 +1321,9 @@ export class NewDeckGenerator {
       
       filtered.push(...selectedNonBasics);
       
-      console.log(`🏞️ Land selection: ${basicLands.length} basic + ${selectedNonBasics.length}/${nonBasicLands.length} non-basic lands`);
+      this.log(`🏞️ Land selection: ${basicLands.length} basic + ${selectedNonBasics.length}/${nonBasicLands.length} non-basic lands`);
       if (selectedNonBasics.length > 0) {
-        console.log(`🎯 Top non-basic lands:`, selectedNonBasics.slice(0, 5).map(land => 
+        this.log(`🎯 Top non-basic lands:`, selectedNonBasics.slice(0, 5).map(land => 
           `${land.name} (score: ${land.finalScore})`
         ));
       }
@@ -1333,7 +1340,7 @@ export class NewDeckGenerator {
    */
   private async step5_EvaluatePrices(cards: ScoredCard[], constraints: GenerationConstraints): Promise<ScoredCard[]> {
     // Use batch pricing for better performance and accuracy
-    console.log('💰 Getting enhanced pricing data for display purposes...');
+    this.log('💰 Getting enhanced pricing data for display purposes...');
     const cardPricings = await extractBatchCardPrices(cards, constraints.prefer_cheapest, 'tcgplayer');
     
     return cardPricings.map(({ card, price, source }) => {
@@ -1347,7 +1354,7 @@ export class NewDeckGenerator {
       };
       
       if (source.startsWith('MTGJSON')) {
-        console.log(`💎 Enhanced pricing: ${card.name} = $${price.toFixed(2)} (${source})`);
+        this.log(`💎 Enhanced pricing: ${card.name} = $${price.toFixed(2)} (${source})`);
       }
       
       return enhancedCard;
@@ -1368,8 +1375,8 @@ export class NewDeckGenerator {
     const affordableCards = nonPlaneswalkers.filter(card => card.isAffordable);
     const expensiveCards = nonPlaneswalkers.filter(card => !card.isAffordable);
     
-    console.log(`💰 Found ${expensiveCards.length} expensive non-planeswalker cards to substitute`);
-    console.log(`🎯 Preserving ${planeswalkers.length} planeswalkers regardless of budget`);
+    this.log(`💰 Found ${expensiveCards.length} expensive non-planeswalker cards to substitute`);
+    this.log(`🎯 Preserving ${planeswalkers.length} planeswalkers regardless of budget`);
     
     // For each expensive card, try to find a cheaper alternative with similar function
     const substituted: ScoredCard[] = [...affordableCards, ...planeswalkers];
@@ -1385,12 +1392,12 @@ export class NewDeckGenerator {
         // Pick the best alternative
         const bestAlt = alternatives.sort((a, b) => b.finalScore - a.finalScore)[0];
         substituted.push(bestAlt);
-        console.log(`🔄 Substituted ${expensive.name} ($${expensive.price_used?.toFixed(2) || 'N/A'}) with ${bestAlt.name} ($${bestAlt.price_used?.toFixed(2) || 'N/A'})`);
+        this.log(`🔄 Substituted ${expensive.name} ($${expensive.price_used?.toFixed(2) || 'N/A'}) with ${bestAlt.name} ($${bestAlt.price_used?.toFixed(2) || 'N/A'})`);
       } else {
         // If no substitute found and the card has very high synergy, keep it anyway
         if (expensive.finalScore >= 15) {
           substituted.push(expensive);
-          console.log(`⭐ Keeping high-synergy expensive card: ${expensive.name}`);
+          this.log(`⭐ Keeping high-synergy expensive card: ${expensive.name}`);
         }
       }
     }
@@ -1406,7 +1413,7 @@ export class NewDeckGenerator {
     const targetSize = 72; // Target 72 cards to account for some being lands (aiming for ~66 non-lands)
     
     if (cards.length === targetSize) {
-      console.log(`✅ Perfect deck size: ${cards.length} cards`);
+      this.log(`✅ Perfect deck size: ${cards.length} cards`);
       return cards;
     }
     
@@ -1449,8 +1456,8 @@ export class NewDeckGenerator {
             // For planeswalkers, use the weight as an exact count (not proportion)
             const requestedCount = originalWeights.planeswalkers || 0;
             targetForType = Math.min(requestedCount, typeCards.length);
-            console.log(`🎯 STEP7 ${typeName}: targeting exactly ${targetForType} cards (requested: ${requestedCount}, available: ${typeCards.length})`);
-            console.log(`🎯 STEP7 Available planeswalkers:`, typeCards.map(pw => pw.name));
+            this.log(`🎯 STEP7 ${typeName}: targeting exactly ${targetForType} cards (requested: ${requestedCount}, available: ${typeCards.length})`);
+            this.log(`🎯 STEP7 Available planeswalkers:`, typeCards.map(pw => pw.name));
           } else {
             // Use original weights to determine target proportions for other types
             const totalWeight = Object.values(originalWeights).reduce((sum, w, i, arr) => {
@@ -1465,7 +1472,7 @@ export class NewDeckGenerator {
             // Ensure we don't exceed available cards
             targetForType = Math.min(targetForType, typeCards.length);
             
-            console.log(`🎯 ${typeName}: weight=${typeWeight}/${totalWeight} (${(weightProportion*100).toFixed(1)}%) -> target=${targetForType}/${typeCards.length}`);
+            this.log(`🎯 ${typeName}: weight=${typeWeight}/${totalWeight} (${(weightProportion*100).toFixed(1)}%) -> target=${targetForType}/${typeCards.length}`);
           }
         } else {
           if (typeName === 'planeswalkers') {
@@ -1501,7 +1508,7 @@ export class NewDeckGenerator {
         const keptCards = sortedType.slice(0, targetForType);
         
         trimmed.push(...keptCards);
-        console.log(`✂️ Kept ${keptCards.length}/${typeCards.length} ${typeName}s`);
+        this.log(`✂️ Kept ${keptCards.length}/${typeCards.length} ${typeName}s`);
       }
       
       // If we're still over target, trim by lowest score overall but protect planeswalkers
@@ -1515,16 +1522,16 @@ export class NewDeckGenerator {
         const keptNonPW = sortedNonPW.slice(0, targetNonPW);
         
         const finalTrimmed = [...planeswalkers, ...keptNonPW];
-        console.log(`✂️ Final trim from ${trimmed.length} to ${finalTrimmed.length} cards (protected ${planeswalkers.length} planeswalkers)`);
+        this.log(`✂️ Final trim from ${trimmed.length} to ${finalTrimmed.length} cards (protected ${planeswalkers.length} planeswalkers)`);
         return finalTrimmed;
       }
       
-      console.log(`✂️ Proportionally trimmed deck from ${cards.length} to ${trimmed.length} cards`);
+      this.log(`✂️ Proportionally trimmed deck from ${cards.length} to ${trimmed.length} cards`);
       return trimmed;
     }
     
     // Too few cards - we'll fill in step 8
-    console.log(`📊 Deck has ${cards.length} cards, need ${targetSize - cards.length} more`);
+    this.log(`📊 Deck has ${cards.length} cards, need ${targetSize - cards.length} more`);
     return cards;
   }
 
@@ -1546,7 +1553,7 @@ export class NewDeckGenerator {
     }
     
     const needed = targetSize - currentSize;
-    console.log(`🎯 Need ${needed} more cards to reach ${targetSize} total`);
+    this.log(`🎯 Need ${needed} more cards to reach ${targetSize} total`);
     
     // Count current cards by type to maintain proportions
     const currentByType: Record<string, number> = {
@@ -1601,9 +1608,9 @@ export class NewDeckGenerator {
       planeswalkers: Math.max(0, idealTargets.planeswalkers - currentByType.planeswalkers)
     };
     
-    console.log(`📊 STEP8 Current distribution:`, currentByType);
-    console.log(`📊 STEP8 Ideal targets:`, idealTargets);
-    console.log(`📊 STEP8 Needed by type:`, neededByType);
+    this.log(`📊 STEP8 Current distribution:`, currentByType);
+    this.log(`📊 STEP8 Ideal targets:`, idealTargets);
+    this.log(`📊 STEP8 Needed by type:`, neededByType);
     
     // Get unused cards and group by type
     const usedCardNames = new Set(currentDeck.map(card => card.name));
@@ -1641,7 +1648,7 @@ export class NewDeckGenerator {
         const available = availableByType[typeName];
         const cardsToAdd = available.slice(0, needCount);
         toAdd.push(...cardsToAdd);
-        console.log(`🎯 Adding ${cardsToAdd.length} ${typeName}s (needed ${needCount})`);
+        this.log(`🎯 Adding ${cardsToAdd.length} ${typeName}s (needed ${needCount})`);
       }
     }
     
@@ -1656,7 +1663,7 @@ export class NewDeckGenerator {
       toAdd.push(...additionalCards);
       
       if (additionalCards.length > 0) {
-        console.log(`🎯 Adding ${additionalCards.length} additional high-synergy cards`);
+        this.log(`🎯 Adding ${additionalCards.length} additional high-synergy cards`);
       }
       
       // If we STILL can't reach the target (colorless commander issue), log a warning
@@ -1664,11 +1671,11 @@ export class NewDeckGenerator {
         const shortfall = needed - toAdd.length;
         console.warn(`⚠️ WARNING: Only found ${toAdd.length} cards to add, needed ${needed}. Short by ${shortfall} cards.`);
         console.warn(`⚠️ This typically happens with colorless commanders due to limited card pool.`);
-        console.log(`📊 Available cards by type:`, Object.entries(availableByType).map(([type, cards]) => `${type}: ${cards.length}`));
+        this.log(`📊 Available cards by type:`, Object.entries(availableByType).map(([type, cards]) => `${type}: ${cards.length}`));
       }
     }
     
-    console.log(`🎯 Total adding ${toAdd.length} cards to reach target (attempted ${targetSize}, actual will be ${currentDeck.length + toAdd.length})`);
+    this.log(`🎯 Total adding ${toAdd.length} cards to reach target (attempted ${targetSize}, actual will be ${currentDeck.length + toAdd.length})`);
     
     return [...currentDeck, ...toAdd];
   }
@@ -1684,7 +1691,7 @@ export class NewDeckGenerator {
     // Voja specifically cares about Elves and Wolves
     if (commanderName.includes('voja')) {
       tribalTypes.push('elf', 'wolf');
-      console.log(`🎯 TRIBAL: Voja detected - boosting Elves and Wolves heavily`);
+      this.log(`🎯 TRIBAL: Voja detected - boosting Elves and Wolves heavily`);
       return tribalTypes;
     }
     
@@ -1703,7 +1710,7 @@ export class NewDeckGenerator {
           commanderText.includes(`other ${type}s`) ||
           commanderText.includes(`${type} creatures`)) {
         tribalTypes.push(type);
-        console.log(`🎯 TRIBAL: ${commander.name} detected tribal bonus for ${type}`);
+        this.log(`🎯 TRIBAL: ${commander.name} detected tribal bonus for ${type}`);
       }
     }
     
@@ -1767,16 +1774,16 @@ export class NewDeckGenerator {
         price_used: 1.00,
         price_source: 'fixed-estimate'
       } as DeckCard);
-      console.log(`🏔️ LAND: Added Command Tower`);
+      this.log(`🏔️ LAND: Added Command Tower`);
     } else if (hasCommandTower) {
-      console.log(`🏔️ LAND: Command Tower already exists, skipping`);
+      this.log(`🏔️ LAND: Command Tower already exists, skipping`);
     }
     
     // Analyze actual color requirements from the deck
     const colorRequirements = this.analyzeColorRequirements([...nonLandCards, commander]);
     const totalColorSymbols = Object.values(colorRequirements).reduce((sum, count) => sum + count, 0);
     
-    console.log(`🏔️ MANA: Color requirements:`, colorRequirements, `(total: ${totalColorSymbols})`);
+    this.log(`🏔️ MANA: Color requirements:`, colorRequirements, `(total: ${totalColorSymbols})`);
     
     // Use the provided target count
     const landCount = Math.max(0, targetCount);
@@ -1792,7 +1799,7 @@ export class NewDeckGenerator {
     
     // Special handling for colorless commanders
     if (colorIdentity.length === 0) {
-      console.log(`🏔️ COLORLESS: Generating ${availableLandSlots} Wastes for colorless commander`);
+      this.log(`🏔️ COLORLESS: Generating ${availableLandSlots} Wastes for colorless commander`);
       for (let i = 0; i < availableLandSlots; i++) {
         lands.push(this.createBasicLand('Wastes', 'C'));
       }
@@ -1815,7 +1822,7 @@ export class NewDeckGenerator {
         const proportion = colorCount / totalColorSymbols;
         const landsForColor = Math.round(proportion * availableLandSlots);
         
-        console.log(`🏔️ MANA: ${color} needs ${colorCount} symbols (${(proportion * 100).toFixed(1)}%) -> ${landsForColor} lands`);
+        this.log(`🏔️ MANA: ${color} needs ${colorCount} symbols (${(proportion * 100).toFixed(1)}%) -> ${landsForColor} lands`);
         
         const landName = basicLandNames[color];
         if (landName) {
@@ -1921,7 +1928,7 @@ export class NewDeckGenerator {
       if (this.cardMatchesCostReductionTarget(card, target, cardText)) {
         // Heavy synergy bonus for cards that directly benefit from cost reduction
         synergy += 20;
-        console.log(`💰 DIRECT BENEFIT: ${card.name} benefits from ${commander.name}'s ${target} cost reduction`);
+        this.log(`💰 DIRECT BENEFIT: ${card.name} benefits from ${commander.name}'s ${target} cost reduction`);
       }
     }
     
@@ -2006,7 +2013,7 @@ export class NewDeckGenerator {
     for (const requiredType of requiredTypes) {
       if (!supportedTypes.includes(requiredType)) {
         penalty += 20; // Heavy penalty for unsupported conditional requirements
-        console.log(`🚫 UNSUPPORTED REQUIREMENT: ${card.name} requires ${requiredType} but deck supports ${supportedTypes.join(', ')}`);
+        this.log(`🚫 UNSUPPORTED REQUIREMENT: ${card.name} requires ${requiredType} but deck supports ${supportedTypes.join(', ')}`);
       }
     }
     

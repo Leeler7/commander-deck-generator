@@ -1,0 +1,168 @@
+Big Deck Energy
+
+
+production
+Architecture
+Observability
+Logs
+Settings
+
+30 days or $4.97 left
+
+
+Share
+
+Date range
+5 minutes ago
+
+Filter
+@deployment:94a06f79-8a76-4c91-af9d-282d713aa74f -@replica:596e136c-a548-4865-96e4-d5f08af9cd45
+
+
+
+
+
+Load More
+
+  4. Liliana Vess (score: 113, affordable: true)
+
+  5. Nissa, Vital Force (score: 108, affordable: true)
+
+🎯 Including exactly 3 planeswalkers (requested: 3)
+
+  ✅ Selected: Wrenn and Seven (score: 165)
+
+  ✅ Selected: Professor Onyx (score: 137)
+
+  ✅ Selected: Liliana, the Last Hope (score: 133)
+
+🏞️ Land selection: 2 basic + 34/449 non-basic lands
+
+🎯 Top non-basic lands: [
+
+  'Abstergo Entertainment (score: 189)',
+
+  'Tomb Fortress (score: 180)',
+
+  'Arid Archway (score: 177)',
+
+  'Llanowar Reborn (score: 144)',
+
+  'Gallifrey Council Chamber (score: 141)'
+
+]
+
+✅ Filtered to 105 cards based on ratios
+
+💰 STEP 5: Evaluating card prices
+
+💰 Getting enhanced pricing data for display purposes...
+
+🔍 Fetching price for Knowledge Vault from Scryfall API...
+
+🔍 Fetching price for Gustha's Scepter from Scryfall API...
+
+🔍 Fetching price for Corpse Dance from Scryfall API...
+
+🔍 Fetching price for Volrath's Stronghold from Scryfall API...
+
+⚠️ Using rarity estimate for Knowledge Vault (uncommon): $0.25
+
+⚠️ Using rarity estimate for Gustha's Scepter (rare): $1.5
+
+⚠️ Using rarity estimate for Corpse Dance (rare): $1.5
+
+⚠️ Using rarity estimate for Volrath's Stronghold (mythic): $5
+
+✅ Evaluated prices for 105 cards
+
+✅ STEP 6: Skipping budget filtering - all cards eligible based on synergy
+
+📊 STEP 7: Validating deck size
+
+🎯 creatures: weight=9/22 (40.9%) -> target=27/27
+
+✂️ Kept 27/27 creaturess
+
+🎯 artifacts: weight=6/22 (27.3%) -> target=18/18
+
+✂️ Kept 18/18 artifactss
+
+🎯 enchantments: weight=1/22 (4.5%) -> target=3/3
+
+✂️ Kept 3/3 enchantmentss
+
+🎯 instants: weight=5/22 (22.7%) -> target=15/15
+
+✂️ Kept 15/15 instantss
+
+🎯 sorceries: weight=1/22 (4.5%) -> target=3/3
+
+✂️ Kept 3/3 sorceriess
+
+🎯 STEP7 planeswalkers: targeting exactly 3 cards (requested: 3, available: 3)
+
+🎯 STEP7 Available planeswalkers: [ 'Wrenn and Seven', 'Professor Onyx', 'Liliana, the Last Hope' ]
+
+✂️ Kept 3/3 planeswalkerss
+
+🎯 other: weight=1/22 (4.5%) -> target=3/36
+
+✂️ Kept 3/36 others
+
+✂️ Proportionally trimmed deck from 105 to 72 cards
+
+✅ Deck validated: 72 cards + commander = 73 total
+
+🎯 STEP 8: Filling gaps with synergy cards
+
+✅ Final deck: 72 cards + commander = 73 total
+
+🏔️ LAND: Added Command Tower
+
+🏔️ MANA: Color requirements: { W: 0, U: 0, B: 41, R: 0, G: 35 } (total: 76)
+
+🏔️ MANA: B needs 41 symbols (53.9%) -> 17 lands
+
+🏔️ MANA: G needs 35 symbols (46.1%) -> 14 lands
+
+🔧 Adjusting deck size from 104 to 99
+
+  Trimmed 1 creature(s) from 27 to 26
+
+  Trimmed 1 artifact(s) from 18 to 17
+
+  Trimmed 1 enchantment(s) from 3 to 2
+
+  Trimmed 1 sorcery(s) from 3 to 2
+
+🔧 Trimmed 1 lands and 4 nonlands proportionally (preserved 3 planeswalkers)
+
+📊 Final deck composition: 65 non-lands + 34 lands = 99 total + commander = 100
+
+📈 MANA CURVE ANALYSIS:
+
+  Archetype: midrange
+
+  Average CMC: 3.45
+
+  Distribution: 0=1, 1=4, 2=14, 3=22, 4=10, 5=7, 6+=7
+
+  Recommendations: [
+
+  'Consider adding 4 more cards at 1 CMC',
+
+  'Consider cutting 6 cards at 3 CMC'
+
+]
+
+⚠️ No price data for Knowledge Vault - using rarity-based estimate
+
+⚠️ No price data for Gustha's Scepter - using rarity-based estimate
+
+⚠️ No price data for Corpse Dance - using rarity-based estimate
+
+Railway rate limit of 500 logs/sec reached for replica, update your application to reduce the logging rate. Messages dropped: 22237
+
+
+Railway

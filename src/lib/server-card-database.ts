@@ -2,6 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
 import { promisify } from 'util';
+import { Readable } from 'stream';
+import StreamValues from 'stream-json/streamers/StreamValues';
+import parser from 'stream-json';
 import { LocalCardData, DatabaseSyncStatus, ScryfallCard, CardMechanicsData } from './types';
 import { cardMechanicsTagger } from './card-mechanics-tagger';
 
@@ -480,11 +483,13 @@ export class ServerCardDatabase {
           this.syncStatus = JSON.parse(statusData);
         }
 
-        // Load cards (gzipped)
+        // Load cards (gzipped) using streaming to avoid memory exhaustion
         const compressedCardsData = fs.readFileSync(publicCardsFile);
         const decompressedCardsData = await gunzip(compressedCardsData);
-        const cardObject = JSON.parse(decompressedCardsData.toString());
-        this.cards = new Map(Object.entries(cardObject));
+        
+        // Use streaming JSON parser to avoid loading entire dataset into memory
+        this.cards = new Map();
+        await this.parseCardsStream(decompressedCardsData);
 
         // Load name index (gzipped)
         if (fs.existsSync(publicIndexFile)) {
@@ -584,6 +589,44 @@ export class ServerCardDatabase {
       console.error('❌ Failed to load from chunked database:', error);
       return false;
     }
+  }
+
+  private async parseCardsStream(buffer: Buffer): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stream = Readable.from(buffer.toString());
+      let cardCount = 0;
+      
+      const pipeline = stream
+        .pipe(parser())
+        .pipe(StreamValues.withParser());
+      
+      pipeline.on('data', (data) => {
+        try {
+          // data.value is each card object, data.key is the card ID
+          if (data.key && data.value) {
+            this.cards.set(data.key, data.value);
+            cardCount++;
+            
+            // Log progress every 5000 cards to avoid excessive logging
+            if (cardCount % 5000 === 0) {
+              console.log(`📊 Loaded ${cardCount} cards...`);
+            }
+          }
+        } catch (error) {
+          console.error('Error processing card:', error);
+        }
+      });
+      
+      pipeline.on('end', () => {
+        console.log(`✅ Streaming complete: ${cardCount} cards loaded`);
+        resolve();
+      });
+      
+      pipeline.on('error', (error) => {
+        console.error('Streaming error:', error);
+        reject(error);
+      });
+    });
   }
 
   private async saveToFiles(): Promise<void> {
