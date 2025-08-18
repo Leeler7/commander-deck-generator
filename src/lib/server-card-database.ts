@@ -1,7 +1,11 @@
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
+import { promisify } from 'util';
 import { LocalCardData, DatabaseSyncStatus, ScryfallCard, CardMechanicsData } from './types';
 import { cardMechanicsTagger } from './card-mechanics-tagger';
+
+const gunzip = promisify(zlib.gunzip);
 
 /**
  * Server-side Card Database Service
@@ -470,11 +474,13 @@ export class ServerCardDatabase {
         this.syncStatus = { ...this.syncStatus, ...syncStatus };
       }
 
-      // Load name index
+      // Load name index (gzipped)
       console.log(`🌐 Loading name index...`);
       const indexResponse = await fetch(`${baseUrl}/database/name-index.json.gz`);
       if (indexResponse.ok) {
-        const indexObject = await indexResponse.json();
+        const compressedBuffer = Buffer.from(await indexResponse.arrayBuffer());
+        const decompressedBuffer = await gunzip(compressedBuffer);
+        const indexObject = JSON.parse(decompressedBuffer.toString());
         this.nameIndex = new Map(Object.entries(indexObject));
       }
 
@@ -493,7 +499,10 @@ export class ServerCardDatabase {
             continue;
           }
           
-          const chunkData = await chunkResponse.json();
+          // Decompress the gzipped chunk
+          const compressedBuffer = Buffer.from(await chunkResponse.arrayBuffer());
+          const decompressedBuffer = await gunzip(compressedBuffer);
+          const chunkData = JSON.parse(decompressedBuffer.toString());
           
           // Add cards to map
           for (const [id, card] of Object.entries(chunkData)) {
