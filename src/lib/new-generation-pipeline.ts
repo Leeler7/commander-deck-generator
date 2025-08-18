@@ -1084,13 +1084,13 @@ export class NewDeckGenerator {
             
             for (const matchingTag of matchingTags) {
               totalTagMatches++;
-              // DRAMATICALLY increased bonuses - user selection should dominate
-              // High priority (8-10): 35 points (was 12) - matches premium built-in synergies
-              // Medium priority (5-7): 25 points (was 8) - strong emphasis
-              // Low priority (1-4): 15 points (was 4) - still significant
-              let baseBonus = 15;
-              if (matchingTag.priority >= 8) baseBonus = 35;
-              else if (matchingTag.priority >= 5) baseBonus = 25;
+              // EXTREME bonuses - user selection should DOMINATE everything
+              // High priority (8-10): 150 points - MASSIVE dominance over built-in synergies
+              // Medium priority (5-7): 100 points - very strong emphasis
+              // Low priority (1-4): 75 points - still beats most built-in synergies
+              let baseBonus = 75;
+              if (matchingTag.priority >= 8) baseBonus = 150;
+              else if (matchingTag.priority >= 5) baseBonus = 100;
               
               const confidenceBonus = baseBonus * matchingTag.confidence;
               themeBonus += Math.round(confidenceBonus);
@@ -1098,58 +1098,58 @@ export class NewDeckGenerator {
               this.log(`🎯 USER TAG BOOST: ${card.name} +${Math.round(confidenceBonus)} for ${matchingTag.name} (P${matchingTag.priority}, C${matchingTag.confidence.toFixed(2)})`);
             }
             
-            // Also check functional roles, archetype relevance, etc.
+            // Also check functional roles, archetype relevance, etc. - EXTREME BONUSES
             if (cardMechanics.functionalRoles.includes(userTag)) {
-              themeBonus += 30; // High bonus for functional role matches
+              themeBonus += 120; // MASSIVE bonus for functional role matches
               totalTagMatches++;
-              this.log(`🛠️ ROLE MATCH: ${card.name} gets +30 bonus for ${userTag} role`);
+              this.log(`🛠️ ROLE MATCH: ${card.name} gets +120 MASSIVE bonus for ${userTag} role`);
             }
             
             if (cardMechanics.archetypeRelevance.includes(userTag)) {
-              themeBonus += 25; // High bonus for archetype matches  
+              themeBonus += 100; // HUGE bonus for archetype matches  
               totalTagMatches++;
-              this.log(`🏗️ ARCHETYPE MATCH: ${card.name} gets +25 bonus for ${userTag} archetype`);
+              this.log(`🏗️ ARCHETYPE MATCH: ${card.name} gets +100 HUGE bonus for ${userTag} archetype`);
             }
             
             if (cardMechanics.synergyKeywords.includes(userTag)) {
-              themeBonus += 20; // Good bonus for synergy keywords
+              themeBonus += 80; // STRONG bonus for synergy keywords
               totalTagMatches++;
-              this.log(`🔗 SYNERGY MATCH: ${card.name} gets +20 bonus for ${userTag} synergy`);
+              this.log(`🔗 SYNERGY MATCH: ${card.name} gets +80 STRONG bonus for ${userTag} synergy`);
             }
           }
           
-          // Progressive bonus system - multiple tag matches get exponential rewards
+          // Progressive bonus system - multiple tag matches get INSANE exponential rewards
           if (totalTagMatches >= 2) {
-            const multiTagBonus = Math.pow(totalTagMatches, 2) * 10; // Exponential: 2 tags = +40, 3 tags = +90
+            const multiTagBonus = Math.pow(totalTagMatches, 3) * 25; // INSANE: 2 tags = +200, 3 tags = +675
             themeBonus += multiTagBonus;
-            this.log(`🌟 MULTI-TAG MULTIPLIER: ${card.name} gets +${multiTagBonus} bonus for ${totalTagMatches} tag matches`);
+            this.log(`🌟 MULTI-TAG MULTIPLIER: ${card.name} gets +${multiTagBonus} INSANE bonus for ${totalTagMatches} tag matches`);
           }
           
-          // Super premium cards with 3+ user tags get priority selection guarantee
+          // Super premium cards with 3+ user tags get GUARANTEED priority selection
           if (totalTagMatches >= 3) {
-            themeBonus += 75; // Ensure these cards are nearly guaranteed inclusion
-            this.log(`💎 PREMIUM USER SELECTION: ${card.name} gets +75 super bonus for ${totalTagMatches} tag matches`);
+            themeBonus += 300; // GUARANTEE these cards dominate everything
+            this.log(`💎 PREMIUM USER SELECTION: ${card.name} gets +300 GUARANTEE bonus for ${totalTagMatches} tag matches`);
           }
           
         } catch (error) {
           console.warn(`⚠️ Could not analyze mechanics for ${card.name}:`, error);
-          // Enhanced fallback with much better bonuses
+          // Enhanced fallback with EXTREME bonuses
           const cardText = (card.oracle_text || '').toLowerCase();
           const cardName = card.name.toLowerCase();
           for (const userTag of userTags) {
             const tagLower = userTag.toLowerCase();
             if (cardText.includes(tagLower) || cardName.includes(tagLower)) {
-              themeBonus += 20; // Much better fallback bonus (was 3)
+              themeBonus += 80; // EXTREME fallback bonus (was 3)
               totalTagMatches++;
-              this.log(`📝 TEXT MATCH: ${card.name} gets +20 fallback bonus for ${userTag}`);
+              this.log(`📝 TEXT MATCH: ${card.name} gets +80 EXTREME fallback bonus for ${userTag}`);
             }
           }
           
-          // Even fallback gets progressive bonus
+          // Even fallback gets MAJOR progressive bonus
           if (totalTagMatches >= 2) {
-            const fallbackMultiBonus = totalTagMatches * 12;
+            const fallbackMultiBonus = totalTagMatches * 50;
             themeBonus += fallbackMultiBonus;
-            this.log(`📈 FALLBACK MULTI-BONUS: ${card.name} gets +${fallbackMultiBonus} for multiple text matches`);
+            this.log(`📈 FALLBACK MULTI-BONUS: ${card.name} gets +${fallbackMultiBonus} MAJOR bonus for multiple text matches`);
           }
         }
       }
