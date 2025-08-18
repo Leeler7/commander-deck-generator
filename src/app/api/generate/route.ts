@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       max_card_price: Math.max(1, constraints.max_card_price || constraints.per_card_cap || 50),
       prefer_cheapest: Boolean(constraints.prefer_cheapest),
       keywords: constraints.keywords || [],
+      keyword_focus: constraints.keyword_focus || [],
       card_type_weights: constraints.card_type_weights || {
         creatures: 5,
         artifacts: 5,

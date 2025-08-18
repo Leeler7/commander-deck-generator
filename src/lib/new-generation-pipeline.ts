@@ -1045,6 +1045,14 @@ export class NewDeckGenerator {
     const userKeywords = constraints.keyword_focus || [];
     const userTags = constraints.keywords || []; // New tag-based themes
     
+    this.log(`🔍 THEME PROCESSING: ${userKeywords.length} keywords, ${userTags.length} tags`);
+    if (userKeywords.length > 0) {
+      this.log(`🔍 KEYWORDS: ${userKeywords.join(', ')}`);
+    }
+    if (userTags.length > 0) {
+      this.log(`🏷️ TAGS: ${userTags.join(', ')}`);
+    }
+    
     // If no themes specified, return cards unchanged
     if (userKeywords.length === 0 && userTags.length === 0) {
       return cards.map(card => ({ ...card, finalScore: card.synergyScore }));
@@ -1057,6 +1065,7 @@ export class NewDeckGenerator {
       
       // Enhanced keyword processing - apply strong bonuses like tags
       if (userKeywords.length > 0) {
+        this.log(`🔍 PROCESSING KEYWORDS for ${card.name}: ${userKeywords.join(', ')}`);
         let keywordMatches = 0;
         const cardText = (card.oracle_text || '').toLowerCase();
         const cardType = card.type_line.toLowerCase();
