@@ -453,63 +453,73 @@ export class ServerCardDatabase {
     try {
       const baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-database/main';
       
-      console.log(`🌐 Loading sync status from: ${baseUrl}/database/sync-status.json`);
+      console.log(`🌐 Loading manifest from: ${baseUrl}/database/chunks/manifest.json`);
+      const manifestResponse = await fetch(`${baseUrl}/database/chunks/manifest.json`);
+      if (!manifestResponse.ok) {
+        throw new Error(`Manifest fetch failed: ${manifestResponse.status}`);
+      }
+      const manifest = await manifestResponse.json();
+      
+      console.log(`📦 Database has ${manifest.totalCards} cards in ${manifest.totalChunks} chunks`);
+
+      // Load sync status
+      console.log(`🌐 Loading sync status...`);
       const statusResponse = await fetch(`${baseUrl}/database/sync-status.json`);
-      if (!statusResponse.ok) {
-        throw new Error(`Status fetch failed: ${statusResponse.status}`);
+      if (statusResponse.ok) {
+        const syncStatus = await statusResponse.json();
+        this.syncStatus = { ...this.syncStatus, ...syncStatus };
       }
-      const syncStatus = await statusResponse.json();
 
-      console.log(`🌐 Loading compressed name index from: ${baseUrl}/database/name-index.json.gz`);
+      // Load name index
+      console.log(`🌐 Loading name index...`);
       const indexResponse = await fetch(`${baseUrl}/database/name-index.json.gz`);
-      if (!indexResponse.ok) {
-        throw new Error(`Index fetch failed: ${indexResponse.status}`);
+      if (indexResponse.ok) {
+        const indexObject = await indexResponse.json();
+        this.nameIndex = new Map(Object.entries(indexObject));
       }
-      const indexObject = await indexResponse.json();
 
-      console.log(`🌐 Starting chunked loading of cards from: ${baseUrl}/database/cards.json.gz`);
-      const cardsResponse = await fetch(`${baseUrl}/database/cards.json.gz`);
-      if (!cardsResponse.ok) {
-        throw new Error(`Cards fetch failed: ${cardsResponse.status}`);
-      }
-      
-      // Get the full card data
-      const fullCardObject = await cardsResponse.json();
-      const cardEntries = Object.entries(fullCardObject);
-      
-      console.log(`📦 Processing ${cardEntries.length} cards in chunks of 1000...`);
-      
       // Load cards in chunks to avoid memory issues
-      const CHUNK_SIZE = 1000;
       this.cards = new Map();
+      let totalLoaded = 0;
       
-      for (let i = 0; i < cardEntries.length; i += CHUNK_SIZE) {
-        const chunk = cardEntries.slice(i, i + CHUNK_SIZE);
+      for (let i = 0; i < manifest.totalChunks; i++) {
+        const chunkUrl = `${baseUrl}/database/chunks/cards-chunk-${i}.json.gz`;
+        console.log(`📊 Loading chunk ${i + 1}/${manifest.totalChunks}...`);
         
-        // Process chunk
-        for (const [id, card] of chunk) {
-          this.cards.set(id, card as any);
-        }
-        
-        // Progress logging
-        const processed = Math.min(i + CHUNK_SIZE, cardEntries.length);
-        console.log(`📊 Loaded ${processed}/${cardEntries.length} cards (${Math.round((processed/cardEntries.length)*100)}%)`);
-        
-        // Small delay to allow garbage collection
-        if (i + CHUNK_SIZE < cardEntries.length) {
-          await new Promise(resolve => setTimeout(resolve, 10));
+        try {
+          const chunkResponse = await fetch(chunkUrl);
+          if (!chunkResponse.ok) {
+            console.error(`❌ Failed to load chunk ${i}: ${chunkResponse.status}`);
+            continue;
+          }
+          
+          const chunkData = await chunkResponse.json();
+          
+          // Add cards to map
+          for (const [id, card] of Object.entries(chunkData)) {
+            this.cards.set(id, card as any);
+            totalLoaded++;
+          }
+          
+          console.log(`✅ Loaded chunk ${i + 1}: ${Object.keys(chunkData).length} cards (Total: ${totalLoaded}/${manifest.totalCards})`);
+          
+          // Small delay between chunks to avoid overwhelming memory
+          if (i < manifest.totalChunks - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+        } catch (chunkError) {
+          console.error(`❌ Error loading chunk ${i}:`, chunkError);
         }
       }
 
-      // Load name index and sync status
-      this.nameIndex = new Map(Object.entries(indexObject));
-      this.syncStatus = { ...this.syncStatus, ...syncStatus, total_cards: this.cards.size };
-
-      console.log(`✅ Successfully loaded ${this.cards.size} cards using chunked loading`);
-      return true;
+      this.syncStatus.total_cards = this.cards.size;
+      console.log(`✅ Successfully loaded ${this.cards.size} cards from ${manifest.totalChunks} chunks`);
+      
+      return this.cards.size > 0;
 
     } catch (error) {
-      console.error('❌ Failed to load from public URL:', error);
+      console.error('❌ Failed to load from chunked database:', error);
       return false;
     }
   }
