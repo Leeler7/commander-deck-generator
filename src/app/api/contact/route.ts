@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
+
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,16 +36,37 @@ export async function POST(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') || 'unknown'
     });
 
-    // For now, we'll just log the message. In the future, you could:
-    // 1. Send an email using a service like SendGrid, Resend, or Nodemailer
-    // 2. Save to a database
-    // 3. Send to a webhook or notification service
+    // Send email using Resend
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const emailData = await resend.emails.send({
+          from: 'contact@bigdeckenergy.org', // This will need to be configured in Resend
+          to: ['help@bigdeckenergy.org'],
+          subject: `Contact Form: ${subject}`,
+          html: `
+            <h2>New Contact Form Submission</h2>
+            <p><strong>From:</strong> ${name} &lt;${email}&gt;</p>
+            <p><strong>Subject:</strong> ${subject}</p>
+            <p><strong>Message:</strong></p>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
+              ${message.replace(/\n/g, '<br>')}
+            </div>
+            <hr>
+            <p style="color: #666; font-size: 12px;">
+              Sent via Big Deck Energy contact form at ${new Date().toISOString()}
+            </p>
+          `,
+          text: `New Contact Form Submission\n\nFrom: ${name} <${email}>\nSubject: ${subject}\n\nMessage:\n${message}\n\nSent via Big Deck Energy contact form at ${new Date().toISOString()}`
+        });
 
-    console.log('📧 CONTACT MESSAGE:');
-    console.log(`From: ${name} <${email}>`);
-    console.log(`Subject: ${subject}`);
-    console.log(`Message: ${message}`);
-    console.log('---');
+        console.log('✅ Email sent successfully:', emailData);
+      } catch (emailError) {
+        console.error('❌ Failed to send email:', emailError);
+        // Continue anyway - don't fail the request if email fails
+      }
+    } else {
+      console.log('⚠️ RESEND_API_KEY not configured - email not sent');
+    }
 
     // Return success response
     return NextResponse.json({
