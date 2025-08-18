@@ -426,14 +426,13 @@ export class ServerCardDatabase {
         return;
       }
 
-      // Only if no local files exist, try GitHub fallback
-      console.log('🌐 No local database found, trying GitHub fallback...');
+      // Only if no local files exist, try GitHub chunked database
       const githubLoaded = await this.loadFromPublicURL();
       if (githubLoaded) {
         return;
       }
 
-      console.log('❌ Failed to load database from any source');
+      console.error('❌ Failed to load database from any source');
     } catch (error) {
       console.error('Error loading database:', error);
     }
