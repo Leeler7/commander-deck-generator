@@ -417,39 +417,92 @@ export class ServerCardDatabase {
 
   private async loadFromFiles(): Promise<void> {
     try {
-      // Always try external GitHub database first
-      console.log('🌐 Loading database from external GitHub repository...');
-      const loaded = await this.loadFromPublicURL();
-      if (loaded) {
-        console.log('✅ Successfully loaded database from GitHub');
+      // First try local files (dev data/ directory or production public/database/)
+      const localLoaded = await this.loadFromLocalFiles();
+      if (localLoaded) {
         return;
       }
-      console.log('⚠️ Failed to load from GitHub, falling back to local files...');
 
-      // Load sync status
-      if (fs.existsSync(STATUS_FILE)) {
-        const statusData = fs.readFileSync(STATUS_FILE, 'utf8');
-        this.syncStatus = JSON.parse(statusData);
+      // Only if no local files exist, try GitHub fallback
+      console.log('🌐 No local database found, trying GitHub fallback...');
+      const githubLoaded = await this.loadFromPublicURL();
+      if (githubLoaded) {
+        return;
       }
 
-      // Load cards
+      console.log('❌ Failed to load database from any source');
+    } catch (error) {
+      console.error('Error loading database:', error);
+    }
+  }
+
+  private async loadFromLocalFiles(): Promise<boolean> {
+    try {
+      // Check for local data directory first (development)
       if (fs.existsSync(CARDS_FILE)) {
+        console.log('📁 Loading from local data directory...');
+        
+        // Load sync status
+        if (fs.existsSync(STATUS_FILE)) {
+          const statusData = fs.readFileSync(STATUS_FILE, 'utf8');
+          this.syncStatus = JSON.parse(statusData);
+        }
+
+        // Load cards
         const cardsData = fs.readFileSync(CARDS_FILE, 'utf8');
         const cardObject = JSON.parse(cardsData);
         this.cards = new Map(Object.entries(cardObject));
+
+        // Load name index
+        if (fs.existsSync(NAME_INDEX_FILE)) {
+          const indexData = fs.readFileSync(NAME_INDEX_FILE, 'utf8');
+          const indexObject = JSON.parse(indexData);
+          this.nameIndex = new Map(Object.entries(indexObject));
+        }
+
+        this.syncStatus.total_cards = this.cards.size;
+        console.log(`✅ Loaded ${this.cards.size} cards from local files`);
+        return true;
       }
 
-      // Load name index
-      if (fs.existsSync(NAME_INDEX_FILE)) {
-        const indexData = fs.readFileSync(NAME_INDEX_FILE, 'utf8');
-        const indexObject = JSON.parse(indexData);
-        this.nameIndex = new Map(Object.entries(indexObject));
+      // Check for public database directory (production builds)
+      const publicDbPath = path.join(process.cwd(), 'public', 'database');
+      const publicCardsFile = path.join(publicDbPath, 'cards.json.gz');
+      const publicIndexFile = path.join(publicDbPath, 'name-index.json.gz');
+      const publicStatusFile = path.join(publicDbPath, 'sync-status.json');
+
+      if (fs.existsSync(publicCardsFile)) {
+        console.log('📦 Loading from public database directory...');
+
+        // Load sync status
+        if (fs.existsSync(publicStatusFile)) {
+          const statusData = fs.readFileSync(publicStatusFile, 'utf8');
+          this.syncStatus = JSON.parse(statusData);
+        }
+
+        // Load cards (gzipped)
+        const compressedCardsData = fs.readFileSync(publicCardsFile);
+        const decompressedCardsData = await gunzip(compressedCardsData);
+        const cardObject = JSON.parse(decompressedCardsData.toString());
+        this.cards = new Map(Object.entries(cardObject));
+
+        // Load name index (gzipped)
+        if (fs.existsSync(publicIndexFile)) {
+          const compressedIndexData = fs.readFileSync(publicIndexFile);
+          const decompressedIndexData = await gunzip(compressedIndexData);
+          const indexObject = JSON.parse(decompressedIndexData.toString());
+          this.nameIndex = new Map(Object.entries(indexObject));
+        }
+
+        this.syncStatus.total_cards = this.cards.size;
+        console.log(`✅ Loaded ${this.cards.size} cards from public database`);
+        return true;
       }
 
-      // Update total cards count
-      this.syncStatus.total_cards = this.cards.size;
+      return false;
     } catch (error) {
-      console.error('Error loading from files:', error);
+      console.error('Error loading from local files:', error);
+      return false;
     }
   }
 
