@@ -466,16 +466,8 @@ export class ServerCardDatabase {
       // Try to load from public database files (gzipped for size)
       let baseUrl = 'http://localhost:3000';
       
-      if (process.env.VERCEL_URL) {
-        baseUrl = `https://${process.env.VERCEL_URL}`;
-      } else if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-        baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-      } else if (process.env.RAILWAY_STATIC_URL) {
-        baseUrl = process.env.RAILWAY_STATIC_URL;
-      } else if (process.env.NODE_ENV === 'production') {
-        // Default to Railway domain for production
-        baseUrl = 'https://commander-deck-generator-production.up.railway.app';
-      }
+      // Use external GitHub raw files for reliable database hosting
+      baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-database/main';
       
       console.log(`🌐 Loading compressed cards from: ${baseUrl}/database/cards.json.gz`);
       const cardsResponse = await fetch(`${baseUrl}/database/cards.json.gz`);
