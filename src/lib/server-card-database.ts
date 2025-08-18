@@ -451,41 +451,61 @@ export class ServerCardDatabase {
 
   private async loadFromPublicURL(): Promise<boolean> {
     try {
-      // Try to load from public database files (gzipped for size)
-      let baseUrl = 'http://localhost:3000';
+      const baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-database/main';
       
-      // Use external GitHub raw files for reliable database hosting
-      baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-database/main';
-      
-      console.log(`🌐 Loading compressed cards from: ${baseUrl}/database/cards.json.gz`);
-      const cardsResponse = await fetch(`${baseUrl}/database/cards.json.gz`);
-      if (!cardsResponse.ok) {
-        throw new Error(`Cards fetch failed: ${cardsResponse.status}`);
-      }
-      
-      console.log(`🌐 Loading compressed name index from: ${baseUrl}/database/name-index.json.gz`);
-      const indexResponse = await fetch(`${baseUrl}/database/name-index.json.gz`);
-      if (!indexResponse.ok) {
-        throw new Error(`Index fetch failed: ${indexResponse.status}`);
-      }
-
       console.log(`🌐 Loading sync status from: ${baseUrl}/database/sync-status.json`);
       const statusResponse = await fetch(`${baseUrl}/database/sync-status.json`);
       if (!statusResponse.ok) {
         throw new Error(`Status fetch failed: ${statusResponse.status}`);
       }
-
-      // Parse the data (fetch automatically decompresses gzip)
-      const cardObject = await cardsResponse.json();
-      const indexObject = await indexResponse.json();
       const syncStatus = await statusResponse.json();
 
-      // Load into memory
-      this.cards = new Map(Object.entries(cardObject));
+      console.log(`🌐 Loading compressed name index from: ${baseUrl}/database/name-index.json.gz`);
+      const indexResponse = await fetch(`${baseUrl}/database/name-index.json.gz`);
+      if (!indexResponse.ok) {
+        throw new Error(`Index fetch failed: ${indexResponse.status}`);
+      }
+      const indexObject = await indexResponse.json();
+
+      console.log(`🌐 Starting chunked loading of cards from: ${baseUrl}/database/cards.json.gz`);
+      const cardsResponse = await fetch(`${baseUrl}/database/cards.json.gz`);
+      if (!cardsResponse.ok) {
+        throw new Error(`Cards fetch failed: ${cardsResponse.status}`);
+      }
+      
+      // Get the full card data
+      const fullCardObject = await cardsResponse.json();
+      const cardEntries = Object.entries(fullCardObject);
+      
+      console.log(`📦 Processing ${cardEntries.length} cards in chunks of 1000...`);
+      
+      // Load cards in chunks to avoid memory issues
+      const CHUNK_SIZE = 1000;
+      this.cards = new Map();
+      
+      for (let i = 0; i < cardEntries.length; i += CHUNK_SIZE) {
+        const chunk = cardEntries.slice(i, i + CHUNK_SIZE);
+        
+        // Process chunk
+        for (const [id, card] of chunk) {
+          this.cards.set(id, card as any);
+        }
+        
+        // Progress logging
+        const processed = Math.min(i + CHUNK_SIZE, cardEntries.length);
+        console.log(`📊 Loaded ${processed}/${cardEntries.length} cards (${Math.round((processed/cardEntries.length)*100)}%)`);
+        
+        // Small delay to allow garbage collection
+        if (i + CHUNK_SIZE < cardEntries.length) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+
+      // Load name index and sync status
       this.nameIndex = new Map(Object.entries(indexObject));
       this.syncStatus = { ...this.syncStatus, ...syncStatus, total_cards: this.cards.size };
 
-      console.log(`✅ Loaded ${this.cards.size} cards from compressed public files`);
+      console.log(`✅ Successfully loaded ${this.cards.size} cards using chunked loading`);
       return true;
 
     } catch (error) {
