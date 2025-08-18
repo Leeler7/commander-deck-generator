@@ -26,7 +26,9 @@ export async function GET() {
       if (card.mechanics?.mechanicTags) {
         totalTagsOnCards += card.mechanics.mechanicTags.length;
         card.mechanics.mechanicTags.forEach(tag => {
-          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+          // Handle both string tags and object tags
+          const tagName = typeof tag === 'string' ? tag : (tag?.name || String(tag));
+          tagCounts.set(tagName, (tagCounts.get(tagName) || 0) + 1);
         });
       }
     });
