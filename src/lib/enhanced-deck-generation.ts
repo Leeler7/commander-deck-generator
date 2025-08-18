@@ -50,7 +50,7 @@ export class EnhancedDeckGenerator {
 
   private log(message: string): void {
     if (this.verbose) {
-      this.log(message);
+      console.log(message);
     }
   }
   
