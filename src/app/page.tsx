@@ -7,6 +7,24 @@ import { ScryfallCard, GeneratedDeck, GenerationConstraints } from '@/lib/types'
 const getScryfallUrl = (cardName: string): string => {
   return `https://scryfall.com/search?q=!"${encodeURIComponent(cardName)}"`;
 };
+
+// Helper function to get card image (handles double-faced cards)
+const getCardImageUrl = (card: any): string | null => {
+  // For double-faced cards, check card_faces first
+  if (card.card_faces && Array.isArray(card.card_faces) && card.card_faces.length > 0) {
+    const frontFace = card.card_faces[0]; // Always use front face
+    if (frontFace.image_uris) {
+      return frontFace.image_uris.large || frontFace.image_uris.normal || frontFace.image_uris.small;
+    }
+  }
+  
+  // For single-faced cards, use the regular image_uris
+  if (card.image_uris) {
+    return card.image_uris.large || card.image_uris.normal || card.image_uris.small;
+  }
+  
+  return null;
+};
 import CommanderInput from '@/components/CommanderInput';
 import BudgetPowerControls from '@/components/BudgetPowerControls';
 import DeckList from '@/components/DeckList';
@@ -183,15 +201,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      {/* Header - Fixed/Non-scrollable */}
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Big Deck Energy
+            <h1 className="text-5xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
+              BIG DECK ENERGY
             </h1>
-            <p className="mt-2 text-lg text-gray-600">
-              A Commander Deck Generator
+            <p className="mt-2 text-2xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+              GENERATE A MEDIOCRE COMMANDER DECK AT INSTANT SPEED.
             </p>
           </div>
         </div>
@@ -203,8 +221,8 @@ export default function Home() {
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-8">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                  Build Your Deck
+                <h2 className="text-3xl text-black mb-6" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+                  BUILD YOUR DECK
                 </h2>
                 
                 {/* Commander Input */}
@@ -221,9 +239,9 @@ export default function Home() {
                 {selectedCommander && (
                   <div className="mb-8 p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-4">
-                      {selectedCommander.image_uris && (
+                      {getCardImageUrl(selectedCommander) && (
                         <img
-                          src={selectedCommander.image_uris.small}
+                          src={getCardImageUrl(selectedCommander)!}
                           alt={selectedCommander.name}
                           className="w-16 h-16 rounded-lg object-cover"
                         />
@@ -297,12 +315,12 @@ export default function Home() {
                     {isRandomizing || isGenerating ? (
                       <div className="flex items-center space-x-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>
-                          {isRandomizing ? 'Finding Commander...' : 'Generating Deck...'}
+                        <span style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+                          {isRandomizing ? 'FINDING COMMANDER...' : 'GENERATING DECK...'}
                         </span>
                       </div>
                     ) : (
-                      '🎲 Random Deck'
+                      <span style={{fontFamily: 'Impact, "Arial Black", sans-serif'}}>🎲 RANDOM DECK</span>
                     )}
                   </button>
                 </div>
@@ -322,10 +340,10 @@ export default function Home() {
                   {isGenerating ? (
                     <div className="flex items-center space-x-2">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span>Generating Deck...</span>
+                      <span style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>GENERATING DECK...</span>
                     </div>
                   ) : (
-                    'Generate Deck'
+                    <span style={{fontFamily: 'Impact, "Arial Black", sans-serif'}}>GENERATE DECK</span>
                   )}
                 </button>
               </div>
@@ -353,7 +371,7 @@ export default function Home() {
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                Generate Another Deck
+                <span style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>Generate Another Deck</span>
               </button>
             </div>
 
@@ -368,13 +386,13 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Commander Display (moved here) */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Your Commander</h3>
+                <h3 className="text-2xl text-black mb-4" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>YOUR COMMANDER</h3>
                 <div className="flex flex-col lg:flex-row gap-6">
                   {/* Card Image */}
                   <div className="flex-shrink-0">
-                    {generatedDeck.commander.image_uris ? (
+                    {getCardImageUrl(generatedDeck.commander) ? (
                       <img
-                        src={generatedDeck.commander.image_uris.large || generatedDeck.commander.image_uris.normal}
+                        src={getCardImageUrl(generatedDeck.commander)!}
                         alt={generatedDeck.commander.name}
                         className="w-48 h-auto rounded-lg shadow-md mx-auto lg:mx-0"
                       />
@@ -460,7 +478,7 @@ export default function Home() {
 
               {/* Generation Settings */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Generation Settings</h3>
+                <h3 className="text-2xl text-black mb-4" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>GENERATION SETTINGS</h3>
                 <div className="space-y-4">
                   {/* Card Type Weights */}
                   <div>
@@ -498,7 +516,7 @@ export default function Home() {
                     (constraints.keywords && constraints.keywords.length > 0)) && (
                     <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-200">
                       <div className="flex items-center mb-3">
-                        <h4 className="text-sm font-bold text-gray-800">🎯 Selected Themes & Keywords</h4>
+                        <h4 className="text-lg text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>🎯 SELECTED THEMES & KEYWORDS</h4>
                         <span className="ml-2 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
                           HEAVILY PRIORITIZED
                         </span>
