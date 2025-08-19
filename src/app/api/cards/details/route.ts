@@ -15,14 +15,22 @@ export async function GET(request: NextRequest) {
     
     console.log(`🔍 API: Loading details for card: ${cardName}`);
     
-    // Find exact match first
+    // Find exact match first using getCardByName
     let card;
     try {
-      card = await database.getCardById ? await database.getCardById(cardName) : null;
+      // Use getCardByName if available, otherwise fallback to search
+      if (database.getCardByName) {
+        card = await database.getCardByName(cardName);
+      } else {
+        // Fallback to search by name
+        const searchResults = await database.searchByName(cardName, 1);
+        card = searchResults.find((c: any) => c.name === cardName) || null;
+      }
     } catch (error) {
-      // If getCardById fails or doesn't exist, try search by name
+      console.error('Error in card lookup:', error);
+      // If both methods fail, try search by name as last resort
       const searchResults = await database.searchByName(cardName, 1);
-      card = searchResults.length > 0 ? searchResults[0] : null;
+      card = searchResults.find((c: any) => c.name === cardName) || null;
     }
     
     if (!card) {
