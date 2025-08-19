@@ -4,7 +4,7 @@ import { serverCardDatabase } from '@/lib/server-card-database';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '1000'), 5000);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '5000'), 50000);
     const search = searchParams.get('search') || '';
     
     console.log(`📋 API: Loading cards with limit=${limit}, search="${search}"`);

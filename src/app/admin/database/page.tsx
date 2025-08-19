@@ -48,7 +48,7 @@ export default function DatabaseExplorerPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/cards?limit=1000');
+      const response = await fetch('/api/cards?limit=50000');
       if (!response.ok) {
         throw new Error(`Failed to load cards: ${response.statusText}`);
       }
@@ -145,8 +145,9 @@ export default function DatabaseExplorerPage() {
             />
             
             <p style={{fontSize: '12px', color: '#666', marginBottom: '15px'}}>
-              Showing {filteredCards.length} cards
-              {searchTerm && ` matching "${searchTerm}"`}
+              {loading ? 'Loading all cards from database...' : 
+                `Showing ${filteredCards.length} of ${cards.length} total cards`}
+              {searchTerm && !loading && ` matching "${searchTerm}"`}
             </p>
             
             <div style={{maxHeight: '400px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '4px'}}>
