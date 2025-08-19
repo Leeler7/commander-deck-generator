@@ -528,7 +528,7 @@ export class ServerCardDatabase {
 
   private async loadFromPublicURL(): Promise<boolean> {
     try {
-      const baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-database/main';
+      const baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-generator/main/public';
       
       console.log(`🌐 Loading manifest from: ${baseUrl}/database/chunks/manifest.json`);
       const manifestResponse = await fetch(`${baseUrl}/database/chunks/manifest.json`);

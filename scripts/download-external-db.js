@@ -22,7 +22,7 @@ async function downloadExternalDatabase() {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     
-    const baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-database/main';
+    const baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-generator/main/public';
     
     // Download manifest
     console.log('📥 Downloading manifest...');
