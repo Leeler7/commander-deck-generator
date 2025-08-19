@@ -82,24 +82,32 @@ export class SupabaseCardDatabase {
   }
   
   async getCardById(id: string) {
+    // First try the basic cards table
     const { data, error } = await supabase
-      .from('cards_with_tags')
+      .from('cards')
       .select('*')
       .eq('id', id)
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error getting card by ID:', error);
+      throw error;
+    }
     return data;
   }
   
   async getCardByName(name: string) {
+    // First try the basic cards table
     const { data, error } = await supabase
-      .from('cards_with_tags')
+      .from('cards')
       .select('*')
       .eq('name', name)
       .single();
     
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error getting card by name:', error);
+      throw error;
+    }
     return data || null;
   }
   
