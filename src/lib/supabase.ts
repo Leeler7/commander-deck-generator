@@ -113,7 +113,7 @@ export class SupabaseCardDatabase {
     functionalRoles?: string[];
     archetypes?: string[];
     powerLevel?: { min?: number; max?: number };
-  }, limit: number = 50) {
+  }, limit: number = 5000) {
     
     let query = supabase.from('cards').select(`
       id, name, mana_cost, cmc, type_line, oracle_text, 
@@ -170,9 +170,8 @@ export class SupabaseCardDatabase {
   async getAllCards(limit?: number) {
     let query = supabase.from('cards').select('*');
     
-    if (limit) {
-      query = query.limit(limit);
-    }
+    // Set a high default limit to get all cards, or use specified limit
+    query = query.limit(limit || 50000);
     
     const { data, error } = await query;
     if (error) throw error;

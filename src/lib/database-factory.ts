@@ -1,12 +1,5 @@
 // Database factory to switch between file-based and Supabase databases
 import { supabaseDb } from './supabase';
-import { 
-  searchCardsByName as fileSearchByName,
-  getCardById as fileGetCardById,
-  searchCardsByFilters as fileSearchByFilters,
-  getAllCards as fileGetAllCards,
-  getAvailableTags as fileGetAvailableTags
-} from './server-card-database';
 
 export type DatabaseType = 'file' | 'supabase';
 
@@ -29,36 +22,46 @@ export interface DatabaseInterface {
 }
 
 class FileDatabase implements DatabaseInterface {
+  private async getServerDatabase() {
+    const { serverCardDatabase } = await import('./server-card-database');
+    await serverCardDatabase.initialize();
+    return serverCardDatabase;
+  }
+
   async searchByName(query: string, limit = 20) {
-    return await fileSearchByName(query, limit);
+    const db = await this.getServerDatabase();
+    return db.searchByName(query, limit);
   }
   
   async getCardById(id: string) {
-    return await fileGetCardById(id);
+    const db = await this.getServerDatabase();
+    return db.getCardById(id);
   }
   
   async getCardByName(name: string) {
-    // File database doesn't have getCardByName, so use search
-    const results = await this.searchByName(name, 1);
-    return results.find(card => card.name === name) || null;
+    const db = await this.getServerDatabase();
+    return db.getCardByName ? db.getCardByName(name) : 
+           db.searchByName(name, 1).find((card: any) => card.name === name) || null;
   }
   
   async searchByFilters(filters: any, limit = 50) {
-    return await fileSearchByFilters(filters, limit);
+    const db = await this.getServerDatabase();
+    return db.searchByFilters(filters, limit);
   }
   
   async getAllCards(limit?: number) {
-    return await fileGetAllCards(limit);
+    const db = await this.getServerDatabase();
+    return db.getAllCards ? db.getAllCards(limit) : db.searchByFilters({}, limit || 50000);
   }
   
   async getAvailableTags() {
-    return await fileGetAvailableTags();
+    const db = await this.getServerDatabase();
+    return db.getAvailableTags ? db.getAvailableTags() : [];
   }
   
   // File-specific methods that can be accessed directly
   async initialize() {
-    const { serverCardDatabase } = await import('./server-card-database');
-    return await serverCardDatabase.initialize();
+    return await this.getServerDatabase();
   }
   
   stats() {
