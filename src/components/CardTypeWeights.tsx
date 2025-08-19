@@ -103,7 +103,7 @@ export default function CardTypeWeightsComponent({ weights, onChange }: CardType
               id={`weight-${cardType}`}
               type="range"
               min="0"
-              max="10"
+              max={cardType === 'planeswalkers' ? "20" : "10"}
               step="1"
               value={weights[cardType]}
               onChange={(e) => updateWeight(cardType, parseInt(e.target.value))}
@@ -112,8 +112,8 @@ export default function CardTypeWeightsComponent({ weights, onChange }: CardType
 
             <div className="flex justify-between text-xs text-gray-400">
               <span>0</span>
-              <span>5</span>
-              <span>10</span>
+              <span>{cardType === 'planeswalkers' ? '10' : '5'}</span>
+              <span>{cardType === 'planeswalkers' ? '20' : '10'}</span>
             </div>
 
             <div className="text-xs">
@@ -143,7 +143,7 @@ export default function CardTypeWeightsComponent({ weights, onChange }: CardType
             <p className="font-medium mb-1">Planeswalkers (Exact Count):</p>
             <ul className="space-y-1">
               <li>• <strong>0:</strong> No planeswalkers in the deck</li>
-              <li>• <strong>1-10:</strong> Exactly that many planeswalkers will be included</li>
+              <li>• <strong>1-20:</strong> Exactly that many planeswalkers will be included</li>
             </ul>
           </div>
         </div>
