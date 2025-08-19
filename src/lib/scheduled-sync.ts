@@ -23,15 +23,13 @@ export function startScheduledSync() {
   // Check every 6 hours (6 * 60 * 60 * 1000 = 21600000ms)
   syncInterval = setInterval(async () => {
     try {
-      await serverCardDatabase.initialize();
-      
-      if (serverCardDatabase.needsSync()) {
-        const status = serverCardDatabase.getStatus();
+      if (await database.needsSync()) {
+        const status = await database.getStatus();
         
         // Don't start if sync is already in progress
         if (!status.sync_in_progress) {
           console.log('Starting scheduled database sync...');
-          await serverCardDatabase.performFullSync();
+          await database.performFullSync();
           console.log('Scheduled database sync completed');
         } else {
           console.log('Skipping scheduled sync - sync already in progress');

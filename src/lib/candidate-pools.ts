@@ -58,8 +58,6 @@ export class CandidatePoolBuilder {
     console.log('🏗️ Building candidate pools...');
     
     // Initialize database
-    await serverCardDatabase.initialize();
-    
     // Step 1: Get base candidate set (color identity + legality filtered)
     const baseCandidates = await this.getBaseCandidates(commander);
     console.log(`📋 Base candidates: ${baseCandidates.length} cards`);
@@ -88,7 +86,7 @@ export class CandidatePoolBuilder {
    */
   private async getBaseCandidates(commander: ScryfallCard): Promise<LocalCardData[]> {
     // Search database for cards matching commander's color identity
-    const candidates = serverCardDatabase.searchByFilters({
+    const candidates = await database.searchByFilters({
       colorIdentity: commander.color_identity,
       legal_in_commander: true
     }, 10000); // Large limit to get comprehensive pool

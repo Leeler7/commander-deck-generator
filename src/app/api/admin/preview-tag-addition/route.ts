@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +14,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`🔍 Previewing tag addition: "${tagName}" with criteria:`, criteria);
     
-    await serverCardDatabase.initialize();
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     
     let matchingCards = [];
     

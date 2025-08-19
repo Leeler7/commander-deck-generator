@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET(request: NextRequest) {
   try {
     // Initialize database if not already done
-    await serverCardDatabase.initialize();
-    
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
     
@@ -16,7 +14,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const results = serverCardDatabase.searchByName(query, 10);
+    const results = await database.searchByName(query, 10);
     
     return NextResponse.json({
       query,

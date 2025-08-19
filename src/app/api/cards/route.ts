@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,15 +9,13 @@ export async function GET(request: NextRequest) {
     
     console.log(`📋 API: Loading cards with limit=${limit}, search="${search}"`);
     
-    await serverCardDatabase.initialize();
-    
     let cards;
     if (search) {
       // Search by name/text if query provided
-      cards = serverCardDatabase.searchByName(search, limit);
+      cards = await database.searchByName(search, limit);
     } else {
       // Get all cards (limited for performance)
-      cards = serverCardDatabase.searchByFilters({}, limit);
+      cards = await database.searchByFilters({}, limit);
     }
     
     console.log(`✅ API: Returning ${cards.length} cards`);

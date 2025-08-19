@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +14,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`📋 Previewing removal of ${tags.length} tags...`);
     
-    await serverCardDatabase.initialize();
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     
     // Find affected cards
     const affectedCards = [];

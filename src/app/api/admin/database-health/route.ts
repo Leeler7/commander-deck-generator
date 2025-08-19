@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET() {
   try {
     console.log('🏥 API: Running database health check...');
     
-    await serverCardDatabase.initialize();
-    
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     const totalCards = allCards.length;
     const validCards = allCards.filter(card => card.name && card.type_line).length;
     const cardsWithMechanics = allCards.filter(card => card.mechanics && card.mechanics.mechanicTags?.length > 0).length;

@@ -1,0 +1,249 @@
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase configuration
+const SUPABASE_URL = 'https://bykbnagijmxtfpkaflae.supabase.co';
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Create Supabase client
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Database types
+export interface CardRecord {
+  id: string;
+  name: string;
+  mana_cost?: string;
+  cmc: number;
+  type_line: string;
+  oracle_text?: string;
+  flavor_text?: string;
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
+  color_identity: string[];
+  colors: string[];
+  keywords: string[];
+  set_code: string;
+  set_name: string;
+  rarity: string;
+  collector_number: string;
+  legalities: Record<string, string>;
+  prices: Record<string, string | null>;
+  edhrec_rank?: number;
+  image_uris: Record<string, string>;
+  last_updated: string;
+  scryfall_uri: string;
+  primary_type: string;
+  functional_roles: string[];
+  synergy_keywords: string[];
+  power_level: number;
+  archetype_relevance: string[];
+  last_analyzed?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CardTagRecord {
+  id: string;
+  card_id: string;
+  tag_name: string;
+  tag_category?: string;
+  confidence?: number;
+  priority?: number;
+  evidence: string[];
+  is_manual: boolean;
+  created_at: string;
+}
+
+export interface DatabaseSyncStatusRecord {
+  id: string;
+  last_full_sync?: string;
+  last_incremental_sync?: string;
+  total_cards: number;
+  sync_in_progress: boolean;
+  sync_progress: number;
+  last_error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Database service functions
+export class SupabaseCardDatabase {
+  
+  async searchByName(query: string, limit: number = 20) {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('id, name, type_line, mana_cost, cmc')
+      .or(`name.ilike.%${query}%,oracle_text.ilike.%${query}%`)
+      .order('name')
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
+  }
+  
+  async getCardById(id: string) {
+    const { data, error } = await supabase
+      .from('cards_with_tags')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+  
+  async getCardByName(name: string) {
+    const { data, error } = await supabase
+      .from('cards_with_tags')
+      .select('*')
+      .eq('name', name)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error;
+    return data || null;
+  }
+  
+  async searchByFilters(filters: {
+    colorIdentity?: string[];
+    query?: string;
+    types?: string[];
+    cmc?: { min?: number; max?: number };
+    legal_in_commander?: boolean;
+    mechanics?: string[];
+    functionalRoles?: string[];
+    archetypes?: string[];
+    powerLevel?: { min?: number; max?: number };
+  }, limit: number = 50) {
+    
+    let query = supabase.from('cards').select(`
+      id, name, mana_cost, cmc, type_line, oracle_text, 
+      color_identity, colors, keywords, set_code, set_name, 
+      rarity, power, toughness, loyalty, legalities, prices, 
+      edhrec_rank, image_uris, last_updated, scryfall_uri
+    `);
+    
+    // Color identity filter
+    if (filters.colorIdentity) {
+      query = query.contains('color_identity', filters.colorIdentity);
+    }
+    
+    // Text search
+    if (filters.query) {
+      query = query.or(`name.ilike.%${filters.query}%,oracle_text.ilike.%${filters.query}%`);
+    }
+    
+    // Type filter
+    if (filters.types && filters.types.length > 0) {
+      const typeConditions = filters.types.map(type => `type_line.ilike.%${type}%`);
+      query = query.or(typeConditions.join(','));
+    }
+    
+    // CMC filter
+    if (filters.cmc?.min !== undefined) {
+      query = query.gte('cmc', filters.cmc.min);
+    }
+    if (filters.cmc?.max !== undefined) {
+      query = query.lte('cmc', filters.cmc.max);
+    }
+    
+    // Commander legality
+    if (filters.legal_in_commander) {
+      query = query.eq('legalities->commander', 'legal');
+    }
+    
+    // Power level filter
+    if (filters.powerLevel?.min !== undefined) {
+      query = query.gte('power_level', filters.powerLevel.min);
+    }
+    if (filters.powerLevel?.max !== undefined) {
+      query = query.lte('power_level', filters.powerLevel.max);
+    }
+    
+    query = query.limit(limit);
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    return data || [];
+  }
+  
+  async getAllCards(limit?: number) {
+    let query = supabase.from('cards').select('*');
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    return data || [];
+  }
+  
+  async getAvailableTags() {
+    const { data, error } = await supabase
+      .from('card_tags')
+      .select('tag_name, tag_category, COUNT(*) as count')
+      .group('tag_name, tag_category')
+      .order('count', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  }
+  
+  async addTagToCards(tagName: string, cardIds: string[]) {
+    const tagRecords = cardIds.map(cardId => ({
+      card_id: cardId,
+      tag_name: tagName,
+      tag_category: 'manual',
+      confidence: 1.0,
+      priority: 5,
+      evidence: [],
+      is_manual: true
+    }));
+    
+    const { data, error } = await supabase
+      .from('card_tags')
+      .insert(tagRecords);
+    
+    if (error) throw error;
+    return data;
+  }
+  
+  async removeTagFromCards(tagName: string, cardIds?: string[]) {
+    let query = supabase
+      .from('card_tags')
+      .delete()
+      .eq('tag_name', tagName);
+    
+    if (cardIds) {
+      query = query.in('card_id', cardIds);
+    }
+    
+    const { error } = await query;
+    if (error) throw error;
+  }
+  
+  async getSyncStatus() {
+    const { data, error } = await supabase
+      .from('database_sync_status')
+      .select('*')
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+  
+  async updateSyncStatus(status: Partial<DatabaseSyncStatusRecord>) {
+    const { data, error } = await supabase
+      .from('database_sync_status')
+      .update(status)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+}
+
+// Singleton instance
+export const supabaseDb = new SupabaseCardDatabase();

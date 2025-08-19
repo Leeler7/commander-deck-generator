@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 import { CardMechanicsTagger } from '@/lib/card-mechanics-tagger';
 
 export async function POST(request: NextRequest) {
@@ -15,10 +15,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize the database
-    await serverCardDatabase.initialize();
-    
     // Find the card
-    const cards = serverCardDatabase.searchByName(cardName, 1);
+    const cards = await database.searchByName(cardName, 1);
     if (cards.length === 0) {
       return NextResponse.json(
         { error: 'Card not found' },

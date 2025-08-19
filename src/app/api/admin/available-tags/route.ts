@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CardMechanicsTagger } from '@/lib/card-mechanics-tagger';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET(request: NextRequest) {
   try {
     // Get all available tags by analyzing the tag generation system
     const tagger = new CardMechanicsTagger();
-    await serverCardDatabase.initialize();
-    
     // Get a representative sample of cards to extract all possible tags
-    const sampleCards = serverCardDatabase.searchByFilters({}, 200); // Get up to 200 cards
+    const sampleCards = await database.searchByFilters({}, 200); // Get up to 200 cards
     const allTagsSet = new Set<string>();
     
     console.log(`🏷️ Analyzing ${sampleCards.length} sample cards to extract available tags...`);

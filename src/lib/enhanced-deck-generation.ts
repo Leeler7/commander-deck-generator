@@ -319,7 +319,7 @@ export class EnhancedDeckGenerator {
     this.log(`🏞️ Generating ${landTarget}-card manabase for ${colorIdentity.join('')} identity`);
     
     // Search for lands matching color identity
-    const candidateLands = serverCardDatabase.searchByFilters({
+    const candidateLands = await database.searchByFilters({
       colorIdentity,
       types: ['land'],
       legal_in_commander: true

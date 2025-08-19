@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 import { CardMechanicsTagger } from '@/lib/card-mechanics-tagger';
 import { tagSynergyScorer, CommanderProfile } from '@/lib/tag-based-synergy';
 
@@ -7,8 +7,6 @@ const tagger = new CardMechanicsTagger();
 
 export async function GET(request: NextRequest) {
   try {
-    await serverCardDatabase.initialize();
-    
     const { searchParams } = new URL(request.url);
     const cardName = searchParams.get('card');
     const commanderName = searchParams.get('commander');
@@ -21,7 +19,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get card from database
-    const card = serverCardDatabase.getCardByName(cardName);
+    const card = await database.getCardByName(cardName);
     
     if (!card) {
       return NextResponse.json(
@@ -36,7 +34,7 @@ export async function GET(request: NextRequest) {
     // If commander is specified, calculate synergy
     let synergyInfo = null;
     if (commanderName) {
-      const commander = serverCardDatabase.getCardByName(commanderName);
+      const commander = await database.getCardByName(commanderName);
       
       if (commander) {
         const commanderMechanics = await tagger.analyzeCardEnhanced(commander);
@@ -109,8 +107,6 @@ export async function GET(request: NextRequest) {
 // Helper endpoint to list all tags for a given commander
 export async function POST(request: NextRequest) {
   try {
-    await serverCardDatabase.initialize();
-    
     const body = await request.json();
     const { commander: commanderName, cards: cardNames } = body;
     
@@ -121,7 +117,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const commander = serverCardDatabase.getCardByName(commanderName);
+    const commander = await database.getCardByName(commanderName);
     if (!commander) {
       return NextResponse.json(
         { error: `Commander "${commanderName}" not found` },
@@ -135,7 +131,7 @@ export async function POST(request: NextRequest) {
     // Analyze all cards
     const results = [];
     for (const cardName of cardNames) {
-      const card = serverCardDatabase.getCardByName(cardName);
+      const card = await database.getCardByName(cardName);
       if (!card) continue;
       
       const mechanics = await tagger.analyzeCardEnhanced(card);

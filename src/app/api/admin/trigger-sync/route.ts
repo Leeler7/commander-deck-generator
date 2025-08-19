@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function POST() {
   try {
     console.log('🔄 API: Triggering manual sync...');
     
-    await serverCardDatabase.initialize();
-    
     // Trigger a full sync
-    await serverCardDatabase.performFullSync();
+    await database.performFullSync();
     
-    const finalStatus = serverCardDatabase.getStatus();
-    const totalCards = serverCardDatabase.getAllCards().length;
+    const finalStatus = await database.getStatus();
+    const totalCards = await database.getAllCards().length;
     
     console.log(`✅ API: Sync completed - ${totalCards} cards loaded`);
     

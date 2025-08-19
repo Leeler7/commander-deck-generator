@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET(request: NextRequest) {
   try {
-    await serverCardDatabase.initialize();
-    
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50000');
     const query = searchParams.get('q') || '';
@@ -12,10 +10,10 @@ export async function GET(request: NextRequest) {
     let cards;
     if (query) {
       // Search by name if query provided
-      cards = serverCardDatabase.searchByName(query, limit);
+      cards = await database.searchByName(query, limit);
     } else {
       // Get all cards (limited for performance)
-      cards = serverCardDatabase.searchByFilters({}, limit);
+      cards = await database.searchByFilters({}, limit);
     }
     
     // Return simplified card list for the browser

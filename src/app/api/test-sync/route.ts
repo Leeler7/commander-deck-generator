@@ -1,24 +1,23 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET() {
   try {
     console.log('🧪 TEST: Starting database test...');
     
     // Initialize database
-    await serverCardDatabase.initialize();
     console.log('✅ Database initialized');
     
     // Check current card count
-    const currentCards = serverCardDatabase.getAllCards();
+    const currentCards = await database.getAllCards();
     console.log(`📊 Current cards: ${currentCards.length}`);
     
     // Check if sync is needed
-    const needsSync = serverCardDatabase.needsSync();
+    const needsSync = await database.needsSync();
     console.log(`🔄 Needs sync: ${needsSync}`);
     
     // Get status
-    const status = serverCardDatabase.getStatus();
+    const status = await database.getStatus();
     
     return NextResponse.json({
       success: true,

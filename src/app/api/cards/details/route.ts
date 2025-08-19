@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,14 +15,13 @@ export async function GET(request: NextRequest) {
     
     console.log(`🔍 API: Loading details for card: ${cardName}`);
     
-    await serverCardDatabase.initialize();
-    
     // Find exact match first
-    let card = serverCardDatabase.getCardByName(cardName);
-    
-    if (!card) {
-      // Try search by name (partial match)
-      const searchResults = serverCardDatabase.searchByName(cardName, 1);
+    let card;
+    try {
+      card = await database.getCardById ? await database.getCardById(cardName) : null;
+    } catch (error) {
+      // If getCardById fails or doesn't exist, try search by name
+      const searchResults = await database.searchByName(cardName, 1);
       card = searchResults.length > 0 ? searchResults[0] : null;
     }
     

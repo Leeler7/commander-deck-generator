@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 import { isCardLegalInCommander } from '@/lib/rules';
 
 export async function GET(request: NextRequest) {
@@ -7,11 +7,10 @@ export async function GET(request: NextRequest) {
     console.log('🎲 Random commander endpoint called');
     
     // Initialize and ensure database is loaded
-    await serverCardDatabase.initialize();
     console.log('✅ Database initialized');
     
     // Get all cards from local database
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     console.log(`🎲 Searching through ${allCards.length} local cards for commanders`);
     
     // Filter for legal commanders from local database

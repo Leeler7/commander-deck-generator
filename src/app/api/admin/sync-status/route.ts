@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET() {
   try {
     console.log('🔍 API: Loading sync status...');
     
-    await serverCardDatabase.initialize();
-    
-    const status = serverCardDatabase.getStatus();
-    const totalCards = serverCardDatabase.getAllCards().length;
+    const status = await database.getStatus();
+    const totalCards = await database.getAllCards().length;
     const databaseSource = 'Server Database';
     const lastSync = status.last_full_sync || status.last_incremental_sync;
     

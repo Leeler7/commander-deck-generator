@@ -102,10 +102,18 @@ export default function AdminLayout({
 
   return (
     <div>
-      {/* Logout button in header */}
+      {/* Header with navigation */}
       <div className="bg-gray-800 text-white p-2">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <span className="text-sm">Admin Mode</span>
+          <div className="flex items-center gap-6">
+            <span className="text-sm font-medium">Admin Mode</span>
+            <nav className="hidden sm:flex gap-4 text-sm">
+              <a href="/admin/tag-cleanup" className="hover:text-blue-300">Tag Cleanup</a>
+              <a href="/admin/tag-builder" className="hover:text-blue-300">Tag Builder</a>
+              <a href="/admin/database-manager" className="hover:text-blue-300">DB Manager</a>
+              <a href="/admin/database-switch" className="hover:text-blue-300">DB Switch</a>
+            </nav>
+          </div>
           <button
             onClick={handleLogout}
             className="text-sm bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition-colors"

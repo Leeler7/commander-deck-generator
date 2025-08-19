@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function POST(request: NextRequest) {
   try {
-    await serverCardDatabase.initialize();
-    
     // Check if database has cards
-    const status = serverCardDatabase.getStatus();
+    const status = await database.getStatus();
     if (status.total_cards === 0) {
       return NextResponse.json(
         { error: 'No cards in database to re-analyze. Please sync database first.' },
@@ -16,9 +14,9 @@ export async function POST(request: NextRequest) {
 
     // Start re-analysis (this will take a while)
     console.log('🔄 Starting comprehensive re-analysis of all cards...');
-    await serverCardDatabase.reAnalyzeAllCards();
+    await database.reAnalyzeAllCards();
     
-    const finalStatus = serverCardDatabase.getStatus();
+    const finalStatus = await database.getStatus();
     
     return NextResponse.json({
       success: true,
@@ -42,9 +40,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    await serverCardDatabase.initialize();
-    
-    const status = serverCardDatabase.getStatus();
+    const status = await database.getStatus();
     
     return NextResponse.json({
       message: 'Database re-analysis endpoint',

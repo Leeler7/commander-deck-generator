@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET() {
   try {
-    await serverCardDatabase.initialize();
-    
     // Get a sample card to check its data
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     const sampleCard = allCards[0];
     
     // Check if any cards have dice tags

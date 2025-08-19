@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET() {
   try {
     console.log('📊 Loading tag statistics for cleanup...');
     
-    await serverCardDatabase.initialize();
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     
     // Count tag occurrences
     const tagCounts = new Map<string, number>();

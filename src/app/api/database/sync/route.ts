@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function POST() {
   try {
     // Initialize database if not already done
-    await serverCardDatabase.initialize();
-    
     // Check if sync is already in progress
-    const status = serverCardDatabase.getStatus();
+    const status = await database.getStatus();
     if (status.sync_in_progress) {
       return NextResponse.json(
         { error: 'Sync already in progress' },
@@ -16,7 +14,7 @@ export async function POST() {
     }
     
     // Start sync in background (don't await - let it run async)
-    serverCardDatabase.performFullSync().catch(error => {
+    await database.performFullSync().catch(error => {
       console.error('Background sync failed:', error);
     });
     

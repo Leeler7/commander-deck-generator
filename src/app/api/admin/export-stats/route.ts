@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET() {
   try {
     console.log('📋 API: Exporting system statistics...');
     
-    await serverCardDatabase.initialize();
-    
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     
     // Generate comprehensive export data
     const exportData = {

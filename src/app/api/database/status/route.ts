@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 
 export async function GET() {
   try {
     // Initialize database if not already done
-    await serverCardDatabase.initialize();
-    
-    const status = serverCardDatabase.getStatus();
-    const totalCards = serverCardDatabase.getAllCards().length;
+    const status = await database.getStatus();
+    const totalCards = await database.getAllCards().length;
     
     // Check if running on Vercel
     const isVercel = process.env.VERCEL === '1';
@@ -27,7 +25,7 @@ export async function GET() {
       database: {
         initialized: totalCards > 0,
         totalCards,
-        needsSync: serverCardDatabase.needsSync(),
+        needsSync: await database.needsSync(),
         lastFullSync: status.last_full_sync,
         lastIncrementalSync: status.last_incremental_sync,
         syncInProgress: status.sync_in_progress,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { serverCardDatabase } from '@/lib/server-card-database';
+import { database } from '@/lib/database-factory';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -16,8 +16,7 @@ export async function POST(request: NextRequest) {
     
     console.log(`🗑️ Removing ${tags.length} tags from database...`);
     
-    await serverCardDatabase.initialize();
-    const allCards = serverCardDatabase.getAllCards();
+    const allCards = await database.getAllCards();
     
     let cardsModified = 0;
     let tagsRemoved = 0;
