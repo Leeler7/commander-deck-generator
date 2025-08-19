@@ -12,8 +12,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const isProduction = process.env.NODE_ENV === 'production';
     
-    // Read current .env.local file
+    if (isProduction) {
+      return NextResponse.json({
+        success: false,
+        error: 'Database switching in production requires setting DATABASE_TYPE environment variable in Railway dashboard',
+        instructions: [
+          '1. Go to Railway dashboard',
+          '2. Select your project',
+          '3. Go to Variables tab', 
+          '4. Add: DATABASE_TYPE = ' + databaseType,
+          '5. Restart the service'
+        ]
+      }, { status: 400 });
+    }
+    
+    // Development environment - update .env.local file
     const envPath = path.join(process.cwd(), '.env.local');
     let envContent = '';
     

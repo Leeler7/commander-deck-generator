@@ -12,13 +12,23 @@ export default function DatabaseSwitchPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Check current database type from environment
-    const dbType = process.env.DATABASE_TYPE || 'file';
-    setCurrentDb(dbType);
+    // Check current database type from server
+    checkCurrentDatabase();
     
     // Check Supabase connection
     checkSupabaseStatus();
   }, []);
+
+  const checkCurrentDatabase = async () => {
+    try {
+      const response = await fetch('/api/admin/current-db');
+      const data = await response.json();
+      setCurrentDb(data.currentDatabase);
+    } catch (error) {
+      console.error('Failed to check current database:', error);
+      setCurrentDb('file'); // fallback
+    }
+  };
 
   const checkSupabaseStatus = async () => {
     try {
@@ -44,6 +54,8 @@ export default function DatabaseSwitchPage() {
         body: JSON.stringify({ databaseType: newDbType })
       });
       
+      const result = await response.json();
+      
       if (response.ok) {
         setCurrentDb(newDbType);
         alert(`Successfully switched to ${newDbType === 'file' ? 'File-based' : 'Supabase'} database!`);
@@ -51,8 +63,11 @@ export default function DatabaseSwitchPage() {
         // Refresh the page to load the new database
         window.location.reload();
       } else {
-        const error = await response.text();
-        alert(`Failed to switch database: ${error}`);
+        if (result.instructions) {
+          alert(`Production Environment Detected:\n\n${result.error}\n\nInstructions:\n${result.instructions.join('\n')}`);
+        } else {
+          alert(`Failed to switch database: ${result.error || 'Unknown error'}`);
+        }
       }
     } catch (error) {
       alert(`Error switching database: ${error}`);
