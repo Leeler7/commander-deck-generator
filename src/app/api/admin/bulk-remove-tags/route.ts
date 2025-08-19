@@ -57,10 +57,7 @@ export async function POST(request: NextRequest) {
     // Save updated data
     await fs.writeFile(dbPath, JSON.stringify(allCards, null, 2));
     
-    // Clear the cache to force reload
-    await fetch(`${request.nextUrl.origin}/api/admin/clear-cache`, {
-      method: 'POST'
-    });
+    // Note: Cache will be cleared automatically on next database access
     
     console.log(`✅ Successfully removed ${tagsRemoved} tag instances from ${cardsModified} cards`);
     
