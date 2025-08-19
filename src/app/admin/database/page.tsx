@@ -22,12 +22,18 @@ interface CardData {
   power_level?: number;
   archetype_relevance?: string[];
   mechanic_tags?: Array<{
-    name: string;
-    category: string;
+    id?: string;
+    card_id?: string;
+    tag_name: string;
+    tag_category: string;
     priority: number;
     confidence: number;
     evidence: string[];
     is_manual: boolean;
+    created_at?: string;
+    // Legacy support
+    name?: string;
+    category?: string;
   }>;
 }
 
@@ -38,11 +44,58 @@ export default function DatabaseExplorerPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingProgress, setLoadingProgress] = useState<string>('');
+  const [allCards, setAllCards] = useState<CardData[]>([]);
 
   // Load cards on component mount
   useEffect(() => {
     loadCards();
   }, []);
+
+  // Handle search with debouncing
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      // No search term - show all cards (limited)
+      setCards(allCards);
+      return;
+    }
+
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      performSearch(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, allCards]);
+
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setCards(allCards);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/cards?search=${encodeURIComponent(query)}&limit=100`);
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setCards(data.cards || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Search failed');
+      // Fallback to client-side filtering
+      const term = query.toLowerCase();
+      const filtered = allCards.filter(card => 
+        card.name.toLowerCase().includes(term) ||
+        card.type_line.toLowerCase().includes(term) ||
+        card.oracle_text?.toLowerCase().includes(term)
+      );
+      setCards(filtered);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadCards = async () => {
     setLoading(true);
@@ -61,7 +114,8 @@ export default function DatabaseExplorerPage() {
       const cardsData = data.cards || [];
       
       setLoadingProgress(`Loaded ${cardsData.length} cards successfully!`);
-      setCards(cardsData);
+      setAllCards(cardsData); // Store all cards
+      setCards(cardsData);    // Display cards
       
       // Clear loading progress after a brief delay
       setTimeout(() => setLoadingProgress(''), 1000);
@@ -90,17 +144,10 @@ export default function DatabaseExplorerPage() {
     }
   };
 
-  // Filter cards based on search term
-  const filteredCards = useMemo(() => {
-    if (!searchTerm) return cards.slice(0, 100); // Show first 100 cards by default
-    
-    const term = searchTerm.toLowerCase();
-    return cards.filter(card => 
-      card.name.toLowerCase().includes(term) ||
-      card.type_line.toLowerCase().includes(term) ||
-      card.oracle_text?.toLowerCase().includes(term)
-    ).slice(0, 100); // Show up to 100 search results
-  }, [cards, searchTerm]);
+  // Display limited cards for performance
+  const displayedCards = useMemo(() => {
+    return cards.slice(0, 100); // Show up to 100 cards
+  }, [cards]);
 
   const panelStyle = {
     backgroundColor: 'white',
@@ -159,10 +206,10 @@ export default function DatabaseExplorerPage() {
             <p style={{fontSize: '12px', color: '#666', marginBottom: '15px'}}>
               {loading ? (
                 <span style={{color: '#3b82f6', fontWeight: 'bold'}}>
-                  {loadingProgress || 'Loading all cards from database...'}
+                  {loadingProgress || 'Loading...'}
                 </span>
               ) : (
-                `Showing ${filteredCards.length} of ${cards.length} total cards`
+                `Showing ${displayedCards.length} of ${allCards.length} total cards`
               )}
               {searchTerm && !loading && ` matching "${searchTerm}"`}
             </p>
@@ -172,7 +219,7 @@ export default function DatabaseExplorerPage() {
                 <div style={{textAlign: 'center', padding: '20px'}}>Loading cards...</div>
               )}
               
-              {filteredCards.map((card) => (
+              {displayedCards.map((card) => (
                 <div
                   key={card.id}
                   onClick={() => loadCardDetails(card.name)}
@@ -206,7 +253,7 @@ export default function DatabaseExplorerPage() {
                 </div>
               ))}
               
-              {!loading && filteredCards.length === 0 && (
+              {!loading && displayedCards.length === 0 && (
                 <div style={{textAlign: 'center', padding: '40px', color: '#999'}}>
                   No cards found matching your search.
                 </div>
@@ -336,11 +383,11 @@ export default function DatabaseExplorerPage() {
                             alignItems: 'center'
                           }}>
                             <span>
-                              <strong>{tag.name}</strong> ({tag.category})
+                              <strong>{tag.tag_name || tag.name}</strong> ({tag.tag_category || tag.category})
                               {tag.is_manual && <span style={{color: '#00aa00', fontWeight: 'bold'}}> ✓</span>}
                             </span>
                             <span style={{color: '#666'}}>
-                              P:{tag.priority} C:{tag.confidence.toFixed(2)}
+                              P:{tag.priority} C:{typeof tag.confidence === 'number' ? tag.confidence.toFixed(2) : tag.confidence}
                             </span>
                           </div>
                         ))}
