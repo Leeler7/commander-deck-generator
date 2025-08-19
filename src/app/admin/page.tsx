@@ -122,6 +122,26 @@ export default function AdminPage() {
             </div>
           </Link>
 
+          {/* Tag Cleanup Tool */}
+          <Link href="/admin/tag-cleanup" className="group">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-center mb-4">
+                <div className="bg-red-100 rounded-lg p-3">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <h3 className="ml-4 text-xl font-semibold text-gray-900">Tag Cleanup</h3>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Bulk remove generic or overused tags. Preview changes before applying to the database.
+              </p>
+              <div className="text-red-600 group-hover:text-red-800 font-medium">
+                Clean Tags →
+              </div>
+            </div>
+          </Link>
+
           {/* Back to Main App */}
           <Link href="/" className="group">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
