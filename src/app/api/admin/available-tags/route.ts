@@ -26,6 +26,20 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Also scan existing cards for any manually added string tags
+    for (let i = 0; i < Math.min(1000, sampleCards.length); i++) {
+      const card = sampleCards[i];
+      if (card.mechanics?.mechanicTags) {
+        card.mechanics.mechanicTags.forEach((tag: any) => {
+          if (typeof tag === 'string') {
+            allTagsSet.add(tag);
+          } else if (tag && tag.name) {
+            allTagsSet.add(tag.name);
+          }
+        });
+      }
+    }
+    
     // ALL official MTG creature types for comprehensive tribal support
     const allCreatureTypes = [
       // Major tribes with extensive support
