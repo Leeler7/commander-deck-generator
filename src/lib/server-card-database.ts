@@ -530,7 +530,7 @@ export class ServerCardDatabase {
     try {
       const baseUrl = 'https://raw.githubusercontent.com/Leeler7/commander-deck-generator/main/public';
       
-      console.log(`🌐 Loading manifest from: ${baseUrl}/database/chunks/manifest.json`);
+      console.log(`🌐 Loading manifest from updated repository: ${baseUrl}/database/chunks/manifest.json`);
       const manifestResponse = await fetch(`${baseUrl}/database/chunks/manifest.json`);
       if (!manifestResponse.ok) {
         throw new Error(`Manifest fetch failed: ${manifestResponse.status}`);
