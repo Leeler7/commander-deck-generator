@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Save the updated database
-    const dbPath = path.join(process.cwd(), 'data', 'processed-cards.json');
+    const dbPath = path.join(process.cwd(), 'data', 'cards.json');
     
     // Create backup first
     const backupPath = path.join(process.cwd(), 'data', `backup-${Date.now()}-processed-cards.json`);
@@ -54,8 +54,14 @@ export async function POST(request: NextRequest) {
       console.log('⚠️ Could not create backup, proceeding anyway...');
     }
     
+    // Convert cards array to object format that database expects (id -> card)
+    const cardObject = {};
+    for (const card of allCards) {
+      cardObject[card.id] = card;
+    }
+    
     // Save updated data
-    await fs.writeFile(dbPath, JSON.stringify(allCards, null, 2));
+    await fs.writeFile(dbPath, JSON.stringify(cardObject, null, 2));
     
     // Note: Cache will be cleared automatically on next database access
     
