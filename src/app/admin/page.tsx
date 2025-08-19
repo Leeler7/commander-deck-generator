@@ -162,6 +162,26 @@ export default function AdminPage() {
             </div>
           </Link>
 
+          {/* Database Manager */}
+          <Link href="/admin/database-manager" className="group">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-center mb-4">
+                <div className="bg-cyan-100 rounded-lg p-3">
+                  <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                  </svg>
+                </div>
+                <h3 className="ml-4 text-xl font-semibold text-gray-900">Database Manager</h3>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Download, modify, and deploy database. Complete workflow for managing tags.
+              </p>
+              <div className="text-cyan-600 group-hover:text-cyan-800 font-medium">
+                Manage Database →
+              </div>
+            </div>
+          </Link>
+
           {/* Back to Main App */}
           <Link href="/" className="group">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
