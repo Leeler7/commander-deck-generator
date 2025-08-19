@@ -82,33 +82,65 @@ export class SupabaseCardDatabase {
   }
   
   async getCardById(id: string) {
-    // First try the basic cards table
-    const { data, error } = await supabase
+    // Query with tags joined
+    const { data: cardData, error: cardError } = await supabase
       .from('cards')
       .select('*')
       .eq('id', id)
       .single();
     
-    if (error) {
-      console.error('Error getting card by ID:', error);
-      throw error;
+    if (cardError) {
+      console.error('Error getting card by ID:', cardError);
+      throw cardError;
     }
-    return data;
+    
+    // Get tags for this card
+    const { data: tags, error: tagsError } = await supabase
+      .from('card_tags')
+      .select('*')
+      .eq('card_id', id);
+    
+    if (tagsError) {
+      console.error('Error getting card tags:', tagsError);
+    }
+    
+    // Combine card with tags
+    return {
+      ...cardData,
+      mechanic_tags: tags || []
+    };
   }
   
   async getCardByName(name: string) {
-    // First try the basic cards table
-    const { data, error } = await supabase
+    // Query with tags joined
+    const { data: cardData, error: cardError } = await supabase
       .from('cards')
       .select('*')
       .eq('name', name)
       .single();
     
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error getting card by name:', error);
-      throw error;
+    if (cardError && cardError.code !== 'PGRST116') {
+      console.error('Error getting card by name:', cardError);
+      throw cardError;
     }
-    return data || null;
+    
+    if (!cardData) return null;
+    
+    // Get tags for this card
+    const { data: tags, error: tagsError } = await supabase
+      .from('card_tags')
+      .select('*')
+      .eq('card_id', cardData.id);
+    
+    if (tagsError) {
+      console.error('Error getting card tags:', tagsError);
+    }
+    
+    // Combine card with tags
+    return {
+      ...cardData,
+      mechanic_tags: tags || []
+    };
   }
   
   async searchByFilters(filters: {
@@ -280,14 +312,44 @@ export class SupabaseCardDatabase {
   }
   
   async getAvailableTags() {
+    // Get all unique tags with their categories
     const { data, error } = await supabase
       .from('card_tags')
-      .select('tag_name, tag_category, COUNT(*) as count')
-      .group('tag_name, tag_category')
-      .order('count', { ascending: false });
+      .select('tag_name, tag_category');
     
-    if (error) throw error;
-    return data || [];
+    if (error) {
+      console.error('Error getting available tags:', error);
+      throw error;
+    }
+    
+    // Group and count tags in JavaScript
+    const tagCounts = new Map<string, { category: string; count: number }>();
+    
+    if (data) {
+      for (const tag of data) {
+        const key = tag.tag_name;
+        if (tagCounts.has(key)) {
+          tagCounts.get(key)!.count++;
+        } else {
+          tagCounts.set(key, {
+            category: tag.tag_category || 'uncategorized',
+            count: 1
+          });
+        }
+      }
+    }
+    
+    // Convert to array format
+    const result = Array.from(tagCounts.entries()).map(([name, info]) => ({
+      tag_name: name,
+      tag_category: info.category,
+      count: info.count
+    }));
+    
+    // Sort by count descending
+    result.sort((a, b) => b.count - a.count);
+    
+    return result;
   }
   
   async addTagToCards(tagName: string, cardIds: string[]) {
