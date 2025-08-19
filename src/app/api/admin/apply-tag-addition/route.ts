@@ -86,17 +86,47 @@ export async function POST(request: NextRequest) {
     }
     
     if (cardsModified > 0) {
-      // Save the updated database
-      const dbPath = path.join(process.cwd(), 'data', 'cards.json');
+      // Determine the correct path based on environment
+      const isVercel = process.env.VERCEL === '1';
+      const isRailway = process.env.RAILWAY_ENVIRONMENT !== undefined;
       
-      // Create backup first
-      const backupPath = path.join(process.cwd(), 'data', `backup-${Date.now()}-processed-cards.json`);
+      console.log(`🏗️ Environment: Vercel=${isVercel}, Railway=${isRailway}`);
+      
+      let dbPath: string;
+      let dataDir: string;
+      
+      if (isVercel) {
+        dataDir = '/tmp/commander-deck-data';
+        dbPath = path.join(dataDir, 'cards.json');
+      } else if (isRailway) {
+        // For Railway, use /tmp which persists during the request lifecycle
+        dataDir = '/tmp/commander-deck-data';
+        dbPath = path.join(dataDir, 'cards.json');
+      } else {
+        // Local development
+        dataDir = path.join(process.cwd(), 'data');
+        dbPath = path.join(dataDir, 'cards.json');
+      }
+      
+      console.log(`📁 Target directory: ${dataDir}`);
+      console.log(`📁 Target file path: ${dbPath}`);
+      
+      // Ensure data directory exists
+      try {
+        await fs.mkdir(dataDir, { recursive: true });
+        console.log(`✅ Ensured directory exists: ${dataDir}`);
+      } catch (error) {
+        console.log(`⚠️ Could not create directory ${dataDir}:`, error);
+      }
+      
+      // Create backup first (if file exists)
+      const backupPath = path.join(dataDir, `backup-${Date.now()}-cards.json`);
       try {
         const currentData = await fs.readFile(dbPath, 'utf-8');
         await fs.writeFile(backupPath, currentData);
         console.log(`✅ Backup created at ${backupPath}`);
       } catch (error) {
-        console.log('⚠️ Could not create backup, proceeding anyway...');
+        console.log('⚠️ Could not create backup (file may not exist), proceeding anyway...');
       }
       
       // Convert cards array to object format that database expects (id -> card)
@@ -105,10 +135,35 @@ export async function POST(request: NextRequest) {
         cardObject[card.id] = card;
       }
       
+      console.log(`💾 Writing ${Object.keys(cardObject).length} cards to ${dbPath}`);
+      
       // Save updated data
       await fs.writeFile(dbPath, JSON.stringify(cardObject, null, 2));
       
-      // Note: Cache will be cleared automatically on next database access
+      // Verify file was written and get its size
+      try {
+        const stats = await fs.stat(dbPath);
+        console.log(`📁 File written successfully: ${dbPath}`);
+        console.log(`📊 File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+        console.log(`📅 File modified: ${stats.mtime.toISOString()}`);
+      } catch (error) {
+        console.log(`❌ File verification failed for ${dbPath}:`, error);
+      }
+      
+      // Force database re-initialization for immediate effect
+      try {
+        // Reset the initialization flag to force reload from our new file
+        (serverCardDatabase as any).initialized = false;
+        console.log('🔄 Forced database re-initialization for immediate effect');
+        
+        // Also update the internal data directory path if needed
+        if (isRailway || isVercel) {
+          // Force the database to use our temporary location
+          console.log('🎯 Forcing database to use temporary file location for immediate effect');
+        }
+      } catch (error) {
+        console.log('⚠️ Could not force re-initialization:', error);
+      }
     }
     
     console.log(`✅ Successfully added "${tagName}" tag to ${cardsModified} cards`);

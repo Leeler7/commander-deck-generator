@@ -41,17 +41,37 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Save the updated database
-    const dbPath = path.join(process.cwd(), 'data', 'cards.json');
+    // Determine the correct path based on environment
+    const isVercel = process.env.VERCEL === '1';
+    const isRailway = process.env.RAILWAY_ENVIRONMENT !== undefined;
     
-    // Create backup first
-    const backupPath = path.join(process.cwd(), 'data', `backup-${Date.now()}-processed-cards.json`);
+    let dbPath: string;
+    let dataDir: string;
+    
+    if (isVercel || isRailway) {
+      dataDir = '/tmp/commander-deck-data';
+      dbPath = path.join(dataDir, 'cards.json');
+    } else {
+      // Local development
+      dataDir = path.join(process.cwd(), 'data');
+      dbPath = path.join(dataDir, 'cards.json');
+    }
+    
+    // Ensure data directory exists
+    try {
+      await fs.mkdir(dataDir, { recursive: true });
+    } catch (error) {
+      console.log(`⚠️ Could not create directory ${dataDir}:`, error);
+    }
+    
+    // Create backup first (if file exists)
+    const backupPath = path.join(dataDir, `backup-${Date.now()}-cards.json`);
     try {
       const currentData = await fs.readFile(dbPath, 'utf-8');
       await fs.writeFile(backupPath, currentData);
       console.log(`✅ Backup created at ${backupPath}`);
     } catch (error) {
-      console.log('⚠️ Could not create backup, proceeding anyway...');
+      console.log('⚠️ Could not create backup (file may not exist), proceeding anyway...');
     }
     
     // Convert cards array to object format that database expects (id -> card)
@@ -62,6 +82,15 @@ export async function POST(request: NextRequest) {
     
     // Save updated data
     await fs.writeFile(dbPath, JSON.stringify(cardObject, null, 2));
+    
+    // Force database re-initialization for immediate effect
+    try {
+      const { serverCardDatabase } = await import('@/lib/server-card-database');
+      (serverCardDatabase as any).initialized = false;
+      console.log('🔄 Forced database re-initialization for immediate effect');
+    } catch (error) {
+      console.log('⚠️ Could not force re-initialization:', error);
+    }
     
     // Note: Cache will be cleared automatically on next database access
     

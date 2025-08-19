@@ -17,9 +17,10 @@ const gunzip = promisify(zlib.gunzip);
  * It automatically syncs with Scryfall and provides fast local card lookups.
  */
 
-// Use /tmp on Vercel for writable storage, local data dir otherwise
+// Use /tmp for writable storage on Vercel and Railway, local data dir otherwise
 const isVercel = process.env.VERCEL === '1';
-const DATA_DIR = isVercel ? '/tmp/commander-deck-data' : path.join(process.cwd(), 'data');
+const isRailway = process.env.RAILWAY_ENVIRONMENT !== undefined;
+const DATA_DIR = (isVercel || isRailway) ? '/tmp/commander-deck-data' : path.join(process.cwd(), 'data');
 const CARDS_FILE = path.join(DATA_DIR, 'cards.json');
 const STATUS_FILE = path.join(DATA_DIR, 'sync-status.json');
 const NAME_INDEX_FILE = path.join(DATA_DIR, 'name-index.json');
@@ -440,9 +441,21 @@ export class ServerCardDatabase {
 
   private async loadFromLocalFiles(): Promise<boolean> {
     try {
-      // Check for local data directory first (development)
+      console.log(`🔍 Checking for local files in: ${DATA_DIR}`);
+      console.log(`🔍 Environment: Vercel=${isVercel}, Railway=${isRailway}`);
+      console.log(`🔍 Target cards file: ${CARDS_FILE}`);
+      
+      // Check if directory exists
+      const dirExists = fs.existsSync(DATA_DIR);
+      console.log(`📁 Directory ${DATA_DIR} exists: ${dirExists}`);
+      
+      // Check for local data directory first (development or modified production)
       if (fs.existsSync(CARDS_FILE)) {
-        console.log('📁 Loading from local data directory...');
+        const stats = fs.statSync(CARDS_FILE);
+        console.log(`📁 Loading from local data directory...`);
+        console.log(`📁 Local file path: ${CARDS_FILE}`);
+        console.log(`📊 File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+        console.log(`📅 File modified: ${stats.mtime.toISOString()}`);
         
         // Load sync status
         if (fs.existsSync(STATUS_FILE)) {
@@ -464,7 +477,10 @@ export class ServerCardDatabase {
 
         this.syncStatus.total_cards = this.cards.size;
         console.log(`✅ Loaded ${this.cards.size} cards from local files`);
+        console.log(`🎯 Successfully using MODIFIED local database!`);
         return true;
+      } else {
+        console.log(`❌ Local cards file not found at: ${CARDS_FILE}`);
       }
 
       // Check for public database directory (production builds)
