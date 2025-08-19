@@ -134,10 +134,30 @@ export default function AdminPage() {
                 <h3 className="ml-4 text-xl font-semibold text-gray-900">Tag Cleanup</h3>
               </div>
               <p className="text-gray-600 mb-4">
-                Bulk remove generic or overused tags. Preview changes before applying to the database.
+                Bulk remove generic or overused tags. Blacklisted tags auto-remove on sync.
               </p>
               <div className="text-red-600 group-hover:text-red-800 font-medium">
                 Clean Tags →
+              </div>
+            </div>
+          </Link>
+
+          {/* Tag Builder Tool */}
+          <Link href="/admin/tag-builder" className="group">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-center mb-4">
+                <div className="bg-emerald-100 rounded-lg p-3">
+                  <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <h3 className="ml-4 text-xl font-semibold text-gray-900">Tag Builder</h3>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Mass add tags based on oracle text, colors, or type. Preview before applying.
+              </p>
+              <div className="text-emerald-600 group-hover:text-emerald-800 font-medium">
+                Build Tags →
               </div>
             </div>
           </Link>

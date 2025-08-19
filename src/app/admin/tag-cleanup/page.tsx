@@ -19,9 +19,7 @@ export default function TagCleanupPage() {
   const [loading, setLoading] = useState(false);
   const [tagStats, setTagStats] = useState<TagStats[]>([]);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
-  const [blacklistedTags, setBlacklistedTags] = useState<Set<string>>(new Set([
-    'cast', 'target', 'creature', 'spell', 'card', 'play', 'turn', 'mana'
-  ]));
+  const [blacklistedTags, setBlacklistedTags] = useState<Set<string>>(new Set());
   const [customBlacklist, setCustomBlacklist] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterThreshold, setFilterThreshold] = useState(30);
@@ -32,6 +30,7 @@ export default function TagCleanupPage() {
 
   useEffect(() => {
     loadTagStatistics();
+    loadBlacklist();
   }, []);
 
   const loadTagStatistics = async () => {
@@ -46,6 +45,31 @@ export default function TagCleanupPage() {
       setMessage({ type: 'error', text: 'Failed to load tag statistics' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadBlacklist = async () => {
+    try {
+      const response = await fetch('/api/admin/tag-blacklist');
+      if (!response.ok) throw new Error('Failed to load blacklist');
+      const data = await response.json();
+      setBlacklistedTags(new Set(data.blacklist));
+    } catch (error) {
+      console.error('Failed to load blacklist:', error);
+    }
+  };
+
+  const saveBlacklist = async (newBlacklist: Set<string>) => {
+    try {
+      const response = await fetch('/api/admin/tag-blacklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blacklist: Array.from(newBlacklist) })
+      });
+      if (!response.ok) throw new Error('Failed to save blacklist');
+      setMessage({ type: 'success', text: 'Blacklist saved. Will auto-remove on next sync.' });
+    } catch (error) {
+      console.error('Failed to save blacklist:', error);
     }
   };
 
@@ -75,11 +99,13 @@ export default function TagCleanupPage() {
     setMessage({ type: 'info', text: `Selected ${blacklisted.length} blacklisted tags` });
   };
 
-  const addToBlacklist = () => {
+  const addToBlacklist = async () => {
     const tags = customBlacklist.split(',').map(t => t.trim()).filter(t => t);
-    setBlacklistedTags(new Set([...blacklistedTags, ...tags]));
+    const newBlacklist = new Set([...blacklistedTags, ...tags]);
+    setBlacklistedTags(newBlacklist);
     setCustomBlacklist('');
-    setMessage({ type: 'success', text: `Added ${tags.length} tags to blacklist` });
+    await saveBlacklist(newBlacklist);
+    setMessage({ type: 'success', text: `Added ${tags.length} tags to blacklist. Will auto-remove on sync.` });
   };
 
   const previewChanges = async () => {
