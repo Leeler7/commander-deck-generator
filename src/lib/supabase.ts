@@ -115,6 +115,16 @@ export class SupabaseCardDatabase {
     powerLevel?: { min?: number; max?: number };
   }, limit: number = 5000) {
     
+    // If limit is <= 1000, use single query
+    if (limit <= 1000) {
+      return this.searchByFiltersSingle(filters, limit);
+    }
+    
+    // For larger limits, use pagination
+    return this.searchByFiltersPaginated(filters, limit);
+  }
+  
+  private async searchByFiltersSingle(filters: any, limit: number) {
     let query = supabase.from('cards').select(`
       id, name, mana_cost, cmc, type_line, oracle_text, 
       color_identity, colors, keywords, set_code, set_name, 
@@ -122,6 +132,50 @@ export class SupabaseCardDatabase {
       edhrec_rank, image_uris, last_updated, scryfall_uri
     `);
     
+    query = this.applyFilters(query, filters);
+    query = query.limit(limit);
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    
+    return data || [];
+  }
+  
+  private async searchByFiltersPaginated(filters: any, limit: number) {
+    const CHUNK_SIZE = 1000;
+    let allResults: any[] = [];
+    let page = 0;
+    
+    while (allResults.length < limit) {
+      const remainingRecords = limit - allResults.length;
+      const currentChunkSize = Math.min(CHUNK_SIZE, remainingRecords);
+      
+      let query = supabase.from('cards').select(`
+        id, name, mana_cost, cmc, type_line, oracle_text, 
+        color_identity, colors, keywords, set_code, set_name, 
+        rarity, power, toughness, loyalty, legalities, prices, 
+        edhrec_rank, image_uris, last_updated, scryfall_uri
+      `);
+      
+      query = this.applyFilters(query, filters);
+      query = query.range(page * CHUNK_SIZE, page * CHUNK_SIZE + currentChunkSize - 1);
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      if (!data || data.length === 0) break;
+      
+      allResults.push(...data);
+      page++;
+      
+      // If we got fewer records than expected, we've reached the end
+      if (data.length < currentChunkSize) break;
+    }
+    
+    return allResults;
+  }
+  
+  private applyFilters(query: any, filters: any) {
     // Color identity filter
     if (filters.colorIdentity) {
       query = query.contains('color_identity', filters.colorIdentity);
@@ -159,24 +213,62 @@ export class SupabaseCardDatabase {
       query = query.lte('power_level', filters.powerLevel.max);
     }
     
-    query = query.limit(limit);
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    
-    return data || [];
+    return query;
   }
   
   async getAllCards(limit?: number) {
-    let query = supabase.from('cards').select('*');
+    const targetLimit = limit || 50000;
     
-    // Set a high default limit to get all cards, or use specified limit
-    query = query.limit(limit || 50000);
+    // If requesting 1000 or fewer cards, use single query
+    if (targetLimit <= 1000) {
+      let query = supabase.from('cards').select('*').limit(targetLimit);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    }
     
-    const { data, error } = await query;
-    if (error) throw error;
+    // For larger requests, use pagination
+    const CHUNK_SIZE = 1000;
+    let allCards: any[] = [];
+    let page = 0;
     
-    return data || [];
+    console.log(`📊 Getting ${targetLimit} cards with pagination...`);
+    
+    while (allCards.length < targetLimit) {
+      const remainingRecords = targetLimit - allCards.length;
+      const currentChunkSize = Math.min(CHUNK_SIZE, remainingRecords);
+      
+      console.log(`📦 Fetching page ${page + 1}, cards ${allCards.length + 1}-${allCards.length + currentChunkSize}`);
+      
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .range(page * CHUNK_SIZE, page * CHUNK_SIZE + currentChunkSize - 1);
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        console.log(`📄 No more cards available, ending at ${allCards.length} cards`);
+        break;
+      }
+      
+      allCards.push(...data);
+      page++;
+      
+      // If we got fewer records than expected, we've reached the end
+      if (data.length < currentChunkSize) {
+        console.log(`📄 Reached end of database at ${allCards.length} cards`);
+        break;
+      }
+      
+      // Small delay to avoid overwhelming the API
+      if (page % 5 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    console.log(`✅ Successfully loaded ${allCards.length} cards`);
+    return allCards;
   }
   
   async getAvailableTags() {
