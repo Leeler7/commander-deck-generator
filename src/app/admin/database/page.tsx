@@ -17,19 +17,18 @@ interface CardData {
   rarity: string;
   set_name: string;
   set_code?: string;
-  mechanics?: {
-    primaryType: string;
-    functionalRoles: string[];
-    powerLevel: number;
-    archetypeRelevance: string[];
-    mechanicTags: Array<{
-      name: string;
-      category: string;
-      priority: number;
-      confidence: number;
-      evidence: string[];
-    }>;
-  };
+  primary_type?: string;
+  functional_roles?: string[];
+  power_level?: number;
+  archetype_relevance?: string[];
+  mechanic_tags?: Array<{
+    name: string;
+    category: string;
+    priority: number;
+    confidence: number;
+    evidence: string[];
+    is_manual: boolean;
+  }>;
 }
 
 export default function DatabaseExplorerPage() {
@@ -38,6 +37,7 @@ export default function DatabaseExplorerPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState<string>('');
 
   // Load cards on component mount
   useEffect(() => {
@@ -47,15 +47,27 @@ export default function DatabaseExplorerPage() {
   const loadCards = async () => {
     setLoading(true);
     setError(null);
+    setLoadingProgress('Starting to load cards...');
+    
     try {
+      setLoadingProgress('Fetching cards from database...');
       const response = await fetch('/api/cards?limit=50000');
       if (!response.ok) {
         throw new Error(`Failed to load cards: ${response.statusText}`);
       }
+      
+      setLoadingProgress('Processing card data...');
       const data = await response.json();
-      setCards(data.cards || []);
+      const cardsData = data.cards || [];
+      
+      setLoadingProgress(`Loaded ${cardsData.length} cards successfully!`);
+      setCards(cardsData);
+      
+      // Clear loading progress after a brief delay
+      setTimeout(() => setLoadingProgress(''), 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load cards');
+      setLoadingProgress('');
     } finally {
       setLoading(false);
     }
@@ -80,14 +92,14 @@ export default function DatabaseExplorerPage() {
 
   // Filter cards based on search term
   const filteredCards = useMemo(() => {
-    if (!searchTerm) return cards.slice(0, 50); // Limit to first 50 for performance
+    if (!searchTerm) return cards.slice(0, 100); // Show first 100 cards by default
     
     const term = searchTerm.toLowerCase();
     return cards.filter(card => 
       card.name.toLowerCase().includes(term) ||
       card.type_line.toLowerCase().includes(term) ||
       card.oracle_text?.toLowerCase().includes(term)
-    ).slice(0, 50);
+    ).slice(0, 100); // Show up to 100 search results
   }, [cards, searchTerm]);
 
   const panelStyle = {
@@ -145,8 +157,13 @@ export default function DatabaseExplorerPage() {
             />
             
             <p style={{fontSize: '12px', color: '#666', marginBottom: '15px'}}>
-              {loading ? 'Loading all cards from database...' : 
-                `Showing ${filteredCards.length} of ${cards.length} total cards`}
+              {loading ? (
+                <span style={{color: '#3b82f6', fontWeight: 'bold'}}>
+                  {loadingProgress || 'Loading all cards from database...'}
+                </span>
+              ) : (
+                `Showing ${filteredCards.length} of ${cards.length} total cards`
+              )}
               {searchTerm && !loading && ` matching "${searchTerm}"`}
             </p>
             
@@ -277,57 +294,68 @@ export default function DatabaseExplorerPage() {
                   )}
                 </div>
                 
-                {selectedCard.mechanics && (
-                  <div style={{margin: '20px 0'}}>
-                    <strong style={{fontSize: '14px', color: '#333'}}>Mechanics Analysis:</strong>
-                    
+                <div style={{margin: '20px 0'}}>
+                  <strong style={{fontSize: '14px', color: '#333'}}>Mechanics Analysis:</strong>
+                  
+                  {selectedCard.primary_type && (
                     <div style={{margin: '10px 0'}}>
                       <strong style={{fontSize: '12px', color: '#666'}}>Primary Type:</strong>
-                      <div style={{fontSize: '13px'}}>{selectedCard.mechanics.primaryType}</div>
+                      <div style={{fontSize: '13px'}}>{selectedCard.primary_type}</div>
                     </div>
-                    
+                  )}
+                  
+                  {selectedCard.power_level !== undefined && (
                     <div style={{margin: '10px 0'}}>
                       <strong style={{fontSize: '12px', color: '#666'}}>Power Level:</strong>
-                      <div style={{fontSize: '13px'}}>{selectedCard.mechanics.powerLevel}/10</div>
+                      <div style={{fontSize: '13px'}}>{selectedCard.power_level}/10</div>
                     </div>
-                    
-                    {selectedCard.mechanics.functionalRoles.length > 0 && (
-                      <div style={{margin: '10px 0'}}>
-                        <strong style={{fontSize: '12px', color: '#666'}}>Functional Roles:</strong>
-                        <div style={{fontSize: '13px'}}>
-                          {selectedCard.mechanics.functionalRoles.join(', ')}
-                        </div>
+                  )}
+                  
+                  {selectedCard.functional_roles && selectedCard.functional_roles.length > 0 && (
+                    <div style={{margin: '10px 0'}}>
+                      <strong style={{fontSize: '12px', color: '#666'}}>Functional Roles:</strong>
+                      <div style={{fontSize: '13px'}}>
+                        {selectedCard.functional_roles.join(', ')}
                       </div>
-                    )}
-                    
-                    {selectedCard.mechanics.mechanicTags.length > 0 && (
-                      <div style={{margin: '15px 0'}}>
-                        <strong style={{fontSize: '12px', color: '#666'}}>Mechanic Tags:</strong>
-                        <div style={{maxHeight: '200px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px', marginTop: '5px'}}>
-                          {selectedCard.mechanics.mechanicTags.map((tag, index) => (
-                            <div key={index} style={{
-                              fontSize: '11px',
-                              margin: '3px 0',
-                              padding: '4px 8px',
-                              backgroundColor: '#f0f8ff',
-                              borderRadius: '3px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}>
-                              <span>
-                                <strong>{tag.name}</strong> ({tag.category})
-                              </span>
-                              <span style={{color: '#666'}}>
-                                P:{tag.priority} C:{tag.confidence.toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                    </div>
+                  )}
+                  
+                  {selectedCard.mechanic_tags && selectedCard.mechanic_tags.length > 0 && (
+                    <div style={{margin: '15px 0'}}>
+                      <strong style={{fontSize: '12px', color: '#666'}}>Mechanic Tags ({selectedCard.mechanic_tags.length}):</strong>
+                      <div style={{maxHeight: '200px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px', marginTop: '5px'}}>
+                        {selectedCard.mechanic_tags.map((tag, index) => (
+                          <div key={index} style={{
+                            fontSize: '11px',
+                            margin: '3px 0',
+                            padding: '4px 8px',
+                            backgroundColor: tag.is_manual ? '#e6ffed' : '#f0f8ff',
+                            borderRadius: '3px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <span>
+                              <strong>{tag.name}</strong> ({tag.category})
+                              {tag.is_manual && <span style={{color: '#00aa00', fontWeight: 'bold'}}> ✓</span>}
+                            </span>
+                            <span style={{color: '#666'}}>
+                              P:{tag.priority} C:{tag.confidence.toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                  
+                  {(!selectedCard.mechanic_tags || selectedCard.mechanic_tags.length === 0) && (
+                    <div style={{margin: '15px 0', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px'}}>
+                      <span style={{fontSize: '12px', color: '#666', fontStyle: 'italic'}}>
+                        No mechanic tags available for this card.
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div style={{textAlign: 'center', padding: '60px', color: '#999'}}>
