@@ -548,12 +548,25 @@ export class SupabaseCardDatabase {
   async searchTags(query: string, category?: string | null, limit: number = 20): Promise<TagRecord[]> {
     try {
       // Try new structure first - search tags table
+      // Also search against cleaned/formatted versions of tag names
+      const cleanedQuery = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      
+      // Use broader search to get more candidates, let scoring do the filtering
+      // For short queries (common case like "fl"), get even more results 
+      const multiplier = query.length <= 2 ? 10 : 5;
+      
       let tagQuery = supabase
         .from('tags')
         .select('*')
-        .eq('is_active', true)
-        .or(`name.ilike.%${query}%, description.ilike.%${query}%`)
-        .limit(limit);
+        .eq('is_active', true);
+      
+      // Only add name filter if we have a query
+      if (query && query.length > 0) {
+        tagQuery = tagQuery.ilike('name', `%${query}%`);
+      }
+      
+      tagQuery = tagQuery.limit(limit * 5);
       
       if (category && category !== 'all') {
         tagQuery = tagQuery.eq('category', category);
@@ -562,10 +575,52 @@ export class SupabaseCardDatabase {
       const { data: newTags, error: newError } = await tagQuery;
       
       if (!newError && newTags && newTags.length > 0) {
-        return newTags;
+        // Helper function to format tag names consistently with the API route
+        const formatTagName = (rawName: string): string => {
+          return rawName
+            .replace(/^(ability_keyword_|ability_word_|keyword_|mechanic_)/, '')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase())
+            .replace(/\bEtb\b/g, 'ETB')
+            .replace(/\bLtb\b/g, 'LTB')
+            .replace(/\bCmc\b/g, 'CMC');
+        };
+        
+        // Filter and score results based on how well they match the query
+        const queryLower = query?.toLowerCase() || '';
+        const scoredTags = newTags.map(tag => {
+          const formattedName = formatTagName(tag.name).toLowerCase();
+          const rawName = tag.name.toLowerCase();
+          
+          let score = 0;
+          
+          // If no query, give all tags a base score (category filtering scenario)
+          if (!query || query.length === 0) {
+            score = 10; // Base score for category matches
+          } else {
+            // Exact match on formatted name gets highest score
+            if (formattedName === queryLower) score += 1000;
+            // Starts with query on formatted name gets high score
+            else if (formattedName.startsWith(queryLower)) score += 100;
+            // Contains query on formatted name gets medium score
+            else if (formattedName.includes(queryLower)) score += 50;
+            // Raw name matches get lower scores
+            else if (rawName.startsWith(queryLower)) score += 25;
+            else if (rawName.includes(queryLower)) score += 10;
+            // Description matches get lowest score
+            else if (tag.description?.toLowerCase().includes(queryLower)) score += 5;
+          }
+          
+          return { tag, score };
+        })
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(item => item.tag);
+        
+        return scoredTags;
       }
     } catch (error) {
-      console.log('🏷️ New tag structure not available, falling back to legacy...');
     }
 
     // Fallback to legacy structure - search card_tags
@@ -611,6 +666,28 @@ export class SupabaseCardDatabase {
     
     if (error) throw error;
     return data;
+  }
+
+  async getTagCategories(): Promise<string[]> {
+    try {
+      // Get distinct categories from the tags table
+      const { data, error } = await supabase
+        .from('tags')
+        .select('category')
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      
+      // Extract unique categories and sort them
+      const categories = [...new Set(data?.map(item => item.category) || [])]
+        .filter(category => category) // Remove null/undefined
+        .sort();
+      
+      return categories;
+    } catch (error) {
+      console.error('Error getting tag categories:', error);
+      return [];
+    }
   }
 }
 

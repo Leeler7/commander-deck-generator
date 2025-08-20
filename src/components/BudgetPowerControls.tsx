@@ -20,11 +20,12 @@ const defaultCardTypeWeights: CardTypeWeights = {
 
 export default function BudgetPowerControls({ constraints, onChange }: BudgetPowerControlsProps) {
   const [keywordInput, setKeywordInput] = useState('');
-  const [searchResults, setSearchResults] = useState<Array<{name: string; category: string; description?: string; count: number}>>([]);
+  const [searchResults, setSearchResults] = useState<Array<{name: string; displayName: string; category: string; description?: string; count: number}>>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [tagSearchTerm, setTagSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [categories, setCategories] = useState<Array<{value: string; label: string}>>([]);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const updateConstraint = <K extends keyof GenerationConstraints>(
@@ -38,6 +39,23 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
     updateConstraint('card_type_weights', weights);
   };
 
+  // Load categories on component mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('/api/admin/tag-categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data.categories || []);
+        }
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    };
+    
+    loadCategories();
+  }, []);
+
   // Hide suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -50,10 +68,14 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Search for tags as user types
+  // Search for tags as user types or when category changes
   useEffect(() => {
     const searchTags = async () => {
-      if (tagSearchTerm.length < 2) {
+      // Show results if we have a search term OR a specific category selected
+      const hasSearchTerm = tagSearchTerm.length >= 2;
+      const hasCategory = selectedCategory && selectedCategory !== 'all';
+      
+      if (!hasSearchTerm && !hasCategory) {
         setSearchResults([]);
         setShowSuggestions(false);
         setIsSearching(false);
@@ -63,8 +85,8 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
       setIsSearching(true);
       try {
         const params = new URLSearchParams({
-          q: tagSearchTerm,
-          limit: '15'
+          q: tagSearchTerm || '', // Empty query is fine when filtering by category
+          limit: '25'
         });
         
         if (selectedCategory && selectedCategory !== 'all') {
@@ -232,18 +254,11 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
               className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="all">All Categories</option>
-              <option value="manual">Manual Tags</option>
-              <option value="tribal">Tribal</option>
-              <option value="tokens">Tokens</option>
-              <option value="resource_generation">Card Draw & Ramp</option>
-              <option value="combat_abilities">Combat Abilities</option>
-              <option value="removal_interaction">Removal & Interaction</option>
-              <option value="triggers_abilities">Triggers & Abilities</option>
-              <option value="synergy_themes">Synergy Themes</option>
-              <option value="counters_manipulation">Counters</option>
-              <option value="win_conditions">Win Conditions</option>
-              <option value="card_types">Card Types</option>
-              <option value="other">Other</option>
+              {categories.map(category => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
             </select>
             
             <input
@@ -280,10 +295,9 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
                         onClick={() => addTag(tag.name)}
                         className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-blue-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
                         type="button"
-                        title={tag.description}
+                        title={`${tag.displayName || formatTagDisplay(tag.name)} (${tag.category})${tag.description ? ' - ' + tag.description : ''}`}
                       >
-                        <span className="font-medium">{formatTagDisplay(tag.name)}</span>
-                        <span className="text-gray-500 ml-1">({tag.category})</span>
+                        <span className="font-medium">{tag.displayName || formatTagDisplay(tag.name)}</span>
                       </button>
                     ))}
                   </div>
