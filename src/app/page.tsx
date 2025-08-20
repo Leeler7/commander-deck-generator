@@ -226,7 +226,7 @@ export default function Home() {
               BIG DECK ENERGY
             </h1>
             <p className="mt-2 text-2xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
-              FREE MTG COMMANDER DECK GENERATOR - BUILD A MEDIOCRE DECK AT INSTANT SPEED
+              FREE MTG COMMANDER DECK GENERATOR. BUILD A MEDIOCRE DECK AT INSTANT SPEED.
             </p>
             
             {/* Navigation Menu */}
