@@ -13,16 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Big Deck Energy - Commander Deck Generator",
-  description: "Generate a mediocre Commander deck at instant speed. Free MTG Commander/EDH deck builder with instant deck generation.",
-  keywords: "MTG, Magic the Gathering, Commander, EDH, deck builder, deck generator, Big Deck Energy",
+  title: "Big Deck Energy | Free MTG Commander (EDH) Deck Generator",
+  description: "Instantly generate Magic: The Gathering Commander (EDH) decks with Big Deck Energy. Build fun, casual, and chaotic decks online using our free deck generator.",
+  keywords: "MTG Commander deck generator, EDH deck builder, Magic the Gathering Commander deck, free MTG deck builder, Commander deck generator online, EDH deck generator, casual Commander decks",
   authors: [{ name: "Big Deck Energy" }],
   openGraph: {
-    title: "Big Deck Energy - Commander Deck Generator",
-    description: "Generate a mediocre Commander deck at instant speed",
+    title: "Big Deck Energy | Free MTG Commander (EDH) Deck Generator",
+    description: "Instantly generate Magic: The Gathering Commander (EDH) decks with Big Deck Energy. Build fun, casual, and chaotic decks online using our free deck generator.",
     url: "https://bigdeckenergy.org",
     siteName: "Big Deck Energy",
     type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Big Deck Energy | Free MTG Commander (EDH) Deck Generator",
+    description: "Instantly generate Magic: The Gathering Commander (EDH) decks with Big Deck Energy. Build fun, casual, and chaotic decks online using our free deck generator.",
   },
 };
 

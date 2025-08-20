@@ -209,7 +209,7 @@ export default function Home() {
               BIG DECK ENERGY
             </h1>
             <p className="mt-2 text-2xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
-              GENERATE A MEDIOCRE COMMANDER DECK AT INSTANT SPEED.
+              FREE MTG COMMANDER DECK GENERATOR - BUILD A MEDIOCRE DECK AT INSTANT SPEED
             </p>
           </div>
         </div>
@@ -588,6 +588,11 @@ export default function Home() {
       <footer className="bg-white border-t border-gray-200 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-sm text-gray-600">
+            <p className="mb-4 text-gray-700">
+              Big Deck Energy is a free online MTG Commander (EDH) deck generator. Unlike traditional deck builders, 
+              it's designed for spontaneity and humor, generating casual, fun, and often hilariously bad decks instantly. 
+              If you're looking for an easy way to build a Magic: The Gathering Commander deck online, Big Deck Energy is the tool for you.
+            </p>
             <p>
               Powered by{' '}
               <a 
@@ -605,11 +610,18 @@ export default function Home() {
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-500"
               >
-                Commander rules
+                Commander/EDH rules
+              </a>
+              {' '}•{' '}
+              <a 
+                href="/faq" 
+                className="text-blue-600 hover:text-blue-500"
+              >
+                FAQ
               </a>
             </p>
             <p className="mt-2">
-              This tool is not affiliated with Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.
+              This EDH deck builder is not affiliated with Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.
             </p>
             <p className="mt-4">
               <a 
