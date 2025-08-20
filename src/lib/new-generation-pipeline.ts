@@ -49,8 +49,11 @@ export class NewDeckGenerator {
     constraints: GenerationConstraints
   ): Promise<GeneratedDeck> {
     try {
+      console.log('🎯 NEW PIPELINE: Starting deck generation for', commanderName);
+      
       // Initialize local database for performance (if method exists)
       if ('initialize' in this.localDatabase && typeof this.localDatabase.initialize === 'function') {
+        console.log('🗄️ Initializing database...');
         await this.localDatabase.initialize();
       }
       

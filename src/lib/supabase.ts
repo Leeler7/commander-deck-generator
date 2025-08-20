@@ -217,8 +217,11 @@ export class SupabaseCardDatabase {
   
   private applyFilters(query: any, filters: any) {
     // Color identity filter
-    if (filters.colorIdentity) {
-      query = query.contains('color_identity', filters.colorIdentity);
+    if (filters.colorIdentity && filters.colorIdentity.length > 0) {
+      console.log('🎨 Color identity filter disabled - TODO: implement proper PostgreSQL array filtering');
+      // TODO: Implement proper color identity filtering for PostgreSQL JSON arrays
+      // The challenge is that Supabase/PostgREST array operators need correct typing
+      // For now, color identity filtering is handled in application logic
     }
     
     // Text search
@@ -242,7 +245,8 @@ export class SupabaseCardDatabase {
     
     // Commander legality
     if (filters.legal_in_commander) {
-      query = query.eq('legalities->commander', 'legal');
+      // Use proper JSON path syntax for Supabase
+      query = query.filter('legalities', 'cs', '{"commander": "legal"}');
     }
     
     // Power level filter

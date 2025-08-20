@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Deck generation error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
     // Return appropriate error response
     if (error instanceof Error) {
@@ -74,10 +75,18 @@ export async function POST(request: NextRequest) {
           { status: 429 }
         );
       }
+      
+      // Include actual error message in development
+      if (process.env.NODE_ENV === 'development') {
+        return NextResponse.json(
+          { error: `Generation failed: ${error.message}`, stack: error.stack },
+          { status: 500 }
+        );
+      }
     }
     
     return NextResponse.json(
-      { error: 'An error occurred while generating the deck. Please try again.' },
+      { error: 'An error occurred while generating the deck. Please try again.', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
