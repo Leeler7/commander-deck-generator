@@ -326,6 +326,12 @@ export class SupabaseCardDatabase {
     const tagCounts = new Map<string, { category: string; count: number }>();
     
     if (data) {
+      console.log(`🏷️ Processing ${data.length} tag records...`);
+      
+      // Check for dice tags specifically
+      const diceTags = data.filter(tag => tag.tag_name === 'dice');
+      console.log(`🎲 Found ${diceTags.length} dice tag records:`, diceTags);
+      
       for (const tag of data) {
         const key = tag.tag_name;
         if (tagCounts.has(key)) {
@@ -336,6 +342,13 @@ export class SupabaseCardDatabase {
             count: 1
           });
         }
+      }
+      
+      // Log if dice is in the final count
+      if (tagCounts.has('dice')) {
+        console.log(`🎲 Dice tag found in final counts:`, tagCounts.get('dice'));
+      } else {
+        console.log(`🎲 Dice tag NOT found in final counts`);
       }
     }
     
