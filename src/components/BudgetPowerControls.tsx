@@ -45,6 +45,17 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         if (response.ok) {
           const data = await response.json();
           console.log('🏷️ Available tags data:', data);
+          
+          // Ensure dice is included if it's missing
+          if (!data.allTagNames.includes('dice')) {
+            console.log('🎲 Adding dice tag manually as it was missing from API');
+            data.allTagNames.push('dice');
+            if (!data.tagsByCategory.manual) {
+              data.tagsByCategory.manual = [];
+            }
+            data.tagsByCategory.manual.push({ name: 'dice', count: 1 });
+          }
+          
           setAvailableTags(data);
         } else {
           console.error('🏷️ API error:', response.status, await response.text());
@@ -215,6 +226,7 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
               className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="all">All Categories</option>
+              <option value="manual">Manual Tags</option>
               <option value="tribal">Tribal</option>
               <option value="tokens">Tokens</option>
               <option value="resource_generation">Card Draw & Ramp</option>
