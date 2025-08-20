@@ -32,14 +32,43 @@ export async function GET(request: NextRequest) {
         .replace(/\bCmc\b/g, 'CMC');
     };
     
-    return NextResponse.json({
-      tags: tags.map(tag => ({
+    // Get usage counts for all tags efficiently with timeout protection
+    const tagIds = tags.filter(t => t.id).map(t => t.id);
+    const tagNames = tags.map(t => t.name);
+    
+    let usageCounts: Record<string | number, number> = {};
+    
+    try {
+      // Set a timeout for the count operation
+      const countPromise = database.getTagUsageCounts(tagIds, tagNames);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Count timeout')), 2000)
+      );
+      
+      usageCounts = await Promise.race([countPromise, timeoutPromise]) as Record<string | number, number>;
+    } catch (error) {
+      console.log('Usage count timed out, proceeding without counts:', error);
+      // Use empty counts object - will default to 0
+    }
+    
+    // Map tags with their usage counts
+    const tagsWithCounts = tags.map(tag => {
+      const count = usageCounts[tag.id] || usageCounts[tag.name] || 0;
+      
+      return {
         name: tag.name, // Keep original for backend
         displayName: formatTagName(tag.name), // Clean version for display
         category: tag.category,
         description: tag.description,
-        count: 1
-      }))
+        count: count,
+        id: tag.id,
+        synergy_weight: tag.synergy_weight,
+        is_active: tag.is_active
+      };
+    });
+    
+    return NextResponse.json({
+      tags: tagsWithCounts
     });
 
   } catch (error) {

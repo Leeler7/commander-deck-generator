@@ -40,8 +40,15 @@ export async function POST(request: NextRequest) {
       } 
       else if (criteria.mode === 'color' && criteria.colors) {
         const cardColors = card.color_identity || [];
-        matches = criteria.colors.length === cardColors.length &&
-                 criteria.colors.every(color => cardColors.includes(color));
+        
+        if (criteria.colorMatchMode === 'contains') {
+          // Match cards that contain all selected colors (may have additional colors)
+          matches = criteria.colors.every(color => cardColors.includes(color));
+        } else {
+          // Exact match - card must have exactly the selected colors (default behavior)
+          matches = criteria.colors.length === cardColors.length &&
+                   criteria.colors.every(color => cardColors.includes(color));
+        }
       }
       else if (criteria.mode === 'type' && criteria.typeQuery) {
         const typeLine = card.type_line || '';

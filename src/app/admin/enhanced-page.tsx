@@ -90,7 +90,14 @@ export default function EnhancedAdminPage() {
         const response = await fetch('/api/cards/list');
         if (!response.ok) throw new Error('Failed to load cards');
         const data = await response.json();
-        setAllCards(data.cards || []);
+        
+        // Deduplicate cards by ID to prevent duplicate key errors
+        const cards = data.cards || [];
+        const uniqueCards = cards.filter((card: CardData, index: number, self: CardData[]) => 
+          index === self.findIndex((c: CardData) => c.id === card.id)
+        );
+        
+        setAllCards(uniqueCards);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load cards');
       } finally {
@@ -129,9 +136,18 @@ export default function EnhancedAdminPage() {
 
   const filteredCards = useMemo(() => {
     if (!searchTerm) return allCards.slice(0, 50);
-    return allCards.filter(card => 
+    
+    // Filter cards and ensure uniqueness
+    const filtered = allCards.filter(card => 
       card.name.toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 50);
+    );
+    
+    // Additional deduplication to handle edge cases
+    const uniqueFiltered = filtered.filter((card, index, self) => 
+      index === self.findIndex((c) => c.id === card.id)
+    );
+    
+    return uniqueFiltered.slice(0, 50);
   }, [searchTerm, allCards]);
 
   const loadCardDetails = async (cardName: string) => {
@@ -297,9 +313,15 @@ export default function EnhancedAdminPage() {
     const term = synergySearchTerms[index];
     if (!term || term.length < 2) return [];
     
-    return allCards
-      .filter(card => card.name.toLowerCase().includes(term.toLowerCase()))
-      .slice(0, 10);
+    // Filter and deduplicate
+    const filtered = allCards
+      .filter(card => card.name.toLowerCase().includes(term.toLowerCase()));
+    
+    const uniqueFiltered = filtered.filter((card, idx, self) => 
+      idx === self.findIndex((c) => c.id === card.id)
+    );
+    
+    return uniqueFiltered.slice(0, 10);
   };
 
   const containerStyle = {
@@ -411,9 +433,9 @@ export default function EnhancedAdminPage() {
                   <div style={{textAlign: 'center', padding: '20px'}}>Loading cards...</div>
                 )}
                 
-                {filteredCards.map((card) => (
+                {filteredCards.map((card, index) => (
                   <div
-                    key={card.id}
+                    key={`card-${card.id}-${index}-${searchTerm.replace(/[^a-zA-Z0-9]/g, '')}`}
                     onClick={() => loadCardDetails(card.name)}
                     style={{
                       padding: '12px',
@@ -739,9 +761,9 @@ export default function EnhancedAdminPage() {
                             zIndex: 1000,
                             boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                           }}>
-                            {getSynergySearchResults(index).map((searchCard) => (
+                            {getSynergySearchResults(index).map((searchCard, cardIndex) => (
                               <div
-                                key={searchCard.id}
+                                key={`synergy-${searchCard.id}-${index}-${cardIndex}-${synergySearchTerms[index].replace(/[^a-zA-Z0-9]/g, '')}`}
                                 onMouseDown={(e) => {
                                   e.preventDefault(); // Prevent input blur
                                   selectSynergyCard(index, searchCard);

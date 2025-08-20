@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { database } from '@/lib/database-factory';
 
+// Simple in-memory cache to avoid repeated database calls
+let cachedCards: any[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export async function POST(request: NextRequest) {
   try {
     const { tagName, criteria } = await request.json();
@@ -14,7 +19,20 @@ export async function POST(request: NextRequest) {
     
     console.log(`🔍 Previewing tag addition: "${tagName}" with criteria:`, criteria);
     
-    const allCards = await database.getAllCards();
+    // Use cached cards if available and fresh
+    let allCards: any[];
+    const now = Date.now();
+    
+    if (cachedCards && (now - cacheTimestamp) < CACHE_DURATION) {
+      console.log('📦 Using cached cards for consistency');
+      allCards = cachedCards;
+    } else {
+      console.log('🔄 Loading fresh cards from database');
+      allCards = await database.getAllCards();
+      // Cache the results
+      cachedCards = allCards;
+      cacheTimestamp = now;
+    }
     
     let matchingCards = [];
     
@@ -39,10 +57,16 @@ export async function POST(request: NextRequest) {
         }
       } 
       else if (criteria.mode === 'color' && criteria.colors) {
-        // Match color identity exactly
         const cardColors = card.color_identity || [];
-        matches = criteria.colors.length === cardColors.length &&
-                 criteria.colors.every(color => cardColors.includes(color));
+        
+        if (criteria.colorMatchMode === 'contains') {
+          // Match cards that contain all selected colors (may have additional colors)
+          matches = criteria.colors.every(color => cardColors.includes(color));
+        } else {
+          // Exact match - card must have exactly the selected colors (default behavior)
+          matches = criteria.colors.length === cardColors.length &&
+                   criteria.colors.every(color => cardColors.includes(color));
+        }
       }
       else if (criteria.mode === 'type' && criteria.typeQuery) {
         // Search in type line
@@ -71,16 +95,21 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // Deduplicate matching cards by ID to prevent duplicate key errors
+    const uniqueMatchingCards = matchingCards.filter((card, index, self) => 
+      index === self.findIndex((c) => c.id === card.id)
+    );
+    
     // Limit preview to first 50 cards
-    const previewCards = matchingCards.slice(0, 50);
+    const previewCards = uniqueMatchingCards.slice(0, 50);
     
     return NextResponse.json({
       matchingCards: previewCards,
-      totalMatching: matchingCards.length,
+      totalMatching: uniqueMatchingCards.length,
       totalCards: allCards.length,
-      message: matchingCards.length > 50 
-        ? `Showing first 50 of ${matchingCards.length} matching cards`
-        : `Found ${matchingCards.length} matching cards`
+      message: uniqueMatchingCards.length > 50 
+        ? `Showing first 50 of ${uniqueMatchingCards.length} matching cards`
+        : `Found ${uniqueMatchingCards.length} matching cards`
     });
     
   } catch (error) {

@@ -689,6 +689,63 @@ export class SupabaseCardDatabase {
       return [];
     }
   }
+
+  async getTagUsageCounts(tagIds: number[], tagNames: string[]): Promise<Record<string | number, number>> {
+    const counts: Record<string | number, number> = {};
+    
+    try {
+      // Use RPC function or aggregation query for better performance
+      // Batch the queries to avoid timeouts
+      const batchSize = 5; // Smaller batches to avoid timeout
+      
+      // Get counts for tags with IDs (new structure) in batches
+      for (let i = 0; i < tagIds.length; i += batchSize) {
+        const batch = tagIds.slice(i, i + batchSize);
+        
+        if (batch.length > 0) {
+          const { data: idData, error: idError } = await supabase
+            .from('card_tags')
+            .select('tag_id')
+            .in('tag_id', batch);
+          
+          if (!idError && idData) {
+            // Count occurrences of each tag_id
+            idData.forEach(row => {
+              if (row.tag_id) {
+                counts[row.tag_id] = (counts[row.tag_id] || 0) + 1;
+              }
+            });
+          }
+        }
+      }
+      
+      // Get counts for tags by name (legacy structure) in batches
+      for (let i = 0; i < tagNames.length; i += batchSize) {
+        const batch = tagNames.slice(i, i + batchSize);
+        
+        if (batch.length > 0) {
+          const { data: nameData, error: nameError } = await supabase
+            .from('card_tags')
+            .select('tag_name')
+            .in('tag_name', batch);
+          
+          if (!nameError && nameData) {
+            // Count occurrences of each tag_name
+            nameData.forEach(row => {
+              if (row.tag_name) {
+                counts[row.tag_name] = (counts[row.tag_name] || 0) + 1;
+              }
+            });
+          }
+        }
+      }
+      
+      return counts;
+    } catch (error) {
+      console.error('Error getting tag usage counts:', error);
+      return counts;
+    }
+  }
 }
 
 // Singleton instance

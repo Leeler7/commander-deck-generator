@@ -21,6 +21,7 @@ export default function TagBuilderPage() {
   const [typeQuery, setTypeQuery] = useState('');
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [exactMatch, setExactMatch] = useState(false);
+  const [colorMatchMode, setColorMatchMode] = useState<'exact' | 'contains'>('exact');
   const [previewCards, setPreviewCards] = useState<PreviewCard[]>([]);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
@@ -112,6 +113,7 @@ export default function TagBuilderPage() {
         mode: searchMode,
         textQuery: searchMode === 'text' ? textQuery : undefined,
         colors: searchMode === 'color' ? selectedColors : undefined,
+        colorMatchMode: searchMode === 'color' ? colorMatchMode : undefined,
         typeQuery: searchMode === 'type' ? typeQuery : undefined,
         caseSensitive,
         exactMatch
@@ -160,6 +162,7 @@ export default function TagBuilderPage() {
         mode: searchMode,
         textQuery: searchMode === 'text' ? textQuery : undefined,
         colors: searchMode === 'color' ? selectedColors : undefined,
+        colorMatchMode: searchMode === 'color' ? colorMatchMode : undefined,
         typeQuery: searchMode === 'type' ? typeQuery : undefined,
         caseSensitive,
         exactMatch
@@ -345,6 +348,38 @@ export default function TagBuilderPage() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Color Matching Mode
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value="exact"
+                          checked={colorMatchMode === 'exact'}
+                          onChange={(e) => setColorMatchMode(e.target.value as 'exact')}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">
+                          <strong>Exact Match</strong> - Only cards with exactly these colors
+                        </span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          value="contains"
+                          checked={colorMatchMode === 'contains'}
+                          onChange={(e) => setColorMatchMode(e.target.value as 'contains')}
+                          className="mr-2"
+                        />
+                        <span className="text-sm">
+                          <strong>Contains</strong> - Cards that include all selected colors (may have more)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Quick Select Guild/Shard
                     </label>
                     <select
@@ -424,8 +459,8 @@ export default function TagBuilderPage() {
                 </div>
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  {previewCards.map(card => (
-                    <div key={card.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  {previewCards.map((card, index) => (
+                    <div key={`preview-${card.id}-${index}`} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <div className="font-medium text-gray-900">{card.name}</div>
