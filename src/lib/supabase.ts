@@ -127,16 +127,51 @@ export class SupabaseCardDatabase {
   async getCardMechanicsFromDatabase(cardId: string): Promise<any | null> {
     try {
       const card = await this.getCardById(cardId);
-      if (!card || !card.mechanic_tags || card.mechanic_tags.length === 0) {
-        return null; // No database mechanics available
+      
+      // Check if card has the new tag_ids array
+      if (!card || !card.tag_ids || card.tag_ids.length === 0) {
+        // Fallback to old mechanic_tags if available
+        if (card && card.mechanic_tags && card.mechanic_tags.length > 0) {
+          // Use old structure as fallback
+          const mechanicTags = card.mechanic_tags.map((dbTag: any) => ({
+            name: dbTag.name || 'unknown',
+            category: dbTag.category || 'uncategorized',
+            priority: dbTag.priority || 5,
+            synergy_weight: dbTag.synergy_weight || 1.0
+          }));
+          
+          return {
+            cardId: card.id,
+            cardName: card.name,
+            primaryType: card.primary_type || card.type_line.split(' ')[0].toLowerCase(),
+            functionalRoles: card.functional_roles || [],
+            mechanicTags,
+            synergyKeywords: card.synergy_keywords || [],
+            powerLevel: card.power_level || 5,
+            archetypeRelevance: card.archetype_relevance || []
+          };
+        }
+        return null; // No tags available
       }
 
-      // Convert database tags to MechanicTag format
-      const mechanicTags = card.mechanic_tags.map((dbTag: any) => ({
-        name: dbTag.name || 'unknown',
-        category: dbTag.category || 'uncategorized',
-        priority: dbTag.priority || 5,
-        synergy_weight: dbTag.synergy_weight || 1.0 // This is the key enhancement
+      // Fetch tag details for the tag_ids
+      const { data: tags, error } = await supabase
+        .from('tags')
+        .select('id, name, category, synergy_weight')
+        .in('id', card.tag_ids)
+        .eq('is_active', true);
+      
+      if (error || !tags) {
+        console.error('Error fetching tags:', error);
+        return null;
+      }
+
+      // Convert tags to MechanicTag format
+      const mechanicTags = tags.map((tag: any) => ({
+        name: tag.name || 'unknown',
+        category: tag.category || 'uncategorized',
+        priority: 5, // Default priority since it's not in the tags table
+        synergy_weight: tag.synergy_weight || 1.0
       }));
 
       // Create a minimal CardMechanics object for synergy analysis
