@@ -26,6 +26,7 @@ export default function TagBuilderPage() {
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
   const [stats, setStats] = useState<{ matching: number; total: number } | null>(null);
+  const [previewId, setPreviewId] = useState<string>('');
 
   const colorOptions = [
     { code: 'W', name: 'White', bgColor: 'bg-yellow-100', borderColor: 'border-yellow-400' },
@@ -108,6 +109,14 @@ export default function TagBuilderPage() {
     setProcessing(true);
     setMessage(null);
     
+    // Clear existing preview cards immediately to prevent appending behavior
+    setPreviewCards([]);
+    setStats(null);
+    
+    // Generate unique preview ID for this search
+    const currentPreviewId = Date.now().toString();
+    setPreviewId(currentPreviewId);
+    
     try {
       const searchCriteria = {
         mode: searchMode,
@@ -131,12 +140,16 @@ export default function TagBuilderPage() {
       if (!response.ok) throw new Error('Failed to preview tag addition');
       
       const data = await response.json();
-      setPreviewCards(data.matchingCards);
-      setStats({ matching: data.totalMatching, total: data.totalCards });
-      setMessage({ 
-        type: 'info', 
-        text: `Found ${data.totalMatching} cards matching criteria (showing first ${Math.min(50, data.totalMatching)})` 
-      });
+      
+      // Only update state if this is still the current preview request
+      if (currentPreviewId === previewId || !processing) {
+        setPreviewCards(data.matchingCards);
+        setStats({ matching: data.totalMatching, total: data.totalCards });
+        setMessage({ 
+          type: 'info', 
+          text: `Found ${data.totalMatching} cards matching criteria (showing first ${Math.min(50, data.totalMatching)})` 
+        });
+      }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to preview changes' });
     } finally {
@@ -258,7 +271,12 @@ export default function TagBuilderPage() {
                       type="radio"
                       value="text"
                       checked={searchMode === 'text'}
-                      onChange={(e) => setSearchMode(e.target.value as 'text')}
+                      onChange={(e) => {
+                        setSearchMode(e.target.value as 'text');
+                        setPreviewCards([]);
+                        setStats(null);
+                        setMessage(null);
+                      }}
                       className="mr-2"
                     />
                     <span>Oracle Text Contains</span>
@@ -268,7 +286,12 @@ export default function TagBuilderPage() {
                       type="radio"
                       value="color"
                       checked={searchMode === 'color'}
-                      onChange={(e) => setSearchMode(e.target.value as 'color')}
+                      onChange={(e) => {
+                        setSearchMode(e.target.value as 'color');
+                        setPreviewCards([]);
+                        setStats(null);
+                        setMessage(null);
+                      }}
                       className="mr-2"
                     />
                     <span>Color Identity</span>
@@ -278,7 +301,12 @@ export default function TagBuilderPage() {
                       type="radio"
                       value="type"
                       checked={searchMode === 'type'}
-                      onChange={(e) => setSearchMode(e.target.value as 'type')}
+                      onChange={(e) => {
+                        setSearchMode(e.target.value as 'type');
+                        setPreviewCards([]);
+                        setStats(null);
+                        setMessage(null);
+                      }}
                       className="mr-2"
                     />
                     <span>Type Line Contains</span>
@@ -460,7 +488,7 @@ export default function TagBuilderPage() {
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {previewCards.map((card, index) => (
-                    <div key={`preview-${card.id}-${index}`} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div key={`preview-${previewId}-${card.id}-${index}`} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <div className="font-medium text-gray-900">{card.name}</div>
