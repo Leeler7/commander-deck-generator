@@ -20,7 +20,7 @@ const defaultCardTypeWeights: CardTypeWeights = {
 
 export default function BudgetPowerControls({ constraints, onChange }: BudgetPowerControlsProps) {
   const [keywordInput, setKeywordInput] = useState('');
-  const [availableTags, setAvailableTags] = useState<{allTags: string[], tagsByCategory: Record<string, string[]>}>({allTags: [], tagsByCategory: {}});
+  const [availableTags, setAvailableTags] = useState<{allTagNames: string[], tagsByCategory: Record<string, Array<{name: string; count: number}>>}>({allTagNames: [], tagsByCategory: {}});
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [tagSearchTerm, setTagSearchTerm] = useState('');
 
@@ -40,7 +40,7 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
     const fetchTags = async () => {
       try {
         console.log('🏷️ Fetching available tags...');
-        const response = await fetch('/api/admin/available-tags');
+        const response = await fetch('/api/admin/database-tags');
         console.log('🏷️ API response status:', response.status);
         if (response.ok) {
           const data = await response.json();
@@ -108,7 +108,14 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
 
   // Filter tags based on search and category
   const getFilteredTags = () => {
-    let tags = selectedCategory === 'all' ? availableTags.allTags : (availableTags.tagsByCategory[selectedCategory] || []);
+    let tags: string[] = [];
+    
+    if (selectedCategory === 'all') {
+      tags = availableTags.allTagNames || [];
+    } else {
+      const categoryTags = availableTags.tagsByCategory[selectedCategory] || [];
+      tags = categoryTags.map(tag => tag.name);
+    }
     
     if (tagSearchTerm) {
       tags = tags.filter(tag => 
@@ -233,7 +240,7 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
           {/* Available Tags */}
           <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2">
             <div className="text-xs text-gray-500 mb-2">
-              Available: {availableTags.allTags?.length || 0} total, {getFilteredTags().length} filtered
+              Available: {availableTags.allTagNames?.length || 0} total, {getFilteredTags().length} filtered
             </div>
             <div className="flex flex-wrap gap-1">
               {getFilteredTags().slice(0, 20).map((tag) => (
@@ -247,10 +254,10 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
                 </button>
               ))}
             </div>
-            {getFilteredTags().length === 0 && availableTags.allTags?.length > 0 && (
+            {getFilteredTags().length === 0 && availableTags.allTagNames?.length > 0 && (
               <p className="text-xs text-gray-500 text-center py-2">No tags found for current filter</p>
             )}
-            {(!availableTags.allTags || availableTags.allTags.length === 0) && (
+            {(!availableTags.allTagNames || availableTags.allTagNames.length === 0) && (
               <p className="text-xs text-gray-500 text-center py-2">Loading tags...</p>
             )}
           </div>
