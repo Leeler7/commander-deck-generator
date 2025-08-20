@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ScryfallCard, GeneratedDeck, GenerationConstraints } from '@/lib/types';
 
 // Helper function to create Scryfall URL
@@ -39,6 +39,23 @@ import BuyDeck from '@/components/BuyDeck';
 export default function Home() {
   const [commanderName, setCommanderName] = useState('');
   const [selectedCommander, setSelectedCommander] = useState<ScryfallCard | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
   const [constraints, setConstraints] = useState<GenerationConstraints>({
     total_budget: 100,
     max_card_price: 20,
@@ -204,13 +221,50 @@ export default function Home() {
       {/* Header - Fixed/Non-scrollable */}
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center">
+          <div className="text-center relative">
             <h1 className="text-5xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
               BIG DECK ENERGY
             </h1>
             <p className="mt-2 text-2xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               FREE MTG COMMANDER DECK GENERATOR - BUILD A MEDIOCRE DECK AT INSTANT SPEED
             </p>
+            
+            {/* Navigation Menu */}
+            <div className="absolute top-0 right-0" ref={menuRef}>
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <span style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+                  MENU
+                </span>
+                <svg className="ml-2 -mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                  <div className="py-1">
+                    <a
+                      href="/faq"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                      style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
+                    >
+                      FAQ
+                    </a>
+                    <a
+                      href="/contact"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                      style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
+                    >
+                      CONTACT
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
