@@ -1,6 +1,6 @@
 import { ScryfallCard, DeckCard, GeneratedDeck, GenerationConstraints, CardTypeWeights } from './types';
 import { scryfallClient } from './scryfall';
-import { serverCardDatabase } from './server-card-database';
+import { database } from './database-factory';
 import { 
   isColorIdentityValid, 
   isCardLegalInCommander,
@@ -34,7 +34,7 @@ export interface ScoredCard extends ScryfallCard {
 
 export class NewDeckGenerator {
   private scryfallClient = scryfallClient;
-  private localDatabase = serverCardDatabase;
+  private localDatabase = database;
   private mechanicsTagger = new CardMechanicsTagger();
   private verbose = process.env.NODE_ENV === 'development';
 
@@ -49,12 +49,14 @@ export class NewDeckGenerator {
     constraints: GenerationConstraints
   ): Promise<GeneratedDeck> {
     try {
-      // Initialize local database for performance
-      await this.localDatabase.initialize();
+      // Initialize local database for performance (if method exists)
+      if ('initialize' in this.localDatabase && typeof this.localDatabase.initialize === 'function') {
+        await this.localDatabase.initialize();
+      }
       
-      // Check if database has cards, if not, perform sync
-      const allCards = this.localDatabase.getAllCards();
-      if (allCards.length === 0) {
+      // Check if database has cards, if not, perform sync (file database only)
+      const allCards = await this.localDatabase.getAllCards();
+      if (allCards.length === 0 && 'performFullSync' in this.localDatabase && typeof this.localDatabase.performFullSync === 'function') {
         this.log('⚠️ Database is empty, performing initial sync...');
         await this.localDatabase.performFullSync();
       }
@@ -336,7 +338,7 @@ export class NewDeckGenerator {
    */
   private async step1_ColorMatchCommander(commander: ScryfallCard): Promise<ScryfallCard[]> {
     // Search for all cards matching commander's color identity
-    const candidates = this.localDatabase.searchByFilters({
+    const candidates = await this.localDatabase.searchByFilters({
       colorIdentity: commander.color_identity,
       legal_in_commander: true
     }, 50000); // Get comprehensive card pool
