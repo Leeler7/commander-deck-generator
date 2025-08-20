@@ -46,16 +46,38 @@ export async function POST(request: NextRequest) {
           updatedTags.push({
             name: tagName,
             category: 'manual', // Mark as manually added
-            confidence: 1.0, // Full confidence for manual tags
-            evidence: ['Manual addition'],
-            priority: 5 // Medium priority for manual tags
+            priority: 5, // Medium priority for manual tags
+            synergy_weight: 1.0 // Default synergy weight for manual tags
           });
         }
       }
     }
     
-    // For now, we'll return the updated analysis without persisting to database
-    // In a full implementation, you'd want to store these manual overrides
+    // Try to persist to database if using Supabase
+    let persistedToDatabase = false;
+    try {
+      if (database && typeof database.addTagToCards === 'function' && typeof database.removeTagFromCards === 'function') {
+        // Add tags to database
+        if (tagsToAdd && tagsToAdd.length > 0) {
+          for (const tagName of tagsToAdd) {
+            await (database as any).addTagToCards(tagName, [card.id]);
+          }
+        }
+        
+        // Remove tags from database
+        if (tagsToRemove && tagsToRemove.length > 0) {
+          for (const tagName of tagsToRemove) {
+            await (database as any).removeTagFromCards(tagName, [card.id]);
+          }
+        }
+        
+        persistedToDatabase = true;
+      }
+    } catch (dbError) {
+      console.error('Failed to persist tag changes to database:', dbError);
+      // Continue with in-memory response even if database update failed
+    }
+    
     const updatedMechanics = {
       ...currentMechanics,
       mechanicTags: updatedTags
@@ -67,7 +89,10 @@ export async function POST(request: NextRequest) {
       updatedMechanics,
       tagsAdded: tagsToAdd || [],
       tagsRemoved: tagsToRemove || [],
-      message: 'Tags updated successfully (in-memory only - not persisted to database)'
+      persistedToDatabase,
+      message: persistedToDatabase 
+        ? 'Tags updated successfully and persisted to database' 
+        : 'Tags updated successfully (in-memory only - database persistence failed or unavailable)'
     });
     
   } catch (error) {

@@ -303,7 +303,7 @@ export class MechanicalRecommendationEngine {
     // Score each mechanic on this card
     card.mechanics.mechanicTags.forEach(tag => {
       // Base score for having the mechanic
-      let mechanicScore = tag.priority * tag.confidence;
+      let mechanicScore = tag.priority;
       
       // Bonus for synergizing with existing mechanics
       for (const [existingMechanic, count] of existingMechanics.entries()) {
@@ -355,7 +355,7 @@ export class MechanicalRecommendationEngine {
     let alignmentScore = 0;
     mechanics.mechanicTags.forEach(tag => {
       if (strategyMechanics.includes(tag.name)) {
-        alignmentScore += tag.priority * tag.confidence * 0.5;
+        alignmentScore += tag.priority * 0.5;
       }
     });
     

@@ -425,8 +425,23 @@ export class NewDeckGenerator {
     await mtgjsonKeywords.getKeywordCategories();
     
     const scoredCards = await Promise.all(cards.map(async card => {
-      // ENHANCED: Use comprehensive tagging system for primary synergy calculation
-      const cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
+      // ENHANCED: Try to use database mechanics with synergy weights first, fallback to text analysis
+      let cardMechanics = null;
+      
+      // Try to get mechanics from database (with synergy weights)
+      if (this.cardDatabase && typeof this.cardDatabase.getCardMechanicsFromDatabase === 'function') {
+        try {
+          cardMechanics = await (this.cardDatabase as any).getCardMechanicsFromDatabase(card.id);
+        } catch (error) {
+          console.log(`Database mechanics not available for ${card.name}, using text analysis`);
+        }
+      }
+      
+      // Fallback to text analysis if no database mechanics
+      if (!cardMechanics) {
+        cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
+      }
+      
       const tagBasedSynergy = tagSynergyScorer.calculateTagSynergy(commanderProfile, cardMechanics);
       
       // Legacy: Keep basic synergy for cards without comprehensive tags  
@@ -1077,8 +1092,18 @@ export class NewDeckGenerator {
         const cardName = card.name.toLowerCase();
         
         try {
-          // Analyze card for mechanics tags to find keyword-related tags
-          const cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
+          // Try database mechanics first, fallback to text analysis
+          let cardMechanics = null;
+          if (this.cardDatabase && typeof this.cardDatabase.getCardMechanicsFromDatabase === 'function') {
+            try {
+              cardMechanics = await (this.cardDatabase as any).getCardMechanicsFromDatabase(card.id);
+            } catch (error) {
+              // Silently fallback
+            }
+          }
+          if (!cardMechanics) {
+            cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
+          }
           
           for (const keyword of userKeywords) {
             const keywordLower = keyword.toLowerCase();
@@ -1150,8 +1175,18 @@ export class NewDeckGenerator {
       if (userTags.length > 0) {
         let totalTagMatches = 0;
         try {
-          // Analyze card for mechanics tags
-          const cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
+          // Try database mechanics first, fallback to text analysis
+          let cardMechanics = null;
+          if (this.cardDatabase && typeof this.cardDatabase.getCardMechanicsFromDatabase === 'function') {
+            try {
+              cardMechanics = await (this.cardDatabase as any).getCardMechanicsFromDatabase(card.id);
+            } catch (error) {
+              // Silently fallback
+            }
+          }
+          if (!cardMechanics) {
+            cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
+          }
           
           for (const userTag of userTags) {
             // Find matching tags in the card's mechanics - improved partial matching

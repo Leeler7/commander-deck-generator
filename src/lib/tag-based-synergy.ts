@@ -1245,6 +1245,7 @@ export class TagBasedSynergyScorer {
 
   /**
    * Calculate synergy score between a commander and a card using tags
+   * Enhanced to support normalized tag structure with synergy weights
    */
   calculateTagSynergy(
     commanderProfile: CommanderProfile,
@@ -1263,11 +1264,15 @@ export class TagBasedSynergyScorer {
       if (!commanderMatch) continue;
       
       // Check if card has the required tag
-      const cardHasTag = cardMechanics.mechanicTags.some(tag => tag.name === rule.cardTag);
+      const matchingTag = cardMechanics.mechanicTags.find(tag => tag.name === rule.cardTag);
       
-      if (cardHasTag) {
-        totalSynergy += rule.score;
-        appliedRules.push(rule.description);
+      if (matchingTag) {
+        // Apply synergy weight from normalized tag structure if available
+        const synergyWeight = matchingTag.synergy_weight || 1.0;
+        const weightedScore = rule.score * synergyWeight;
+        
+        totalSynergy += weightedScore;
+        appliedRules.push(`${rule.description} (weight: ${synergyWeight.toFixed(1)}, score: ${weightedScore.toFixed(1)})`);
       }
     }
     
@@ -1295,36 +1300,55 @@ export class TagBasedSynergyScorer {
         
         if (cardMatchesType) {
           // DYNAMIC: Use tribe-specific bonuses based on tribe rarity
+          // Enhanced with synergy weights from normalized structure
           console.log('🐛 DEBUG: main tribalType before calculateTribalBonus:', { tribalType, type: typeof tribalType });
           const { baseBonus, doubleBonus } = calculateTribalBonus(tribalType);
-          totalSynergy += baseBonus;
-          appliedRules.push(`${tribalType.charAt(0).toUpperCase() + tribalType.slice(1)} type synergy with tribal commander (+${baseBonus})`);
+          
+          // Find matching tribal tags to get synergy weights
+          const tribalTags = cardMechanics.mechanicTags.filter(tag => 
+            tag.name === `creature_type_${tribalType}` || 
+            (tribalType === 'artifact' && (tag.name === 'type_artifact' || tag.category === 'artifacts'))
+          );
+          
+          // Calculate weighted tribal bonus
+          const avgSynergyWeight = tribalTags.length > 0 
+            ? tribalTags.reduce((sum, tag) => sum + (tag.synergy_weight || 1.0), 0) / tribalTags.length
+            : 1.0;
+            
+          const weightedBaseBonus = baseBonus * avgSynergyWeight;
+          totalSynergy += weightedBaseBonus;
+          appliedRules.push(`${tribalType.charAt(0).toUpperCase() + tribalType.slice(1)} type synergy with tribal commander (+${weightedBaseBonus.toFixed(1)}, weight: ${avgSynergyWeight.toFixed(1)})`);
           
           // ADDITIONAL: Extra bonus if commander has multiple tribal indicators
           const hasMultipleTribalTags = commanderProfile.tags.includes(`tribal_${tribalType}`) && 
                                        commanderProfile.tags.includes(`${tribalType}_matters`);
           if (hasMultipleTribalTags) {
-            totalSynergy += doubleBonus;
-            appliedRules.push(`Double tribal synergy bonus (+${doubleBonus})`);
+            const weightedDoubleBonus = doubleBonus * avgSynergyWeight;
+            totalSynergy += weightedDoubleBonus;
+            appliedRules.push(`Double tribal synergy bonus (+${weightedDoubleBonus.toFixed(1)})`);
           }
         }
       }
     }
     
-    // Add baseline synergy based on matching categories
+    // Add baseline synergy based on matching categories with synergy weights
     let baselineSynergy = 0;
     let tagMatches = 0;
     
     for (const cardTag of cardMechanics.mechanicTags) {
-      // Direct tag matches
+      const synergyWeight = cardTag.synergy_weight || 1.0;
+      
+      // Direct tag matches - weighted by synergy_weight
       if (commanderProfile.tags.includes(cardTag.name)) {
-        baselineSynergy += cardTag.priority * 2; // Use tag priority as a multiplier
+        const weightedScore = (cardTag.priority * 2) * synergyWeight;
+        baselineSynergy += weightedScore;
         tagMatches++;
       }
       
-      // Category matches
+      // Category matches - weighted by synergy_weight  
       if (commanderProfile.strategies.some(s => cardTag.category.includes(s))) {
-        baselineSynergy += cardTag.priority;
+        const weightedScore = cardTag.priority * synergyWeight;
+        baselineSynergy += weightedScore;
         tagMatches++;
       }
     }
@@ -1388,12 +1412,16 @@ export class TagBasedSynergyScorer {
       if (commanderMatches) {
         const matchingCardTag = cardMechanics.mechanicTags.find(tag => tag.name === rule.cardTag);
         if (matchingCardTag) {
+          // Apply synergy weight from normalized tag structure
+          const synergyWeight = matchingCardTag.synergy_weight || 1.0;
+          const weightedScore = rule.score * synergyWeight;
+          
           appliedRules.push({
             rule,
             cardTag: matchingCardTag.name,
-            score: rule.score
+            score: weightedScore
           });
-          totalScore += rule.score;
+          totalScore += weightedScore;
         }
       }
     }
@@ -1426,12 +1454,24 @@ export class TagBasedSynergyScorer {
         if (cardMatchesType) {
           try {
             const { baseBonus, doubleBonus } = calculateTribalBonus(tribalType);
-            tribalBonus += baseBonus;
+            
+            // Find matching tribal tags to get synergy weights
+            const tribalTags = cardMechanics.mechanicTags.filter(tag => 
+              tag.name === `creature_type_${tribalType}` || 
+              (tribalType === 'artifact' && (tag.name === 'type_artifact' || tag.category === 'artifacts'))
+            );
+            
+            // Calculate weighted tribal bonus
+            const avgSynergyWeight = tribalTags.length > 0 
+              ? tribalTags.reduce((sum, tag) => sum + (tag.synergy_weight || 1.0), 0) / tribalTags.length
+              : 1.0;
+              
+            tribalBonus += baseBonus * avgSynergyWeight;
             
             const hasMultipleTribalTags = commanderProfile.tags.includes(`tribal_${tribalType}`) && 
                                          commanderProfile.tags.includes(`${tribalType}_matters`);
             if (hasMultipleTribalTags) {
-              tribalBonus += doubleBonus;
+              tribalBonus += doubleBonus * avgSynergyWeight;
             }
           } catch (error) {
             console.error('🐛 ERROR in calculateTribalBonus:', { tribalType, error });

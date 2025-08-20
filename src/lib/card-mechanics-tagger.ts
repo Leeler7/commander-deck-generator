@@ -21,9 +21,8 @@ const ENHANCED_KEYWORDS = {
 export interface MechanicTag {
   name: string;          // The mechanic name (e.g., "token_creation", "landfall", "sacrifice_outlet")
   category: string;      // Category (e.g., "resource_generation", "triggers", "activated_abilities")
-  confidence: number;    // 0-1, how confident we are this applies
-  evidence: string[];    // Text snippets that triggered this tag
   priority: number;      // 1-10, how important this mechanic is for the card
+  synergy_weight?: number; // Multiplier for synergy scoring (from normalized tags table)
 }
 
 export interface CardMechanics {
@@ -38,6 +37,17 @@ export interface CardMechanics {
 }
 
 export class CardMechanicsTagger {
+  
+  /**
+   * Utility function to create a clean MechanicTag without redundant fields
+   */
+  private createTag(name: string, category: string, priority: number): MechanicTag {
+    return {
+      name,
+      category,
+      priority
+    };
+  }
   
   /**
    * Analyze a card and generate comprehensive mechanics tags with enhanced keyword detection
@@ -339,8 +349,8 @@ export class CardMechanicsTagger {
       });
       
       // Specific mana colors
-      if (text.includes('{w}') || text.includes('white mana')) tags.push({name: 'mana_white', category: 'mana_generation', confidence: 0.95, evidence, priority: 6});
-      if (text.includes('{u}') || text.includes('blue mana')) tags.push({name: 'mana_blue', category: 'mana_generation', confidence: 0.95, evidence, priority: 6});
+      if (text.includes('{w}') || text.includes('white mana')) tags.push({name: 'mana_white', category: 'mana_generation', priority: 6});
+      if (text.includes('{u}') || text.includes('blue mana')) tags.push(this.createTag('mana_blue', 'mana_generation', 6));
       if (text.includes('{b}') || text.includes('black mana')) tags.push({name: 'mana_black', category: 'mana_generation', confidence: 0.95, evidence, priority: 6});
       if (text.includes('{r}') || text.includes('red mana')) tags.push({name: 'mana_red', category: 'mana_generation', confidence: 0.95, evidence, priority: 6});
       if (text.includes('{g}') || text.includes('green mana')) tags.push({name: 'mana_green', category: 'mana_generation', confidence: 0.95, evidence, priority: 6});
