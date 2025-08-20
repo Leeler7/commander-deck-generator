@@ -18,7 +18,7 @@ export default function FAQPage() {
     },
     {
       question: "What makes Big Deck Energy different from other MTG deck builders?",
-      answer: "It's fast, it's free, and it doesn't pretend to be competitive. This is for chaotic casual Commander nights. While other deck builders focus on optimization, we embrace the jank."
+      answer: "It's fast, it's free, and it doesn't pretend to be competitive. This is for chaotic casual Commander nights. While other deck builders focus on optimization, BDE embraces the jank."
     },
     {
       question: "How does the MTG Commander deck generator work?",
@@ -26,7 +26,7 @@ export default function FAQPage() {
     },
     {
       question: "Can I use any legendary creature as my commander?",
-      answer: "Yes! Any legendary creature or planeswalker that's legal in Commander can be used. The generator will automatically match cards to your commander's color identity."
+      answer: "Any legendary creature or planeswalker that's legal in Commander can be used. The generator will automatically match cards to your commander's color identity."
     },
     {
       question: "What's the 'Theme Focus' feature?",
@@ -34,7 +34,7 @@ export default function FAQPage() {
     },
     {
       question: "Can I export my generated Commander deck?",
-      answer: "Yes! You can export your deck in multiple formats including Arena, MTGO, plain text, and Moxfield. You can also get direct links to purchase the entire deck."
+      answer: "Yes! You can export your deck in multiple formats including Arena, MTGO, plain text, and Moxfield."
     },
     {
       question: "How accurate are the card prices?",
@@ -42,7 +42,7 @@ export default function FAQPage() {
     },
     {
       question: "Is Big Deck Energy free to use?",
-      answer: "Completely free! No sign-ups, no subscriptions, no hidden costs. Just instant Commander deck generation whenever you need it."
+      answer: "Completely free. No sign-ups, no subscriptions, no hidden costs. Just (near) instant Commander deck generation whenever you need it."
     },
     {
       question: "Can I save or share my generated decks?",
@@ -50,17 +50,13 @@ export default function FAQPage() {
     },
     {
       question: "Does the generator consider card synergies?",
-      answer: "Yes! The generator uses a comprehensive tagging system to identify card synergies, mechanics, and interactions. Cards that work well with your commander and theme get prioritized."
+      answer: "The generator uses a comprehensive, albiet flawed, tagging system to identify card synergies, mechanics, and interactions. Cards that work well with your commander and theme get prioritized."
     },
     {
       question: "What does 'Build a mediocre deck at instant speed' mean?",
-      answer: "It's our motto! We generate functional but intentionally non-optimized Commander decks instantly. Perfect for casual games where fun matters more than winning."
+      answer: "This tool generates functional but intentionally non-optimized Commander decks instantly. Perfect for casual games where fun matters more than winning."
     },
-    {
-      question: "Can I adjust the budget for my deck?",
-      answer: "Absolutely! Use the budget slider to set your total deck budget and per-card price limit. The generator will respect these constraints when selecting cards."
-    },
-    {
+      {
       question: "What's the 'Random Deck' button do?",
       answer: "It selects a random legal commander and immediately generates a complete deck for it. Great for when you want maximum chaos or just need inspiration."
     },
