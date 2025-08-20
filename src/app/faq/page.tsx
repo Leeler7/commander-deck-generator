@@ -78,10 +78,10 @@ export default function FAQPage() {
                 BIG DECK ENERGY
               </h1>
             </a>
-            <p className="mt-2 text-xl text-gray-600"
-              style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>>
+            <h2 className="text-4xl text-black mb-8"
+              style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               Free MTG Commander (EDH) Deck Generator
-            </p>
+            </h2>
           </div>
         </div>
       </header>
