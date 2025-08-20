@@ -88,7 +88,8 @@ export default function FAQPage() {
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-8">
+          <h1 className="text-4xl text-black mb-8"
+              style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
             Frequently Asked Questions
           </h1>
           
@@ -102,7 +103,8 @@ export default function FAQPage() {
           <div className="space-y-8">
             {faqs.map((faq, index) => (
               <div key={index} className="border-b border-gray-200 pb-6 last:border-0">
-                <h2 className="text-xl font-semibold text-gray-900 mb-3">
+                <h2 className="text-xl text-black mb-3" 
+                    style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
                   {faq.question}
                 </h2>
                 <p className="text-gray-700 leading-relaxed">
@@ -113,7 +115,8 @@ export default function FAQPage() {
           </div>
 
           <div className="mt-12 p-6 bg-blue-50 rounded-lg">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl text-black mb-4"
+                style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               Ready to Generate Your Deck?
             </h2>
             <p className="text-gray-700 mb-6">
