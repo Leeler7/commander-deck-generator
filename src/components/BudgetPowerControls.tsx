@@ -1,7 +1,7 @@
 'use client';
 
 import { GenerationConstraints, CardTypeWeights } from '@/lib/types';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CardTypeWeightsComponent from './CardTypeWeights';
 
 interface BudgetPowerControlsProps {
@@ -20,9 +20,12 @@ const defaultCardTypeWeights: CardTypeWeights = {
 
 export default function BudgetPowerControls({ constraints, onChange }: BudgetPowerControlsProps) {
   const [keywordInput, setKeywordInput] = useState('');
-  const [availableTags, setAvailableTags] = useState<{allTagNames: string[], tagsByCategory: Record<string, Array<{name: string; count: number}>>}>({allTagNames: [], tagsByCategory: {}});
+  const [searchResults, setSearchResults] = useState<Array<{name: string; category: string; description?: string; count: number}>>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [tagSearchTerm, setTagSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const updateConstraint = <K extends keyof GenerationConstraints>(
     key: K,
@@ -35,37 +38,56 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
     updateConstraint('card_type_weights', weights);
   };
 
-  // Fetch available tags on component mount
+  // Hide suggestions when clicking outside
   useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        console.log('🏷️ Fetching available tags...');
-        const response = await fetch('/api/admin/database-tags');
-        console.log('🏷️ API response status:', response.status);
-        if (response.ok) {
-          const data = await response.json();
-          console.log('🏷️ Available tags data:', data);
-          
-          // Ensure dice is included if it's missing
-          if (!data.allTagNames.includes('dice')) {
-            console.log('🎲 Adding dice tag manually as it was missing from API');
-            data.allTagNames.push('dice');
-            if (!data.tagsByCategory.manual) {
-              data.tagsByCategory.manual = [];
-            }
-            data.tagsByCategory.manual.push({ name: 'dice', count: 1 });
-          }
-          
-          setAvailableTags(data);
-        } else {
-          console.error('🏷️ API error:', response.status, await response.text());
-        }
-      } catch (error) {
-        console.error('Error fetching available tags:', error);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
       }
     };
-    fetchTags();
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Search for tags as user types
+  useEffect(() => {
+    const searchTags = async () => {
+      if (tagSearchTerm.length < 2) {
+        setSearchResults([]);
+        setShowSuggestions(false);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const params = new URLSearchParams({
+          q: tagSearchTerm,
+          limit: '15'
+        });
+        
+        if (selectedCategory && selectedCategory !== 'all') {
+          params.set('category', selectedCategory);
+        }
+
+        const response = await fetch(`/api/admin/search-tags?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data.tags || []);
+          setShowSuggestions(true);
+        }
+      } catch (error) {
+        console.error('Error searching tags:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchTags, 300); // Debounce search
+    return () => clearTimeout(debounceTimer);
+  }, [tagSearchTerm, selectedCategory]);
 
   const addKeyword = (keyword: string) => {
     if (keyword.trim()) {
@@ -83,6 +105,9 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         const newTags = [...currentTags, tag];
         updateConstraint('keywords', newTags);
       }
+      // Clear search after adding
+      setTagSearchTerm('');
+      setShowSuggestions(false);
     }
   };
 
@@ -117,29 +142,10 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
       .replace(/\+1\/\+1/g, '+1/+1'); // Fix counter notation
   };
 
-  // Filter tags based on search and category
-  const getFilteredTags = () => {
-    let tags: string[] = [];
-    
-    if (selectedCategory === 'all') {
-      tags = availableTags.allTagNames || [];
-    } else {
-      const categoryTags = availableTags.tagsByCategory[selectedCategory] || [];
-      tags = categoryTags.map(tag => tag.name);
-    }
-    
-    if (tagSearchTerm) {
-      tags = tags.filter(tag => 
-        tag.toLowerCase().includes(tagSearchTerm.toLowerCase()) ||
-        formatTagDisplay(tag).toLowerCase().includes(tagSearchTerm.toLowerCase())
-      );
-    }
-    
-    // Exclude already selected tags
+  // Filter search results to exclude already selected tags
+  const getFilteredSearchResults = () => {
     const selectedTags = constraints.keywords || [];
-    tags = tags.filter(tag => !selectedTags.includes(tag));
-    
-    return tags;
+    return searchResults.filter(tag => !selectedTags.includes(tag.name));
   };
 
   // Common keyword suggestions
@@ -191,7 +197,7 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
 
 
       {/* Tag-Based Theme Focus */}
-      <div>
+      <div ref={searchContainerRef}>
         <h3 className="text-sm font-medium text-gray-700 mb-3">Theme Focus (Optional)</h3>
         <p className="text-xs text-gray-500 mb-3">
           Select specific mechanics and themes to emphasize in deck building.
@@ -249,30 +255,57 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
             />
           </div>
 
-          {/* Available Tags */}
-          <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-2">
-            <div className="text-xs text-gray-500 mb-2">
-              Available: {availableTags.allTagNames?.length || 0} total, {getFilteredTags().length} filtered
+          {/* Search Results */}
+          {showSuggestions && (
+            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2 bg-white shadow-sm">
+              {isSearching && (
+                <div className="text-xs text-gray-500 mb-2 flex items-center">
+                  <svg className="animate-spin h-3 w-3 mr-1" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Searching...
+                </div>
+              )}
+              
+              {!isSearching && (
+                <>
+                  <div className="text-xs text-gray-500 mb-2">
+                    Found: {getFilteredSearchResults().length} tags
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {getFilteredSearchResults().map((tag) => (
+                      <button
+                        key={tag.name}
+                        onClick={() => addTag(tag.name)}
+                        className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-blue-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
+                        type="button"
+                        title={tag.description}
+                      >
+                        <span className="font-medium">{formatTagDisplay(tag.name)}</span>
+                        <span className="text-gray-500 ml-1">({tag.category})</span>
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {getFilteredSearchResults().length === 0 && searchResults.length > 0 && (
+                    <p className="text-xs text-gray-500 text-center py-2">All matching tags already selected</p>
+                  )}
+                  {searchResults.length === 0 && !isSearching && (
+                    <p className="text-xs text-gray-500 text-center py-2">No tags found</p>
+                  )}
+                </>
+              )}
             </div>
-            <div className="flex flex-wrap gap-1">
-              {getFilteredTags().slice(0, 20).map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => addTag(tag)}
-                  className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-blue-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  type="button"
-                >
-                  {formatTagDisplay(tag)}
-                </button>
-              ))}
+          )}
+          
+          {/* Help text when not searching */}
+          {!showSuggestions && tagSearchTerm.length < 2 && (
+            <div className="text-xs text-gray-500 text-center py-2 border border-gray-200 rounded-md bg-gray-50">
+              <div className="mb-2">Type at least 2 characters to search for tags</div>
+              <div className="text-xs">Try: "flying", "tokens", "tribal", "artifacts", "graveyard"</div>
             </div>
-            {getFilteredTags().length === 0 && availableTags.allTagNames?.length > 0 && (
-              <p className="text-xs text-gray-500 text-center py-2">No tags found for current filter</p>
-            )}
-            {(!availableTags.allTagNames || availableTags.allTagNames.length === 0) && (
-              <p className="text-xs text-gray-500 text-center py-2">Loading tags...</p>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Legacy Keyword Support */}

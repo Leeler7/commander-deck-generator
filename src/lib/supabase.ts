@@ -544,6 +544,64 @@ export class SupabaseCardDatabase {
     if (error) throw error;
     return data;
   }
+
+  async searchTags(query: string, category?: string | null, limit: number = 20): Promise<TagRecord[]> {
+    try {
+      // Try new structure first - search tags table
+      let tagQuery = supabase
+        .from('tags')
+        .select('*')
+        .eq('is_active', true)
+        .or(`name.ilike.%${query}%, description.ilike.%${query}%`)
+        .limit(limit);
+      
+      if (category && category !== 'all') {
+        tagQuery = tagQuery.eq('category', category);
+      }
+      
+      const { data: newTags, error: newError } = await tagQuery;
+      
+      if (!newError && newTags && newTags.length > 0) {
+        return newTags;
+      }
+    } catch (error) {
+      console.log('🏷️ New tag structure not available, falling back to legacy...');
+    }
+
+    // Fallback to legacy structure - search card_tags
+    let legacyQuery = supabase
+      .from('card_tags')
+      .select('tag_name, tag_category')
+      .or(`tag_name.ilike.%${query}%`)
+      .limit(limit * 3); // Get more to account for duplicates
+    
+    if (category && category !== 'all') {
+      legacyQuery = legacyQuery.eq('tag_category', category);
+    }
+    
+    const { data: legacyTags, error: legacyError } = await legacyQuery;
+    
+    if (legacyError) throw legacyError;
+    
+    // Remove duplicates and convert to TagRecord format
+    const uniqueTags = new Map();
+    legacyTags?.forEach(tag => {
+      const key = `${tag.tag_name}:${tag.tag_category || 'uncategorized'}`;
+      if (!uniqueTags.has(key)) {
+        uniqueTags.set(key, {
+          id: 0, // Placeholder for legacy
+          name: tag.tag_name,
+          category: tag.tag_category || 'uncategorized',
+          synergy_weight: 1.0,
+          is_active: true,
+          created_at: '',
+          updated_at: ''
+        } as TagRecord);
+      }
+    });
+    
+    return Array.from(uniqueTags.values()).slice(0, limit);
+  }
   
   async updateSyncStatus(status: Partial<DatabaseSyncStatusRecord>) {
     const { data, error } = await supabase
