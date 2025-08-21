@@ -407,8 +407,10 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
     return data || [];
   }
 
-  // Search cards by name (compatibility method)
+  // Search cards by name (compatibility method) - no tags for performance
   async searchByName(query: string, limit: number = 20): Promise<any[]> {
+    console.log(`🔍 Searching for cards with query: "${query}", limit: ${limit}`);
+    
     const { data, error } = await supabase
       .from('cards')
       .select('*')
@@ -420,30 +422,9 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
       return [];
     }
 
-    // For performance, only add full tag details if it's a small result set
-    if (limit <= 100 && data && data.length <= 100) {
-      await this.loadTagsCache();
-      
-      return data.map(card => ({
-        ...card,
-        mechanic_tags: (card.tag_ids || []).map((tagId: number) => {
-          const tag = this.tagsCache.get(tagId);
-          if (!tag) return null;
-          
-          return {
-            tag_name: tag.name,
-            tag_category: tag.category,
-            priority: 5,
-            confidence: 0.95,
-            evidence: [],
-            is_manual: false,
-            name: tag.name,
-            category: tag.category
-          };
-        }).filter((tag: any) => tag !== null)
-      }));
-    }
-
+    console.log(`✅ Found ${data?.length || 0} cards matching "${query}"`);
+    
+    // Return cards without tags for performance - tags will be loaded on-demand
     return data || [];
   }
 
@@ -480,39 +461,61 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
 
   // Get card by name with full tag details (for database explorer)
   async getCardByName(name: string): Promise<any> {
-    const { data, error } = await supabase
+    console.log(`🔍 Getting card by exact name: "${name}"`);
+    
+    // First get the card
+    const { data: card, error } = await supabase
       .from('cards')
       .select('*')
       .eq('name', name)
       .single();
 
-    if (error || !data) {
-      console.error('Error getting card by name:', error);
+    if (error || !card) {
+      console.error(`❌ Card not found: "${name}"`, error);
       return null;
     }
 
-    // Load tags cache if needed
-    await this.loadTagsCache();
+    console.log(`✅ Found card: ${card.name} with tag_ids: [${card.tag_ids?.join(', ') || 'none'}]`);
 
-    // Convert tag_ids to mechanic_tags format for backward compatibility
-    const mechanicTags = (data.tag_ids || []).map(tagId => {
-      const tag = this.tagsCache.get(tagId);
-      if (!tag) return null;
-      
+    // If no tags, return card without mechanic_tags
+    if (!card.tag_ids || card.tag_ids.length === 0) {
       return {
-        tag_name: tag.name,
-        tag_category: tag.category,
-        priority: 5, // Default priority
-        confidence: 0.95, // Default confidence
-        evidence: [], // No evidence data in new system
-        is_manual: false, // All tags are automatic in new system
-        name: tag.name, // Legacy support
-        category: tag.category // Legacy support
+        ...card,
+        mechanic_tags: []
       };
-    }).filter(tag => tag !== null);
+    }
+
+    // Get the associated tags from tags table
+    const { data: tags, error: tagsError } = await supabase
+      .from('tags')
+      .select('*')
+      .in('id', card.tag_ids)
+      .eq('is_active', true);
+
+    if (tagsError) {
+      console.error('Error fetching tags:', tagsError);
+      return {
+        ...card,
+        mechanic_tags: []
+      };
+    }
+
+    // Convert to mechanic_tags format for backward compatibility
+    const mechanicTags = (tags || []).map(tag => ({
+      tag_name: tag.name,
+      tag_category: tag.category,
+      priority: 5, // Default priority
+      confidence: 0.95, // Default confidence
+      evidence: [], // No evidence data in new system
+      is_manual: false, // All tags are automatic in new system
+      name: tag.name, // Legacy support
+      category: tag.category // Legacy support
+    }));
+
+    console.log(`📝 Found ${mechanicTags.length} tags for card: ${card.name}`);
 
     return {
-      ...data,
+      ...card,
       mechanic_tags: mechanicTags
     };
   }
