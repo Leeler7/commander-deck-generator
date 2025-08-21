@@ -1,5 +1,5 @@
 // Database factory to switch between file-based and Supabase databases
-import { supabaseDb } from './supabase';
+import { database as supabaseDb } from './supabase-updated';
 
 export type DatabaseType = 'file' | 'supabase';
 

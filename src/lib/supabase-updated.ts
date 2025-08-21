@@ -46,7 +46,10 @@ export interface TagRecord {
   is_active: boolean;
 }
 
-export class SupabaseCardDatabase {
+// Import the interface
+import type { DatabaseInterface } from './database-factory';
+
+export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
   private tagsCache: Map<number, TagRecord> = new Map();
   private tagsCacheTimestamp = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -401,6 +404,53 @@ export class SupabaseCardDatabase {
     }
 
     console.log(`✅ Found ${data?.length || 0} cards matching filters`);
+    return data || [];
+  }
+
+  // Search cards by name (compatibility method)
+  async searchByName(query: string, limit: number = 20): Promise<CardRecord[]> {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .ilike('name', `%${query}%`)
+      .limit(limit);
+
+    if (error) {
+      console.error('Error searching cards by name:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  // Get card by ID (compatibility method)
+  async getCardById(id: string): Promise<CardRecord | null> {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Error getting card by ID:', error);
+      return null;
+    }
+
+    return data;
+  }
+
+  // Get available tags (compatibility method)
+  async getAvailableTags(): Promise<TagRecord[]> {
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('Error getting available tags:', error);
+      return [];
+    }
+
     return data || [];
   }
 
