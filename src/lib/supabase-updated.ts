@@ -323,6 +323,45 @@ export class SupabaseCardDatabase {
     return categories.sort();
   }
 
+  // Get all legal commanders efficiently (without loading all cards)
+  async getAllCommanders(): Promise<CardRecord[]> {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .ilike('type_line', '%legendary%')
+      .ilike('type_line', '%creature%')
+      .eq('legalities->>commander', 'legal')
+      .not('type_line', 'ilike', '%background%')
+      .order('name');
+
+    if (error) {
+      console.error('Error getting commanders:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  // Get cards efficiently with reasonable limit for deck generation
+  async getCardsForGeneration(limit: number = 10000): Promise<CardRecord[]> {
+    console.log(`📊 Loading ${limit} cards for deck generation...`);
+    
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .eq('legalities->>commander', 'legal')
+      .order('name')
+      .limit(limit);
+
+    if (error) {
+      console.error('Error getting cards for generation:', error);
+      return [];
+    }
+
+    console.log(`✅ Loaded ${data?.length || 0} cards for generation`);
+    return data || [];
+  }
+
   // Clean up overlapping mechanic_ and ability_keyword_ tags
   async cleanupOverlappingTags(): Promise<{ deletedCount: number; overlaps: any[] }> {
     const { data: tags, error } = await supabase

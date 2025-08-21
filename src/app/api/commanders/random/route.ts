@@ -6,35 +6,9 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🎲 Random commander endpoint called');
     
-    // Initialize and ensure database is loaded
-    console.log('✅ Database initialized');
-    
-    // Get all cards from local database
-    const allCards = await database.getAllCards();
-    console.log(`🎲 Searching through ${allCards.length} local cards for commanders`);
-    
-    // Filter for legal commanders from local database
-    const commanders = allCards.filter(card => {
-      // Must be legendary creature
-      if (!card.type_line.toLowerCase().includes('legendary') || 
-          !card.type_line.toLowerCase().includes('creature')) {
-        return false;
-      }
-      
-      // Must be legal in commander format
-      if (!isCardLegalInCommander(card)) {
-        return false;
-      }
-      
-      // Skip backgrounds and partners (they're not primary commanders)
-      if (card.type_line.toLowerCase().includes('background')) {
-        return false;
-      }
-      
-      return true;
-    });
-    
-    console.log(`✅ Found ${commanders.length} legal commanders in local database`);
+    // Get all legal commanders efficiently using database query
+    const commanders = await database.getAllCommanders();
+    console.log(`✅ Found ${commanders.length} legal commanders via database query`);
     
     if (commanders.length === 0) {
       return NextResponse.json(

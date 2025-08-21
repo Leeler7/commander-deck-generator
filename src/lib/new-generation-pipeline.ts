@@ -57,8 +57,11 @@ export class NewDeckGenerator {
         await this.localDatabase.initialize();
       }
       
-      // Check if database has cards, if not, perform sync (file database only)
-      const allCards = await this.localDatabase.getAllCards();
+      // Get cards for generation (limited to reasonable amount for performance)
+      const allCards = 'getCardsForGeneration' in this.localDatabase && typeof this.localDatabase.getCardsForGeneration === 'function'
+        ? await this.localDatabase.getCardsForGeneration(15000)
+        : await this.localDatabase.getAllCards(15000);
+      
       if (allCards.length === 0 && 'performFullSync' in this.localDatabase && typeof this.localDatabase.performFullSync === 'function') {
         this.log('⚠️ Database is empty, performing initial sync...');
         await this.localDatabase.performFullSync();
