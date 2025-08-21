@@ -84,6 +84,41 @@ export interface DatabaseSyncStatusRecord {
 
 // Database service functions
 export class SupabaseCardDatabase {
+  private tagsCache: Map<number, any> = new Map();
+  private tagsCacheTimestamp = 0;
+  private readonly CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
+  constructor() {
+    // Pre-load tags cache on initialization
+    this.loadTagsCache();
+  }
+  
+  private async loadTagsCache(): Promise<void> {
+    try {
+      const { data: tags, error } = await supabase
+        .from('tags')
+        .select('id, name, category, synergy_weight')
+        .eq('is_active', true);
+      
+      if (!error && tags) {
+        this.tagsCache.clear();
+        tags.forEach(tag => {
+          this.tagsCache.set(tag.id, tag);
+        });
+        this.tagsCacheTimestamp = Date.now();
+        console.log(`📦 Loaded ${tags.length} tags into cache for faster deck generation`);
+      }
+    } catch (error) {
+      console.error('Error loading tags cache:', error);
+    }
+  }
+  
+  private async ensureTagsCacheLoaded(): Promise<void> {
+    const now = Date.now();
+    if (!this.tagsCacheTimestamp || (now - this.tagsCacheTimestamp) > this.CACHE_DURATION) {
+      await this.loadTagsCache();
+    }
+  }
   
   async searchByName(query: string, limit: number = 20) {
     const { data, error } = await supabase
@@ -98,7 +133,7 @@ export class SupabaseCardDatabase {
   }
   
   async getCardById(id: string) {
-    // Query with tags joined
+    // Query card with all fields including tag_ids
     const { data: cardData, error: cardError } = await supabase
       .from('cards')
       .select('*')
@@ -110,7 +145,14 @@ export class SupabaseCardDatabase {
       throw cardError;
     }
     
-    // Get tags for this card - try new structure first, fall back to old
+    // For backward compatibility, if tag_ids exists, use it
+    // Otherwise fall back to old mechanic_tags structure
+    if (cardData.tag_ids && cardData.tag_ids.length > 0) {
+      // Card already has tag_ids, no need for additional queries
+      return cardData;
+    }
+    
+    // Legacy fallback: Get tags for this card
     const tags = await this.getCardTags(id);
     
     // Combine card with tags
@@ -154,16 +196,16 @@ export class SupabaseCardDatabase {
         return null; // No tags available
       }
 
-      // Fetch tag details for the tag_ids
-      const { data: tags, error } = await supabase
-        .from('tags')
-        .select('id, name, category, synergy_weight')
-        .in('id', card.tag_ids)
-        .eq('is_active', true);
+      // Ensure tags cache is loaded
+      await this.ensureTagsCacheLoaded();
       
-      if (error || !tags) {
-        console.error('Error fetching tags:', error);
-        return null;
+      // Get tag details from cache (much faster than querying database)
+      const tags = card.tag_ids
+        .map(tagId => this.tagsCache.get(tagId))
+        .filter(tag => tag !== undefined);
+      
+      if (tags.length === 0) {
+        return null; // No valid tags found
       }
 
       // Convert tags to MechanicTag format
