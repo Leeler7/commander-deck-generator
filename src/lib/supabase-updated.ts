@@ -408,7 +408,7 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
   }
 
   // Search cards by name (compatibility method)
-  async searchByName(query: string, limit: number = 20): Promise<CardRecord[]> {
+  async searchByName(query: string, limit: number = 20): Promise<any[]> {
     const { data, error } = await supabase
       .from('cards')
       .select('*')
@@ -418,6 +418,30 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
     if (error) {
       console.error('Error searching cards by name:', error);
       return [];
+    }
+
+    // For performance, only add full tag details if it's a small result set
+    if (limit <= 100 && data && data.length <= 100) {
+      await this.loadTagsCache();
+      
+      return data.map(card => ({
+        ...card,
+        mechanic_tags: (card.tag_ids || []).map((tagId: number) => {
+          const tag = this.tagsCache.get(tagId);
+          if (!tag) return null;
+          
+          return {
+            tag_name: tag.name,
+            tag_category: tag.category,
+            priority: 5,
+            confidence: 0.95,
+            evidence: [],
+            is_manual: false,
+            name: tag.name,
+            category: tag.category
+          };
+        }).filter((tag: any) => tag !== null)
+      }));
     }
 
     return data || [];
@@ -452,6 +476,45 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
     }
 
     return data || [];
+  }
+
+  // Get card by name with full tag details (for database explorer)
+  async getCardByName(name: string): Promise<any> {
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .eq('name', name)
+      .single();
+
+    if (error || !data) {
+      console.error('Error getting card by name:', error);
+      return null;
+    }
+
+    // Load tags cache if needed
+    await this.loadTagsCache();
+
+    // Convert tag_ids to mechanic_tags format for backward compatibility
+    const mechanicTags = (data.tag_ids || []).map(tagId => {
+      const tag = this.tagsCache.get(tagId);
+      if (!tag) return null;
+      
+      return {
+        tag_name: tag.name,
+        tag_category: tag.category,
+        priority: 5, // Default priority
+        confidence: 0.95, // Default confidence
+        evidence: [], // No evidence data in new system
+        is_manual: false, // All tags are automatic in new system
+        name: tag.name, // Legacy support
+        category: tag.category // Legacy support
+      };
+    }).filter(tag => tag !== null);
+
+    return {
+      ...data,
+      mechanic_tags: mechanicTags
+    };
   }
 
   // Clean up overlapping mechanic_ and ability_keyword_ tags
