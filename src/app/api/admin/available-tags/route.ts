@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     
     // Group tags by category from the database
     const tagsByCategory: Record<string, string[]> = {};
+    const allTagNames: string[] = [];
     
     availableTags.forEach(tag => {
       const category = tag.category || 'other';
@@ -19,12 +20,14 @@ export async function GET(request: NextRequest) {
         tagsByCategory[category] = [];
       }
       tagsByCategory[category].push(tag.name);
+      allTagNames.push(tag.name);
     });
 
-    // Sort each category
+    // Sort each category and the complete list
     Object.keys(tagsByCategory).forEach(category => {
       tagsByCategory[category].sort();
     });
+    allTagNames.sort();
 
     console.log(`🏷️ Organized tags into ${Object.keys(tagsByCategory).length} categories`);
 

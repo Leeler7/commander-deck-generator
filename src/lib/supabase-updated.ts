@@ -3,9 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 // Supabase configuration
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bykbnagijmxtfpkaflae.supabase.co';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
-// Create Supabase client
+// Create Supabase client (read-only operations)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Create admin Supabase client with service role (write operations)
+export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // Database types
 export interface CardRecord {
@@ -178,6 +182,8 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
   // Add tags to a card
   async addTagsToCard(cardId: string, tagIds: number[]): Promise<boolean> {
     try {
+      console.log(`🏷️ [ADD] Starting addTagsToCard for card ${cardId} with tags: [${tagIds.join(', ')}]`);
+      
       // Get current tag_ids
       const { data: card, error: fetchError } = await supabase
         .from('cards')
@@ -186,28 +192,32 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
         .single();
 
       if (fetchError) {
-        console.error('Error fetching card:', fetchError);
+        console.error('🚨 [ADD] Error fetching card:', fetchError);
         return false;
       }
 
       // Merge new tag IDs with existing ones (avoid duplicates)
       const existingTags = card?.tag_ids || [];
       const updatedTags = [...new Set([...existingTags, ...tagIds])].sort();
+      
+      console.log(`🏷️ [ADD] Current tags: [${existingTags.join(', ')}]`);
+      console.log(`🏷️ [ADD] Updated tags: [${updatedTags.join(', ')}]`);
 
-      // Update the card with new tag_ids
-      const { error: updateError } = await supabase
+      // Update the card with new tag_ids using admin client
+      const { error: updateError } = await supabaseAdmin
         .from('cards')
         .update({ tag_ids: updatedTags })
         .eq('id', cardId);
 
       if (updateError) {
-        console.error('Error updating card tags:', updateError);
+        console.error('🚨 [ADD] Error updating card tags:', updateError);
         return false;
       }
 
+      console.log(`✅ [ADD] Successfully added tags to card ${cardId}`);
       return true;
     } catch (error) {
-      console.error('Error adding tags to card:', error);
+      console.error('🚨 [ADD] Error adding tags to card:', error);
       return false;
     }
   }
@@ -215,6 +225,8 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
   // Remove tags from a card
   async removeTagsFromCard(cardId: string, tagIds: number[]): Promise<boolean> {
     try {
+      console.log(`🏷️ [REMOVE] Starting removeTagsFromCard for card ${cardId} with tags: [${tagIds.join(', ')}]`);
+      
       // Get current tag_ids
       const { data: card, error: fetchError } = await supabase
         .from('cards')
@@ -223,28 +235,33 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
         .single();
 
       if (fetchError) {
-        console.error('Error fetching card:', fetchError);
+        console.error('🚨 [REMOVE] Error fetching card:', fetchError);
         return false;
       }
 
       // Remove specified tag IDs
       const existingTags = card?.tag_ids || [];
       const updatedTags = existingTags.filter(id => !tagIds.includes(id));
+      
+      console.log(`🏷️ [REMOVE] Current tags: [${existingTags.join(', ')}]`);
+      console.log(`🏷️ [REMOVE] Removing tag IDs: [${tagIds.join(', ')}]`);
+      console.log(`🏷️ [REMOVE] Updated tags: [${updatedTags.join(', ')}]`);
 
-      // Update the card with new tag_ids
-      const { error: updateError } = await supabase
+      // Update the card with new tag_ids using admin client
+      const { error: updateError } = await supabaseAdmin
         .from('cards')
         .update({ tag_ids: updatedTags })
         .eq('id', cardId);
 
       if (updateError) {
-        console.error('Error updating card tags:', updateError);
+        console.error('🚨 [REMOVE] Error updating card tags:', updateError);
         return false;
       }
 
+      console.log(`✅ [REMOVE] Successfully removed tags from card ${cardId}`);
       return true;
     } catch (error) {
-      console.error('Error removing tags from card:', error);
+      console.error('🚨 [REMOVE] Error removing tags from card:', error);
       return false;
     }
   }

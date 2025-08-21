@@ -49,6 +49,7 @@ export default function DatabaseExplorerPage() {
   const [selectedTagsToAdd, setSelectedTagsToAdd] = useState<string[]>([]);
   const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
   const [isEditingTags, setIsEditingTags] = useState(false);
+  const [tagSearchTerm, setTagSearchTerm] = useState('');
 
   // Load cards and available tags on component mount
   useEffect(() => {
@@ -146,6 +147,7 @@ export default function DatabaseExplorerPage() {
       setSelectedTagsToAdd([]);
       setSelectedTagsToRemove([]);
       setIsEditingTags(false);
+      setTagSearchTerm('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card details');
     } finally {
@@ -190,6 +192,7 @@ export default function DatabaseExplorerPage() {
       await loadCardDetails(selectedCard.name);
       setSelectedTagsToAdd([]);
       setSelectedTagsToRemove([]);
+      setTagSearchTerm('');
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update tags');
@@ -212,6 +215,27 @@ export default function DatabaseExplorerPage() {
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
+  };
+
+  // Filter tags based on search term
+  const getFilteredTags = () => {
+    if (!availableTags || !tagSearchTerm.trim()) {
+      return availableTags?.tagsByCategory || {};
+    }
+
+    const searchLower = tagSearchTerm.toLowerCase();
+    const filteredCategories: Record<string, string[]> = {};
+
+    Object.entries(availableTags.tagsByCategory).forEach(([category, tags]) => {
+      const matchingTags = tags.filter((tag: string) => 
+        tag.toLowerCase().includes(searchLower)
+      );
+      if (matchingTags.length > 0) {
+        filteredCategories[category] = matchingTags;
+      }
+    });
+
+    return filteredCategories;
   };
 
   // Display limited cards for performance
@@ -337,7 +361,18 @@ export default function DatabaseExplorerPage() {
               <h2 style={{fontSize: '18px', margin: 0}}>Card Details</h2>
               {selectedCard && (
                 <button
-                  onClick={() => setIsEditingTags(!isEditingTags)}
+                  onClick={() => {
+                    setIsEditingTags(!isEditingTags);
+                    if (!isEditingTags) {
+                      // Clear search when entering edit mode
+                      setTagSearchTerm('');
+                    } else {
+                      // Clear selections when exiting edit mode
+                      setSelectedTagsToAdd([]);
+                      setSelectedTagsToRemove([]);
+                      setTagSearchTerm('');
+                    }
+                  }}
                   style={{
                     backgroundColor: isEditingTags ? '#dc2626' : '#2563eb',
                     color: 'white',
@@ -577,6 +612,7 @@ export default function DatabaseExplorerPage() {
                               onClick={() => {
                                 setSelectedTagsToAdd([]);
                                 setSelectedTagsToRemove([]);
+                                setTagSearchTerm('');
                               }}
                               style={{
                                 backgroundColor: '#6b7280',
@@ -597,9 +633,24 @@ export default function DatabaseExplorerPage() {
                       {/* Available Tags */}
                       {availableTags && (
                         <div>
-                          <strong style={{fontSize: '12px', color: '#666'}}>Available Tags by Category:</strong>
+                          <strong style={{fontSize: '12px', color: '#666'}}>Search & Add Tags:</strong>
+                          <input
+                            type="text"
+                            placeholder="Search tags by name..."
+                            value={tagSearchTerm}
+                            onChange={(e) => setTagSearchTerm(e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '6px 8px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              marginTop: '4px',
+                              marginBottom: '8px'
+                            }}
+                          />
                           <div style={{maxHeight: '250px', overflowY: 'auto', marginTop: '8px', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px'}}>
-                            {Object.entries(availableTags.tagsByCategory).map(([category, tags]) => (
+                            {Object.entries(getFilteredTags()).map(([category, tags]) => (
                               <div key={category} style={{marginBottom: '10px'}}>
                                 <h4 style={{fontSize: '11px', color: '#374151', marginBottom: '4px', textTransform: 'capitalize'}}>
                                   {category.replace(/_/g, ' ')} ({tags.length})
