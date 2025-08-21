@@ -218,6 +218,25 @@ export class ScryfallClient {
       };
     }
   }
+
+  async getRandomCommander(): Promise<ScryfallCard | null> {
+    return rateLimiter.executeRequest(async () => {
+      console.log('🎲 Fetching random commander from Scryfall...');
+      
+      // Use Scryfall's random card endpoint with commander constraints
+      const url = `${SCRYFALL_API_BASE}/cards/random?q=is%3Acommander`;
+      const response = await fetchWithRetry(url);
+      
+      if (!response.ok) {
+        console.error('Failed to fetch random commander:', response.status, response.statusText);
+        return null;
+      }
+      
+      const card = await response.json() as ScryfallCard;
+      console.log(`✅ Got random commander: ${card.name}`);
+      return card;
+    });
+  }
 }
 
 export const scryfallClient = new ScryfallClient();

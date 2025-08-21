@@ -1,32 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { database } from '@/lib/supabase-updated';
-import { isCardLegalInCommander } from '@/lib/rules';
+import { scryfallClient } from '@/lib/scryfall';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('🎲 Random commander endpoint called');
     
-    // Get all legal commanders efficiently using database query
-    const commanders = await database.getAllCommanders();
-    console.log(`✅ Found ${commanders.length} legal commanders via database query`);
+    // Use Scryfall API for fast random commander selection
+    const randomCommander = await scryfallClient.getRandomCommander();
     
-    if (commanders.length === 0) {
+    if (!randomCommander) {
       return NextResponse.json(
-        { error: 'No legal commanders found in local database' },
+        { error: 'Failed to get random commander from Scryfall' },
         { status: 404 }
       );
     }
     
-    // Pick a random commander
-    const randomIndex = Math.floor(Math.random() * commanders.length);
-    const randomCommander = commanders[randomIndex];
-    
-    console.log(`🎲 Random commander selected: ${randomCommander.name} (from ${commanders.length} total commanders)`);
+    console.log(`🎲 Random commander selected: ${randomCommander.name} via Scryfall API`);
     
     return NextResponse.json({
       commander: randomCommander,
-      totalEligible: commanders.length,
-      method: 'local database'
+      method: 'scryfall api'
     });
     
   } catch (error) {
