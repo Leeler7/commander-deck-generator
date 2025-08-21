@@ -325,12 +325,13 @@ export class SupabaseCardDatabase {
 
   // Get all legal commanders efficiently (without loading all cards)
   async getAllCommanders(): Promise<CardRecord[]> {
+    console.log('🎲 Getting commanders with efficient database query...');
+    
     const { data, error } = await supabase
       .from('cards')
       .select('*')
       .ilike('type_line', '%legendary%')
       .ilike('type_line', '%creature%')
-      .eq('legalities->>commander', 'legal')
       .not('type_line', 'ilike', '%background%')
       .order('name');
 
@@ -339,7 +340,13 @@ export class SupabaseCardDatabase {
       return [];
     }
 
-    return data || [];
+    // Filter for commander legality in JavaScript since JSON operators can be complex
+    const commanders = (data || []).filter(card => {
+      return card.legalities && card.legalities.commander === 'legal';
+    });
+
+    console.log(`✅ Found ${commanders.length} legal commanders`);
+    return commanders;
   }
 
   // Get cards efficiently with reasonable limit for deck generation
