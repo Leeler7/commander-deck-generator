@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { database } from '@/lib/database-factory';
+import { database } from '@/lib/supabase-updated';
 import { isCardLegalInCommander } from '@/lib/rules';
 
 export async function GET(request: NextRequest) {

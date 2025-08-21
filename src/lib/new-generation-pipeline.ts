@@ -1,6 +1,6 @@
 import { ScryfallCard, DeckCard, GeneratedDeck, GenerationConstraints, CardTypeWeights } from './types';
 import { scryfallClient } from './scryfall';
-import { database } from './database-factory';
+import { database } from './supabase-updated';
 import { 
   isColorIdentityValid, 
   isCardLegalInCommander,
