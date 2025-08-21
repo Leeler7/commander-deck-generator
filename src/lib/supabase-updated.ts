@@ -327,25 +327,27 @@ export class SupabaseCardDatabase {
   async getAllCommanders(): Promise<CardRecord[]> {
     console.log('🎲 Getting commanders with efficient database query...');
     
+    // First, get a reasonable sample of legendary creatures
     const { data, error } = await supabase
       .from('cards')
       .select('*')
       .ilike('type_line', '%legendary%')
       .ilike('type_line', '%creature%')
       .not('type_line', 'ilike', '%background%')
-      .order('name');
+      .order('name')
+      .limit(3000); // Limit to first 3000 legendary creatures for speed
 
     if (error) {
       console.error('Error getting commanders:', error);
       return [];
     }
 
-    // Filter for commander legality in JavaScript since JSON operators can be complex
+    // Filter for commander legality
     const commanders = (data || []).filter(card => {
       return card.legalities && card.legalities.commander === 'legal';
     });
 
-    console.log(`✅ Found ${commanders.length} legal commanders`);
+    console.log(`✅ Found ${commanders.length} legal commanders from ${data?.length} legendary creatures`);
     return commanders;
   }
 
