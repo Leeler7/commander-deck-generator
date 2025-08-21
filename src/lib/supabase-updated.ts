@@ -371,6 +371,39 @@ export class SupabaseCardDatabase {
     return data || [];
   }
 
+  // Search cards by filters (compatibility method for generation pipeline)
+  async searchByFilters(filters: any, limit: number = 10000): Promise<CardRecord[]> {
+    console.log(`🔍 Searching cards with filters:`, filters);
+    
+    let queryBuilder = supabase
+      .from('cards')
+      .select('*');
+
+    // Apply color identity filter
+    if (filters.colorIdentity && Array.isArray(filters.colorIdentity)) {
+      // For now, just get all commander-legal cards and filter in JS
+      // This is a simplified approach for compatibility
+      queryBuilder = queryBuilder.eq('legalities->>commander', 'legal');
+    }
+
+    // Apply commander legality filter
+    if (filters.legal_in_commander) {
+      queryBuilder = queryBuilder.eq('legalities->>commander', 'legal');
+    }
+
+    const { data, error } = await queryBuilder
+      .order('name')
+      .limit(limit);
+
+    if (error) {
+      console.error('Error searching cards by filters:', error);
+      return [];
+    }
+
+    console.log(`✅ Found ${data?.length || 0} cards matching filters`);
+    return data || [];
+  }
+
   // Clean up overlapping mechanic_ and ability_keyword_ tags
   async cleanupOverlappingTags(): Promise<{ deletedCount: number; overlaps: any[] }> {
     const { data: tags, error } = await supabase
