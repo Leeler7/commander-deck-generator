@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { database } from '@/lib/database-factory';
-import { CardMechanicsTagger } from '@/lib/card-mechanics-tagger';
+import { database } from '@/lib/supabase-updated';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,85 +13,99 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Initialize the database
-    // Find the card
-    const cards = await database.searchByName(cardName, 1);
-    if (cards.length === 0) {
+    console.log(`🏷️ Updating tags for card: ${cardName}`);
+    console.log(`Tags to add: [${tagsToAdd?.join(', ') || 'none'}]`);
+    console.log(`Tags to remove: [${tagsToRemove?.join(', ') || 'none'}]`);
+
+    // Get the card
+    const card = await database.getCardByName(cardName);
+    if (!card) {
       return NextResponse.json(
         { error: 'Card not found' },
         { status: 404 }
       );
     }
 
-    const card = cards[0];
+    // Get all available tags to validate tag names
+    const availableTags = await database.getAvailableTags();
+    const validTagNames = new Set(availableTags.map(tag => tag.name));
     
-    // Get current mechanics analysis
-    const tagger = new CardMechanicsTagger();
-    const currentMechanics = await tagger.analyzeCardEnhanced(card);
+    // Validate tags to add
+    if (tagsToAdd && Array.isArray(tagsToAdd)) {
+      const invalidTags = tagsToAdd.filter(tagName => !validTagNames.has(tagName));
+      if (invalidTags.length > 0) {
+        return NextResponse.json(
+          { error: `Invalid tag names: ${invalidTags.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Get current tag IDs
+    const currentTagIds = card.tag_ids || [];
     
-    // Create new tags array with modifications
-    let updatedTags = [...currentMechanics.mechanicTags];
+    // Convert tag names to tag IDs
+    const tagNameToId = new Map(availableTags.map(tag => [tag.name, tag.id]));
+    
+    let updatedTagIds = [...currentTagIds];
     
     // Remove specified tags
     if (tagsToRemove && Array.isArray(tagsToRemove)) {
-      updatedTags = updatedTags.filter(tag => !tagsToRemove.includes(tag.name));
+      const tagIdsToRemove = tagsToRemove
+        .map(tagName => tagNameToId.get(tagName))
+        .filter(id => id !== undefined);
+      
+      updatedTagIds = updatedTagIds.filter(id => !tagIdsToRemove.includes(id));
+      console.log(`Removing tag IDs: [${tagIdsToRemove.join(', ')}]`);
     }
     
     // Add new tags
     if (tagsToAdd && Array.isArray(tagsToAdd)) {
-      for (const tagName of tagsToAdd) {
-        // Check if tag already exists
-        if (!updatedTags.some(tag => tag.name === tagName)) {
-          updatedTags.push({
-            name: tagName,
-            category: 'manual', // Mark as manually added
-            priority: 5, // Medium priority for manual tags
-            synergy_weight: 1.0 // Default synergy weight for manual tags
-          });
-        }
+      const tagIdsToAdd = tagsToAdd
+        .map(tagName => tagNameToId.get(tagName))
+        .filter(id => id !== undefined && !updatedTagIds.includes(id));
+      
+      updatedTagIds.push(...tagIdsToAdd);
+      console.log(`Adding tag IDs: [${tagIdsToAdd.join(', ')}]`);
+    }
+
+    // Update the card in the database using addTagsToCard and removeTagsFromCard
+    let success = true;
+    if (tagsToAdd && tagsToAdd.length > 0) {
+      const tagIdsToAdd = tagsToAdd
+        .map(tagName => tagNameToId.get(tagName))
+        .filter(id => id !== undefined);
+      
+      if (tagIdsToAdd.length > 0) {
+        success = success && await database.addTagsToCard(card.id, tagIdsToAdd);
       }
     }
     
-    // Try to persist to database if using Supabase
-    let persistedToDatabase = false;
-    try {
-      if (database && typeof database.addTagToCards === 'function' && typeof database.removeTagFromCards === 'function') {
-        // Add tags to database
-        if (tagsToAdd && tagsToAdd.length > 0) {
-          for (const tagName of tagsToAdd) {
-            await (database as any).addTagToCards(tagName, [card.id]);
-          }
-        }
-        
-        // Remove tags from database
-        if (tagsToRemove && tagsToRemove.length > 0) {
-          for (const tagName of tagsToRemove) {
-            await (database as any).removeTagFromCards(tagName, [card.id]);
-          }
-        }
-        
-        persistedToDatabase = true;
+    if (tagsToRemove && tagsToRemove.length > 0) {
+      const tagIdsToRemove = tagsToRemove
+        .map(tagName => tagNameToId.get(tagName))
+        .filter(id => id !== undefined);
+      
+      if (tagIdsToRemove.length > 0) {
+        success = success && await database.removeTagsFromCard(card.id, tagIdsToRemove);
       }
-    } catch (dbError) {
-      console.error('Failed to persist tag changes to database:', dbError);
-      // Continue with in-memory response even if database update failed
     }
-    
-    const updatedMechanics = {
-      ...currentMechanics,
-      mechanicTags: updatedTags
-    };
+
+    if (!success) {
+      return NextResponse.json(
+        { error: 'Failed to update card tags in database' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`✅ Successfully updated tags for ${cardName}`);
 
     return NextResponse.json({
       success: true,
       cardName,
-      updatedMechanics,
       tagsAdded: tagsToAdd || [],
       tagsRemoved: tagsToRemove || [],
-      persistedToDatabase,
-      message: persistedToDatabase 
-        ? 'Tags updated successfully and persisted to database' 
-        : 'Tags updated successfully (in-memory only - database persistence failed or unavailable)'
+      message: 'Tags updated successfully in database'
     });
     
   } catch (error) {

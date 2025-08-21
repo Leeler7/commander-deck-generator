@@ -7,14 +7,14 @@ interface CardData {
   id: string;
   name: string;
   type_line: string;
-  mechanics?: {
-    mechanicTags: Array<{
-      name: string;
-      category: string;
-      priority: number;
-      confidence: number;
-    }>;
-  };
+  mechanic_tags?: Array<{
+    tag_name: string;
+    tag_category: string;
+    priority: number;
+    confidence: number;
+    name: string; // Legacy support
+    category: string; // Legacy support
+  }>;
 }
 
 interface AvailableTags {
@@ -199,22 +199,22 @@ export default function TagEditorPage() {
                 <h3 className="font-bold text-lg">{selectedCard.name}</h3>
                 <p className="text-gray-600">{selectedCard.type_line}</p>
                 
-                {selectedCard.mechanics && selectedCard.mechanics.mechanicTags.length > 0 && (
+                {selectedCard.mechanic_tags && selectedCard.mechanic_tags.length > 0 && (
                   <div className="mt-4">
                     <h4 className="font-semibold mb-2">Current Tags:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {selectedCard.mechanics.mechanicTags.map((tag, index) => (
+                      {selectedCard.mechanic_tags.map((tag, index) => (
                         <span
                           key={index}
                           className={`px-2 py-1 text-xs rounded-md cursor-pointer border ${
-                            selectedTagsToRemove.includes(tag.name)
+                            selectedTagsToRemove.includes(tag.tag_name || tag.name)
                               ? 'bg-red-100 border-red-300 text-red-700'
                               : 'bg-blue-100 border-blue-300 text-blue-700'
                           }`}
-                          onClick={() => toggleTagForRemoval(tag.name)}
+                          onClick={() => toggleTagForRemoval(tag.tag_name || tag.name)}
                         >
-                          {tag.name} (P:{tag.priority}, C:{tag.confidence.toFixed(2)})
-                          {selectedTagsToRemove.includes(tag.name) && ' ❌'}
+                          {tag.tag_name || tag.name} (P:{tag.priority}, C:{tag.confidence.toFixed(2)})
+                          {selectedTagsToRemove.includes(tag.tag_name || tag.name) && ' ❌'}
                         </span>
                       ))}
                     </div>
@@ -274,11 +274,11 @@ export default function TagEditorPage() {
                             className={`px-2 py-1 text-xs rounded-md border cursor-pointer transition-colors ${
                               selectedTagsToAdd.includes(tag)
                                 ? 'bg-green-100 border-green-300 text-green-700'
-                                : selectedCard?.mechanics?.mechanicTags.some(t => t.name === tag)
+                                : selectedCard?.mechanic_tags?.some(t => (t.tag_name || t.name) === tag)
                                 ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
                                 : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300'
                             }`}
-                            disabled={selectedCard?.mechanics?.mechanicTags.some(t => t.name === tag)}
+                            disabled={selectedCard?.mechanic_tags?.some(t => (t.tag_name || t.name) === tag)}
                           >
                             {selectedTagsToAdd.includes(tag) ? `✓ ${tag}` : tag}
                           </button>
