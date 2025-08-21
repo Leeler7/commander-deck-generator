@@ -45,10 +45,15 @@ export default function DatabaseExplorerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingProgress, setLoadingProgress] = useState<string>('');
   const [allCards, setAllCards] = useState<CardData[]>([]);
+  const [availableTags, setAvailableTags] = useState<any>(null);
+  const [selectedTagsToAdd, setSelectedTagsToAdd] = useState<string[]>([]);
+  const [selectedTagsToRemove, setSelectedTagsToRemove] = useState<string[]>([]);
+  const [isEditingTags, setIsEditingTags] = useState(false);
 
-  // Load cards on component mount
+  // Load cards and available tags on component mount
   useEffect(() => {
     loadCards();
+    loadAvailableTags();
   }, []);
 
   // Handle search with debouncing
@@ -137,11 +142,76 @@ export default function DatabaseExplorerPage() {
       }
       const cardDetails = await response.json();
       setSelectedCard(cardDetails);
+      // Reset tag editing state when loading a new card
+      setSelectedTagsToAdd([]);
+      setSelectedTagsToRemove([]);
+      setIsEditingTags(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card details');
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAvailableTags = async () => {
+    try {
+      const response = await fetch('/api/admin/available-tags');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableTags(data);
+      }
+    } catch (error) {
+      console.error('Error loading available tags:', error);
+    }
+  };
+
+  const updateCardTags = async () => {
+    if (!selectedCard || (selectedTagsToAdd.length === 0 && selectedTagsToRemove.length === 0)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/update-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardName: selectedCard.name,
+          tagsToAdd: selectedTagsToAdd,
+          tagsToRemove: selectedTagsToRemove
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update tags: ${response.statusText}`);
+      }
+
+      // Refresh the card details to show updated tags
+      await loadCardDetails(selectedCard.name);
+      setSelectedTagsToAdd([]);
+      setSelectedTagsToRemove([]);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update tags');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleTagForAddition = (tag: string) => {
+    setSelectedTagsToAdd(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+
+  const toggleTagForRemoval = (tag: string) => {
+    setSelectedTagsToRemove(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
   };
 
   // Display limited cards for performance
@@ -176,7 +246,7 @@ export default function DatabaseExplorerPage() {
               <h1 className="text-2xl font-bold text-gray-900" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
                 DATABASE EXPLORER
               </h1>
-              <p className="text-gray-600">Search and explore the card database</p>
+              <p className="text-gray-600">Search, explore, and edit card tags</p>
             </div>
             <Link 
               href="/admin"
@@ -265,6 +335,22 @@ export default function DatabaseExplorerPage() {
           <div style={{ ...panelStyle, flex: '1' }}>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
               <h2 style={{fontSize: '18px', margin: 0}}>Card Details</h2>
+              {selectedCard && (
+                <button
+                  onClick={() => setIsEditingTags(!isEditingTags)}
+                  style={{
+                    backgroundColor: isEditingTags ? '#dc2626' : '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  {isEditingTags ? 'Cancel Edit' : 'Edit Tags'}
+                </button>
+              )}
             </div>
             
             {loading && selectedCard && (
@@ -369,28 +455,45 @@ export default function DatabaseExplorerPage() {
                   
                   {selectedCard.mechanic_tags && selectedCard.mechanic_tags.length > 0 && (
                     <div style={{margin: '15px 0'}}>
-                      <strong style={{fontSize: '12px', color: '#666'}}>Mechanic Tags ({selectedCard.mechanic_tags.length}):</strong>
+                      <strong style={{fontSize: '12px', color: '#666'}}>
+                        Mechanic Tags ({selectedCard.mechanic_tags.length}):
+                        {isEditingTags && <span style={{color: '#dc2626', fontSize: '10px', marginLeft: '8px'}}>Click to remove</span>}
+                      </strong>
                       <div style={{maxHeight: '200px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px', marginTop: '5px'}}>
-                        {selectedCard.mechanic_tags.map((tag, index) => (
-                          <div key={index} style={{
-                            fontSize: '11px',
-                            margin: '3px 0',
-                            padding: '4px 8px',
-                            backgroundColor: tag.is_manual ? '#e6ffed' : '#f0f8ff',
-                            borderRadius: '3px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                          }}>
-                            <span>
-                              <strong>{tag.tag_name || tag.name}</strong> ({tag.tag_category || tag.category})
-                              {tag.is_manual && <span style={{color: '#00aa00', fontWeight: 'bold'}}> ✓</span>}
-                            </span>
-                            <span style={{color: '#666'}}>
-                              P:{tag.priority} C:{typeof tag.confidence === 'number' ? tag.confidence.toFixed(2) : tag.confidence}
-                            </span>
-                          </div>
-                        ))}
+                        {selectedCard.mechanic_tags.map((tag, index) => {
+                          const tagName = tag.tag_name || tag.name;
+                          const isSelectedForRemoval = selectedTagsToRemove.includes(tagName);
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              style={{
+                                fontSize: '11px',
+                                margin: '3px 0',
+                                padding: '4px 8px',
+                                backgroundColor: 
+                                  isSelectedForRemoval ? '#fecaca' :
+                                  tag.is_manual ? '#e6ffed' : '#f0f8ff',
+                                borderRadius: '3px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                cursor: isEditingTags ? 'pointer' : 'default',
+                                border: isSelectedForRemoval ? '1px solid #dc2626' : 'none'
+                              }}
+                              onClick={() => isEditingTags && toggleTagForRemoval(tagName)}
+                            >
+                              <span>
+                                <strong>{tagName}</strong> ({tag.tag_category || tag.category})
+                                {tag.is_manual && <span style={{color: '#00aa00', fontWeight: 'bold'}}> ✓</span>}
+                                {isSelectedForRemoval && <span style={{color: '#dc2626', fontWeight: 'bold'}}> ✕</span>}
+                              </span>
+                              <span style={{color: '#666'}}>
+                                P:{tag.priority} C:{typeof tag.confidence === 'number' ? tag.confidence.toFixed(2) : tag.confidence}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -400,6 +503,155 @@ export default function DatabaseExplorerPage() {
                       <span style={{fontSize: '12px', color: '#666', fontStyle: 'italic'}}>
                         No mechanic tags available for this card.
                       </span>
+                    </div>
+                  )}
+
+                  {/* Tag Editing Interface */}
+                  {isEditingTags && (
+                    <div style={{margin: '20px 0', borderTop: '1px solid #e0e0e0', paddingTop: '15px'}}>
+                      <h3 style={{fontSize: '16px', marginBottom: '15px'}}>Edit Tags</h3>
+                      
+                      {/* Tags to Add/Remove Summary */}
+                      {(selectedTagsToAdd.length > 0 || selectedTagsToRemove.length > 0) && (
+                        <div style={{marginBottom: '15px'}}>
+                          {selectedTagsToAdd.length > 0 && (
+                            <div style={{marginBottom: '8px', padding: '8px', backgroundColor: '#f0f9ff', borderRadius: '4px'}}>
+                              <strong style={{fontSize: '12px', color: '#0369a1'}}>Tags to Add ({selectedTagsToAdd.length}):</strong>
+                              <div style={{marginTop: '4px'}}>
+                                {selectedTagsToAdd.map(tag => (
+                                  <span key={tag} style={{
+                                    display: 'inline-block',
+                                    margin: '2px',
+                                    padding: '2px 6px',
+                                    backgroundColor: '#bae6fd',
+                                    color: '#0c4a6e',
+                                    borderRadius: '3px',
+                                    fontSize: '11px'
+                                  }}>
+                                    +{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {selectedTagsToRemove.length > 0 && (
+                            <div style={{marginBottom: '8px', padding: '8px', backgroundColor: '#fef2f2', borderRadius: '4px'}}>
+                              <strong style={{fontSize: '12px', color: '#dc2626'}}>Tags to Remove ({selectedTagsToRemove.length}):</strong>
+                              <div style={{marginTop: '4px'}}>
+                                {selectedTagsToRemove.map(tag => (
+                                  <span key={tag} style={{
+                                    display: 'inline-block',
+                                    margin: '2px',
+                                    padding: '2px 6px',
+                                    backgroundColor: '#fecaca',
+                                    color: '#991b1b',
+                                    borderRadius: '3px',
+                                    fontSize: '11px'
+                                  }}>
+                                    -{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div style={{display: 'flex', gap: '8px', marginTop: '10px'}}>
+                            <button
+                              onClick={updateCardTags}
+                              disabled={loading}
+                              style={{
+                                backgroundColor: '#16a34a',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '4px',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                fontSize: '12px',
+                                opacity: loading ? 0.5 : 1
+                              }}
+                            >
+                              {loading ? 'Updating...' : 'Update Tags'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedTagsToAdd([]);
+                                setSelectedTagsToRemove([]);
+                              }}
+                              style={{
+                                backgroundColor: '#6b7280',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                              }}
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Available Tags */}
+                      {availableTags && (
+                        <div>
+                          <strong style={{fontSize: '12px', color: '#666'}}>Available Tags by Category:</strong>
+                          <div style={{maxHeight: '250px', overflowY: 'auto', marginTop: '8px', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px'}}>
+                            {Object.entries(availableTags.tagsByCategory).map(([category, tags]) => (
+                              <div key={category} style={{marginBottom: '10px'}}>
+                                <h4 style={{fontSize: '11px', color: '#374151', marginBottom: '4px', textTransform: 'capitalize'}}>
+                                  {category.replace(/_/g, ' ')} ({tags.length})
+                                </h4>
+                                <div style={{display: 'flex', flexWrap: 'wrap', gap: '3px'}}>
+                                  {tags.slice(0, 15).map(tag => {
+                                    const isCurrentTag = selectedCard.mechanic_tags?.some(t => (t.tag_name || t.name) === tag);
+                                    const isSelectedToAdd = selectedTagsToAdd.includes(tag);
+                                    const isSelectedToRemove = selectedTagsToRemove.includes(tag);
+                                    
+                                    return (
+                                      <button
+                                        key={tag}
+                                        onClick={() => {
+                                          if (isCurrentTag) {
+                                            toggleTagForRemoval(tag);
+                                          } else {
+                                            toggleTagForAddition(tag);
+                                          }
+                                        }}
+                                        style={{
+                                          padding: '2px 6px',
+                                          fontSize: '10px',
+                                          border: '1px solid #d1d5db',
+                                          borderRadius: '3px',
+                                          cursor: 'pointer',
+                                          backgroundColor: 
+                                            isSelectedToRemove ? '#fecaca' :
+                                            isSelectedToAdd ? '#bbf7d0' :
+                                            isCurrentTag ? '#e5e7eb' : '#f9fafb',
+                                          color:
+                                            isSelectedToRemove ? '#991b1b' :
+                                            isSelectedToAdd ? '#166534' :
+                                            isCurrentTag ? '#374151' : '#6b7280'
+                                        }}
+                                      >
+                                        {isSelectedToRemove ? '−' : isSelectedToAdd ? '+' : ''}
+                                        {tag}
+                                      </button>
+                                    );
+                                  })}
+                                  {tags.length > 15 && (
+                                    <span style={{fontSize: '10px', color: '#9ca3af', padding: '2px 4px'}}>
+                                      +{tags.length - 15} more...
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
