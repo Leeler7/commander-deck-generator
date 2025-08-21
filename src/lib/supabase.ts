@@ -1,11 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase configuration
-const SUPABASE_URL = 'https://bykbnagijmxtfpkaflae.supabase.co';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bykbnagijmxtfpkaflae.supabase.co';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Create Supabase client
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Create Supabase client with error checking
+export const supabase = (() => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error('🚨 Missing Supabase configuration:');
+    console.error('SUPABASE_URL:', SUPABASE_URL ? '✓ Set' : '❌ Missing');
+    console.error('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? '✓ Set' : '❌ Missing');
+  }
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+})();
 
 // Database types
 export interface CardRecord {
@@ -89,27 +96,36 @@ export class SupabaseCardDatabase {
   private readonly CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
   constructor() {
+    console.log('🗄️ Using Supabase database');
     // Pre-load tags cache on initialization
     this.loadTagsCache();
   }
   
   private async loadTagsCache(): Promise<void> {
     try {
+      console.log('🔄 Loading tags cache from Supabase...');
       const { data: tags, error } = await supabase
         .from('tags')
         .select('id, name, category, synergy_weight')
         .eq('is_active', true);
       
-      if (!error && tags) {
+      if (error) {
+        console.error('❌ Error loading tags from Supabase:', error);
+        return;
+      }
+      
+      if (tags && tags.length > 0) {
         this.tagsCache.clear();
         tags.forEach(tag => {
           this.tagsCache.set(tag.id, tag);
         });
         this.tagsCacheTimestamp = Date.now();
-        console.log(`📦 Loaded ${tags.length} tags into cache for faster deck generation`);
+        console.log(`📦 Successfully loaded ${tags.length} tags into cache for faster deck generation`);
+      } else {
+        console.warn('⚠️ No tags found in database');
       }
     } catch (error) {
-      console.error('Error loading tags cache:', error);
+      console.error('💥 Exception while loading tags cache:', error);
     }
   }
   
