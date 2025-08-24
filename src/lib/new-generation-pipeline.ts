@@ -39,7 +39,8 @@ export class NewDeckGenerator {
   private verbose = process.env.NODE_ENV === 'development';
 
   private log(message: string): void {
-    if (this.verbose) {
+    // Reduce logging in production to avoid Railway rate limits
+    if (this.verbose && process.env.NODE_ENV === 'development') {
       console.log(message);
     }
   }

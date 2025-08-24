@@ -387,67 +387,39 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
 
   // Get cards efficiently with reasonable limit for deck generation
   async getCardsForGeneration(limit: number = 10000): Promise<CardRecord[]> {
-    console.log(`📊 Loading ${limit} cards for deck generation...`);
+    console.log(`📊 Loading ${Math.min(limit, 5000)} cards for deck generation...`);
     
-    // Use pagination to get more than 1000 cards
-    const pageSize = 1000;
-    let allCards: CardRecord[] = [];
-    let page = 0;
-    let hasMore = true;
+    // Reduce limit to avoid timeouts - 5000 cards should be plenty for generation
+    const effectiveLimit = Math.min(limit, 5000);
+    
+    const { data, error } = await supabase
+      .from('cards')
+      .select('*')
+      .eq('legalities->>commander', 'legal')
+      .order('name')
+      .limit(effectiveLimit);
 
-    while (hasMore && allCards.length < limit) {
-      const offset = page * pageSize;
-      const currentLimit = Math.min(pageSize, limit - allCards.length);
-      
-      const { data, error } = await supabase
-        .from('cards')
-        .select('*')
-        .eq('legalities->>commander', 'legal')
-        .range(offset, offset + currentLimit - 1)
-        .order('name');
-
-      if (error) {
-        console.error('Error getting cards for generation:', error);
-        break;
-      }
-
-      if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allCards.push(...data);
-        if (data.length < currentLimit) {
-          hasMore = false;
-        }
-      }
-
-      page++;
-      
-      // Safety limit
-      if (page > 50) {
-        console.warn(`⚠️ Reached page limit (${page}), stopping pagination`);
-        break;
-      }
+    if (error) {
+      console.error('Error getting cards for generation:', error);
+      return [];
     }
 
-    console.log(`✅ Loaded ${allCards.length} cards for generation`);
-    return allCards;
+    console.log(`✅ Loaded ${data?.length || 0} cards for generation`);
+    return data || [];
   }
 
   // Search cards by filters (compatibility method for generation pipeline)
   async searchByFilters(filters: any, limit: number = 10000): Promise<CardRecord[]> {
     console.log(`🔍 Searching cards with filters:`, filters);
-    console.log(`🎨 Color identity filter:`, filters.colorIdentity);
     
-    // We need to paginate to get ALL commander-legal cards
-    // Supabase has a max limit of 1000 per request
+    // Limit to avoid timeouts - 8000 cards should be plenty for filtering
+    const effectiveLimit = Math.min(limit, 8000);
     const pageSize = 1000;
     let allCards: CardRecord[] = [];
     let page = 0;
     let hasMore = true;
 
-    console.log(`📊 Fetching all commander-legal cards with pagination...`);
-
-    while (hasMore) {
+    while (hasMore && allCards.length < effectiveLimit) {
       const offset = page * pageSize;
       
       let queryBuilder = supabase
