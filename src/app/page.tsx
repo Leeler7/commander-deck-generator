@@ -606,6 +606,31 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* Random Tags Display */}
+                  {generatedDeck.random_tags && generatedDeck.random_tags.length > 0 && (
+                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border-2 border-purple-200">
+                      <div className="flex items-center mb-3">
+                        <h4 className="text-lg text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>🎲 RANDOM TAGS</h4>
+                        <span className="ml-2 text-xs font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                          VARIETY BOOST
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {generatedDeck.random_tags.map((tag, index) => (
+                          <span
+                            key={`random-tag-${tag}-${index}`}
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md border"
+                          >
+                            🎲 {tag.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2 italic">
+                        These randomly selected themes add variety and experimental elements to your deck.
+                      </p>
+                    </div>
+                  )}
+
                 </div>
               </div>
             </div>
