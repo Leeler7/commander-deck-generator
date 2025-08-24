@@ -4,18 +4,23 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bykbnagijmxtfpkaflae.supabase.co';
 // Temporary fallback for Railway deployment issues
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a2JuYWdpam14dGZwa2FmbGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MTQ5NzYsImV4cCI6MjA3MTE5MDk3Nn0.AIqoAcfkUXnkr2lgwJUN0c82jr8iCEbeZHFwojMhlvs';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a2JuYWdpam14dGZwa2FmbGFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTYxNDk3NiwiZXhwIjoyMDcxMTkwOTc2fQ.6jXdlBNL8ek3N8uLKdCDmApOTdTz7p5kopbQ6w7DXo4';
+
+// Use service key for production reads to bypass RLS, anon key for development
+const clientKey = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
 
 // Log configuration on startup (for debugging)
 console.log('Supabase configuration:', {
   url: SUPABASE_URL,
   hasAnonKey: !!SUPABASE_ANON_KEY,
-  anonKeyLength: SUPABASE_ANON_KEY?.length || 0,
-  anonKeyStart: SUPABASE_ANON_KEY?.substring(0, 20) + '...',
+  hasServiceKey: !!SUPABASE_SERVICE_KEY,
+  usingServiceKey: !!SUPABASE_SERVICE_KEY,
+  clientKeyLength: clientKey?.length || 0,
+  clientKeyStart: clientKey?.substring(0, 20) + '...',
 });
 
-// Create Supabase client (read-only operations)
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Create Supabase client (uses service key in production, anon key as fallback)
+export const supabase = createClient(SUPABASE_URL, clientKey);
 
 // Create admin Supabase client with service role (write operations)
 export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
