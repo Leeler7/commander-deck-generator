@@ -6,6 +6,14 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bykbnagijm
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a2JuYWdpam14dGZwa2FmbGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2MTQ5NzYsImV4cCI6MjA3MTE5MDk3Nn0.AIqoAcfkUXnkr2lgwJUN0c82jr8iCEbeZHFwojMhlvs';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 
+// Log configuration on startup (for debugging)
+console.log('Supabase configuration:', {
+  url: SUPABASE_URL,
+  hasAnonKey: !!SUPABASE_ANON_KEY,
+  anonKeyLength: SUPABASE_ANON_KEY?.length || 0,
+  anonKeyStart: SUPABASE_ANON_KEY?.substring(0, 20) + '...',
+});
+
 // Create Supabase client (read-only operations)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -563,15 +571,8 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
 
   // Get Supabase client (for sync operations)
   get supabase() {
-    // Use admin client only if service key is available (for admin operations)
-    // Otherwise use regular client (for normal deck generation)
-    if (SUPABASE_SERVICE_KEY && SUPABASE_SERVICE_KEY.length > 0) {
-      console.log('Using admin client (service key available)');
-      return supabaseAdmin;
-    }
-    console.log('Using regular client (no service key or empty)');
-    console.log('Anon key present:', SUPABASE_ANON_KEY ? 'Yes' : 'No');
-    console.log('Anon key length:', SUPABASE_ANON_KEY?.length || 0);
+    // Always use regular client for production
+    // Admin client only for local development with service key
     return supabase;
   }
 
