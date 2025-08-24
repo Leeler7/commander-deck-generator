@@ -389,20 +389,48 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
   async getCardsForGeneration(limit: number = 10000): Promise<CardRecord[]> {
     console.log(`📊 Loading ${limit} cards for deck generation...`);
     
-    const { data, error } = await supabase
-      .from('cards')
-      .select('*')
-      .eq('legalities->>commander', 'legal')
-      .order('name')
-      .limit(limit);
+    // Use pagination to get more than 1000 cards
+    const pageSize = 1000;
+    let allCards: CardRecord[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    if (error) {
-      console.error('Error getting cards for generation:', error);
-      return [];
+    while (hasMore && allCards.length < limit) {
+      const offset = page * pageSize;
+      const currentLimit = Math.min(pageSize, limit - allCards.length);
+      
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('legalities->>commander', 'legal')
+        .range(offset, offset + currentLimit - 1)
+        .order('name');
+
+      if (error) {
+        console.error('Error getting cards for generation:', error);
+        break;
+      }
+
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        allCards.push(...data);
+        if (data.length < currentLimit) {
+          hasMore = false;
+        }
+      }
+
+      page++;
+      
+      // Safety limit
+      if (page > 50) {
+        console.warn(`⚠️ Reached page limit (${page}), stopping pagination`);
+        break;
+      }
     }
 
-    console.log(`✅ Loaded ${data?.length || 0} cards for generation`);
-    return data || [];
+    console.log(`✅ Loaded ${allCards.length} cards for generation`);
+    return allCards;
   }
 
   // Search cards by filters (compatibility method for generation pipeline)
