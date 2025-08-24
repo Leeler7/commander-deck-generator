@@ -490,20 +490,80 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
     return data || [];
   }
 
-  // Get card by ID (compatibility method)
-  async getCardById(id: string): Promise<CardRecord | null> {
+  // Get a single card by ID
+  async getCardById(cardId: string): Promise<CardRecord | null> {
     const { data, error } = await supabase
       .from('cards')
       .select('*')
-      .eq('id', id)
+      .eq('id', cardId)
       .single();
 
     if (error) {
-      console.error('Error getting card by ID:', error);
+      if (error.code === 'PGRST116') { // Not found
+        return null;
+      }
+      console.error('Error fetching card by ID:', error);
       return null;
     }
 
     return data;
+  }
+
+  // Upsert (insert or update) a card
+  async upsertCard(card: any): Promise<boolean> {
+    try {
+      // Transform Scryfall card data to match our database schema
+      const transformedCard: Partial<CardRecord> = {
+        id: card.id,
+        name: card.name,
+        mana_cost: card.mana_cost,
+        cmc: card.cmc || 0,
+        type_line: card.type_line,
+        oracle_text: card.oracle_text,
+        flavor_text: card.flavor_text,
+        power: card.power,
+        toughness: card.toughness,
+        loyalty: card.loyalty,
+        color_identity: card.color_identity || [],
+        colors: card.colors || [],
+        keywords: card.keywords || [],
+        set_code: card.set || card.set_code,
+        set_name: card.set_name,
+        rarity: card.rarity,
+        collector_number: card.collector_number,
+        legalities: card.legalities || {},
+        prices: card.prices || {},
+        edhrec_rank: card.edhrec_rank,
+        image_uris: card.image_uris || {},
+        last_updated: card.released_at || new Date().toISOString(),
+        scryfall_uri: card.scryfall_uri,
+        tag_ids: card.tag_ids || [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabaseAdmin
+        .from('cards')
+        .upsert(transformedCard, {
+          onConflict: 'id'
+        });
+
+      if (error) {
+        console.error('Error upserting card:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error upserting card:', error);
+      return false;
+    }
+  }
+
+  // Get Supabase client (for sync operations)
+  get supabase() {
+    // Use admin client for write operations to bypass RLS
+    return supabaseAdmin;
   }
 
   // Get available tags (compatibility method)
@@ -658,6 +718,59 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
       deletedCount: mechanicIdsToDelete.length,
       overlaps
     };
+  }
+
+  // Get database status information
+  async getStatus(): Promise<any> {
+    try {
+      // Get last sync info from sync_metadata table
+      const { data: syncData, error: syncError } = await supabase
+        .from('sync_metadata')
+        .select('sync_type, last_sync, updated_at')
+        .order('updated_at', { ascending: false });
+
+      const status = {
+        last_full_sync: null as string | null,
+        last_incremental_sync: null as string | null,
+        database_initialized: true,
+        total_cards: 0
+      };
+
+      if (syncError) {
+        if (syncError.code === 'PGRST205') { // Table doesn't exist
+          console.log('sync_metadata table does not exist - using default status');
+        } else {
+          console.error('Error fetching sync metadata:', syncError);
+        }
+      } else if (syncData) {
+        syncData.forEach(sync => {
+          if (sync.sync_type === 'full') {
+            status.last_full_sync = sync.last_sync;
+          } else if (sync.sync_type === 'incremental') {
+            status.last_incremental_sync = sync.last_sync;
+          }
+        });
+      }
+
+      // Get card count
+      const { count, error: countError } = await supabase
+        .from('cards')
+        .select('*', { count: 'exact', head: true });
+
+      if (!countError && count !== null) {
+        status.total_cards = count;
+      }
+
+      return status;
+    } catch (error) {
+      console.error('Error getting database status:', error);
+      return {
+        last_full_sync: null,
+        last_incremental_sync: null,
+        database_initialized: false,
+        total_cards: 0
+      };
+    }
   }
 }
 

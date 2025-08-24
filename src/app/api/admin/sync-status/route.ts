@@ -6,8 +6,8 @@ export async function GET() {
     console.log('🔍 API: Loading sync status...');
     
     const status = await database.getStatus();
-    const totalCards = await database.getAllCards().length;
-    const databaseSource = 'Server Database';
+    const totalCards = status.total_cards || 0;
+    const databaseSource = 'Supabase Database';
     const lastSync = status.last_full_sync || status.last_incremental_sync;
     
     // For chunk information, we'll use mock data since server database doesn't expose this

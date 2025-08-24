@@ -129,6 +129,120 @@ export default function DatabaseSyncPage() {
     }
   };
 
+  const runIncrementalSync = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setLogs(['Starting incremental sync from Scryfall...']);
+      
+      const response = await fetch('/api/admin/sync-incremental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Incremental sync failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        const logs = [
+          'Incremental sync completed!',
+          `- Processed: ${data.stats?.totalProcessed || 0} cards`,
+          `- New cards: ${data.stats?.newCards || 0}`,
+          `- Updated cards: ${data.stats?.updated || 0}`,
+          `- Scryfall updated: ${data.stats?.scryfallUpdated}`
+        ];
+        
+        // Add details about new cards
+        if (data.newCards && data.newCards.length > 0) {
+          logs.push('', '🆕 NEW CARDS ADDED:');
+          data.newCards.slice(0, 10).forEach((card: any) => {
+            logs.push(`  • ${card.name} (${card.set_name}) - ${card.rarity}`);
+          });
+          if (data.newCards.length > 10) {
+            logs.push(`  ... and ${data.newCards.length - 10} more`);
+          }
+        }
+        
+        // Add details about updated cards
+        if (data.updatedCards && data.updatedCards.length > 0) {
+          logs.push('', '🔄 UPDATED CARDS:');
+          data.updatedCards.slice(0, 5).forEach((card: any) => {
+            logs.push(`  • ${card.name} (${card.set_name}) - ${card.updated_reason}`);
+          });
+          if (data.updatedCards.length > 5) {
+            logs.push(`  ... and ${data.updatedCards.length - 5} more`);
+          }
+        }
+        
+        setLogs(prev => [...prev, ...logs]);
+        
+        // Store the sync report for download
+        if (data.newCards?.length > 0 || data.updatedCards?.length > 0) {
+          await fetch('/api/admin/sync-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          }).catch(console.error);
+          
+          logs.push('', '💾 Sync report available for download below');
+          setLogs(prev => [...prev, '💾 Sync report available for download below']);
+        }
+      } else {
+        throw new Error(data.message || 'Sync failed');
+      }
+      
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Incremental sync failed';
+      setError(errorMsg);
+      setLogs(prev => [...prev, `Error: ${errorMsg}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runAutoTagging = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setLogs(['Starting auto-tagging of untagged cards...']);
+      
+      const response = await fetch('/api/admin/auto-tag-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          limit: 200, 
+          onlyUntagged: true 
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Auto-tagging failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        setLogs(prev => [
+          ...prev,
+          'Auto-tagging completed!',
+          `- Processed: ${data.stats.processed} cards`,
+          `- Tagged: ${data.stats.tagged} cards`,
+          `- Skipped: ${data.stats.skipped} cards`
+        ]);
+      } else {
+        throw new Error(data.message || 'Auto-tagging failed');
+      }
+      
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Auto-tagging failed';
+      setError(errorMsg);
+      setLogs(prev => [...prev, `Error: ${errorMsg}`]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const panelStyle = {
     backgroundColor: 'white',
     border: '1px solid #e0e0e0',
@@ -277,17 +391,31 @@ export default function DatabaseSyncPage() {
             <div className="space-y-4">
               <div>
                 <h3 className="text-md font-medium mb-2">Sync Operations</h3>
-                <div className="space-y-2">
-                  <button 
-                    onClick={triggerSync}
-                    style={buttonStyle}
-                    disabled={loading}
-                  >
-                    {loading ? 'Syncing...' : 'Force Full Sync'}
-                  </button>
-                  <p className="text-sm text-gray-600">
-                    Downloads and processes the latest card data from external sources.
-                  </p>
+                <div className="space-y-3">
+                  <div>
+                    <button 
+                      onClick={runIncrementalSync}
+                      style={buttonStyle}
+                      disabled={loading}
+                    >
+                      {loading ? 'Syncing...' : 'Incremental Sync'}
+                    </button>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Downloads only new/updated cards from Scryfall (recommended for regular use).
+                    </p>
+                  </div>
+                  <div>
+                    <button 
+                      onClick={triggerSync}
+                      style={{...buttonStyle, backgroundColor: '#dc2626'}}
+                      disabled={loading}
+                    >
+                      {loading ? 'Syncing...' : 'Force Full Sync'}
+                    </button>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Downloads and processes ALL card data (use only when needed).
+                    </p>
+                  </div>
                 </div>
               </div>
               
@@ -303,6 +431,22 @@ export default function DatabaseSyncPage() {
                   </button>
                   <p className="text-sm text-gray-600">
                     Clears all cached data and forces fresh loading from source.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-md font-medium mb-2">Auto-Tagging</h3>
+                <div className="space-y-2">
+                  <button 
+                    onClick={runAutoTagging}
+                    style={{...buttonStyle, backgroundColor: '#059669'}}
+                    disabled={loading}
+                  >
+                    {loading ? 'Tagging...' : 'Auto-Tag Cards'}
+                  </button>
+                  <p className="text-sm text-gray-600">
+                    Automatically tags untagged cards using the card mechanics analyzer.
                   </p>
                 </div>
               </div>
@@ -332,12 +476,28 @@ export default function DatabaseSyncPage() {
             <div style={panelStyle}>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">Operation Logs</h2>
-                <button 
-                  onClick={() => setLogs([])}
-                  className="text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Clear Logs
-                </button>
+                <div className="space-x-2">
+                  <a 
+                    href="/api/admin/sync-report?format=csv"
+                    download
+                    className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 inline-block"
+                  >
+                    Download CSV
+                  </a>
+                  <a 
+                    href="/api/admin/sync-report"
+                    target="_blank"
+                    className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 inline-block"
+                  >
+                    View JSON
+                  </a>
+                  <button 
+                    onClick={() => setLogs([])}
+                    className="text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Clear Logs
+                  </button>
+                </div>
               </div>
               
               <div className="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm max-h-64 overflow-y-auto">

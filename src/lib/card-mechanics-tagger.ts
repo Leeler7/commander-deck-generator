@@ -54,13 +54,13 @@ export class CardMechanicsTagger {
    */
   async analyzeCardEnhanced(card: ScryfallCard | LocalCardData): Promise<CardMechanics> {
     const text = (card.oracle_text || '').toLowerCase();
-    const typeLine = card.type_line.toLowerCase();
-    const name = card.name.toLowerCase();
+    const typeLine = (card.type_line || '').toLowerCase();
+    const name = (card.name || '').toLowerCase();
     
     const mechanicTags: MechanicTag[] = [];
     
     // CRITICAL: Add comprehensive type tagging FIRST
-    mechanicTags.push(...this.extractTypeTags(card.type_line));
+    mechanicTags.push(...this.extractTypeTags(card.type_line || ''));
     
     // Add MTGJSON-enhanced keyword detection
     const keywordAnalysis = await mtgjsonKeywords.analyzeCardKeywords(card.oracle_text || '');
@@ -284,13 +284,13 @@ export class CardMechanicsTagger {
    */
   analyzeCard(card: ScryfallCard | LocalCardData): CardMechanics {
     const text = (card.oracle_text || '').toLowerCase();
-    const typeLine = card.type_line.toLowerCase();
-    const name = card.name.toLowerCase();
+    const typeLine = (card.type_line || '').toLowerCase();
+    const name = (card.name || '').toLowerCase();
     
     const mechanicTags: MechanicTag[] = [];
     
     // Add comprehensive type tagging
-    mechanicTags.push(...this.extractTypeTags(card.type_line));
+    mechanicTags.push(...this.extractTypeTags(card.type_line || ''));
     
     // Add all mechanic detection methods
     mechanicTags.push(...this.detectResourceGeneration(text, typeLine));

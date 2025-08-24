@@ -12,6 +12,7 @@ export interface DatabaseInterface {
   getAvailableTags(): Promise<any[]>;
   addTagToCards?(tagName: string, cardIds: string[]): Promise<any>;
   removeTagFromCards?(tagName: string, cardIds?: string[]): Promise<void>;
+  getStatus?(): Promise<any>;
   // File-based database specific methods
   initialize?(): Promise<void>;
   stats?(): any;
@@ -62,6 +63,17 @@ class FileDatabase implements DatabaseInterface {
   // File-specific methods that can be accessed directly
   async initialize() {
     return await this.getServerDatabase();
+  }
+  
+  async getStatus() {
+    // Return basic status information for file database
+    const db = await this.getServerDatabase();
+    return {
+      last_full_sync: null,
+      last_incremental_sync: null,
+      database_initialized: true,
+      total_cards: 0 // Will be calculated in sync-status route
+    };
   }
   
   stats() {

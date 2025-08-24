@@ -34,7 +34,7 @@ export default function AdminPage() {
                 <h3 className="ml-4 text-xl font-semibold text-gray-900">Database Explorer</h3>
               </div>
               <p className="text-gray-600 mb-4">
-                Search and explore the card database. View detailed card information, mechanics, and metadata.
+                Search and explore the card database. View detailed card information, edit tags and mechanics, and manage card metadata.
               </p>
               <div className="text-blue-600 group-hover:text-blue-800 font-medium">
                 Explore Cards →
@@ -42,22 +42,22 @@ export default function AdminPage() {
             </div>
           </Link>
 
-          {/* Tag Editor */}
-          <Link href="/admin/tags" className="group">
+          {/* Card Duplicates Management */}
+          <Link href="/admin/duplicates" className="group">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center mb-4">
-                <div className="bg-green-100 rounded-lg p-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                <div className="bg-orange-100 rounded-lg p-3">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="ml-4 text-xl font-semibold text-gray-900">Tag Editor</h3>
+                <h3 className="ml-4 text-xl font-semibold text-gray-900">Card Duplicates</h3>
               </div>
               <p className="text-gray-600 mb-4">
-                Edit and manage card tags and mechanics. Add or remove tags to improve deck generation algorithms.
+                Identify and manage duplicate cards by name. Keep only one version of each unique card to optimize database size.
               </p>
-              <div className="text-green-600 group-hover:text-green-800 font-medium">
-                Edit Tags →
+              <div className="text-orange-600 group-hover:text-orange-800 font-medium">
+                Manage Duplicates →
               </div>
             </div>
           </Link>
