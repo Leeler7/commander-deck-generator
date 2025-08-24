@@ -536,10 +536,10 @@ export class NewDeckGenerator {
     
     const cardText = (card.oracle_text || '').toLowerCase();
     const commanderText = (commander.oracle_text || '').toLowerCase();
-    const cardType = card.type_line.toLowerCase();
-    const commanderType = commander.type_line.toLowerCase();
-    const cardName = card.name.toLowerCase();
-    const commanderName = commander.name.toLowerCase();
+    const cardType = (card.type_line || '').toLowerCase();
+    const commanderType = (commander.type_line || '').toLowerCase();
+    const cardName = (card.name || '').toLowerCase();
+    const commanderName = (commander.name || '').toLowerCase();
     
     // ETB/LTB synergy for flicker/exile commanders (like Norin)
     if (commanderText.includes('exile') || commanderText.includes('enters') || 
