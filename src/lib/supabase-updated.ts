@@ -394,34 +394,79 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
   // Search cards by filters (compatibility method for generation pipeline)
   async searchByFilters(filters: any, limit: number = 10000): Promise<CardRecord[]> {
     console.log(`🔍 Searching cards with filters:`, filters);
+    console.log(`🎨 Color identity filter:`, filters.colorIdentity);
     
-    let queryBuilder = supabase
-      .from('cards')
-      .select('*');
+    // We need to paginate to get ALL commander-legal cards
+    // Supabase has a max limit of 1000 per request
+    const pageSize = 1000;
+    let allCards: CardRecord[] = [];
+    let page = 0;
+    let hasMore = true;
 
-    // Apply color identity filter
-    if (filters.colorIdentity && Array.isArray(filters.colorIdentity)) {
-      // For now, just get all commander-legal cards and filter in JS
-      // This is a simplified approach for compatibility
-      queryBuilder = queryBuilder.eq('legalities->>commander', 'legal');
+    console.log(`📊 Fetching all commander-legal cards with pagination...`);
+
+    while (hasMore) {
+      const offset = page * pageSize;
+      
+      let queryBuilder = supabase
+        .from('cards')
+        .select('*')
+        .range(offset, offset + pageSize - 1)
+        .order('name');
+
+      // Apply commander legality filter
+      if (filters.legal_in_commander) {
+        queryBuilder = queryBuilder.eq('legalities->>commander', 'legal');
+      }
+
+      const { data, error } = await queryBuilder;
+
+      if (error) {
+        console.error(`Error fetching cards page ${page}:`, error);
+        break;
+      }
+
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        allCards.push(...data);
+        if (data.length < pageSize) {
+          hasMore = false;
+        }
+      }
+
+      page++;
+      
+      // Safety limit to prevent infinite loops
+      if (page > 50) {
+        console.warn(`⚠️ Reached page limit (${page}), stopping pagination`);
+        break;
+      }
     }
 
-    // Apply commander legality filter
-    if (filters.legal_in_commander) {
-      queryBuilder = queryBuilder.eq('legalities->>commander', 'legal');
+    console.log(`📊 Fetched ${allCards.length} total commander-legal cards`);
+
+    let filteredCards = allCards;
+
+    // Apply color identity filter in JavaScript
+    if (filters.colorIdentity && Array.isArray(filters.colorIdentity) && filters.colorIdentity.length > 0) {
+      const commanderColors = filters.colorIdentity;
+      filteredCards = filteredCards.filter(card => {
+        // Card's color identity must be a subset of commander's color identity
+        const cardColors = card.color_identity || [];
+        return cardColors.every(color => commanderColors.includes(color));
+      });
+      console.log(`🎨 Filtered from ${allCards.length} to ${filteredCards.length} cards by color identity: [${commanderColors.join(', ')}]`);
     }
 
-    const { data, error } = await queryBuilder
-      .order('name')
-      .limit(limit);
-
-    if (error) {
-      console.error('Error searching cards by filters:', error);
-      return [];
+    // Apply the limit after filtering
+    if (filteredCards.length > limit) {
+      filteredCards = filteredCards.slice(0, limit);
+      console.log(`📊 Limited results to ${limit} cards`);
     }
 
-    console.log(`✅ Found ${data?.length || 0} cards matching filters`);
-    return data || [];
+    console.log(`✅ Returning ${filteredCards.length} cards matching all filters`);
+    return filteredCards;
   }
 
   // Search cards by name (compatibility method) - no tags for performance

@@ -81,6 +81,12 @@ export class NewDeckGenerator {
       const colorMatchedCards = await this.step1_ColorMatchCommander(commander);
       this.log(`✅ Found ${colorMatchedCards.length} color-matched cards`);
 
+      // Critical check: If no cards found, throw an error to prevent land-only decks
+      if (colorMatchedCards.length === 0) {
+        console.error(`❌ CRITICAL ERROR: No cards found matching commander ${commander.name}'s color identity`);
+        throw new Error(`Unable to find cards matching ${commander.name}'s color identity. This may be a database issue. Please try again or check if the card database is properly loaded.`);
+      }
+
       // STEP 2: Determine synergy score based on the commander
       this.log('🔍 STEP 2: Calculating synergy scores');
       const synergyScored = await this.step2_ScoreSynergy(colorMatchedCards, commander);
@@ -122,6 +128,12 @@ export class NewDeckGenerator {
       const finalDeck = await this.step8_FillWithSynergy(deckSizeValidated, commander, themeEnhanced, constraints);
       this.log(`✅ Final deck: ${finalDeck.length} cards + commander = ${finalDeck.length + 1} total`);
 
+      // Safety check: Ensure we have cards to work with
+      if (finalDeck.length === 0) {
+        console.error(`❌ CRITICAL ERROR: No cards in final deck for ${commander.name}`);
+        throw new Error(`Failed to generate deck for ${commander.name}. No cards passed through the generation pipeline. Please check your filters and try again.`);
+      }
+
       // Separate lands from non-lands
       const nonlandCards: DeckCard[] = [];
       const landCards: DeckCard[] = [];
@@ -155,6 +167,14 @@ export class NewDeckGenerator {
         } else {
           nonlandCards.push(deckCard);
         }
+      }
+
+      // Critical check: Ensure we have non-land cards
+      if (nonlandCards.length === 0) {
+        console.error(`❌ CRITICAL ERROR: No non-land cards found for ${commander.name}`);
+        console.error(`  Land cards: ${landCards.length}`);
+        console.error(`  Final deck had ${finalDeck.length} cards`);
+        throw new Error(`Failed to generate deck for ${commander.name}. All cards were filtered out as lands. This indicates a critical issue with card filtering or database queries.`);
       }
 
       // Generate additional basic lands if needed to reach reasonable land count
