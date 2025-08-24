@@ -2314,10 +2314,10 @@ export class NewDeckGenerator {
         return;
       }
 
-      // Select 0-10 random tags (default 0 for no change to existing behavior)
-      const randomTagCount = Math.floor(Math.random() * 11); // 0 to 10
+      // Use user-specified random tag count (default 0)
+      const randomTagCount = constraints.random_tag_count || 0;
       if (randomTagCount === 0) {
-        console.log('🎲 No random tags selected this time');
+        console.log('🎲 No random tags selected (count set to 0)');
         return;
       }
 

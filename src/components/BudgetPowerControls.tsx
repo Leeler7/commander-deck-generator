@@ -180,6 +180,31 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
   return (
     <div className="space-y-6">
 
+      {/* Random Tags Slider */}
+      <div>
+        <label htmlFor="random-tag-count" className="block text-sm font-medium text-gray-700 mb-2">
+          🎲 Random Tags: {constraints.random_tag_count || 0}
+        </label>
+        <p className="text-xs text-gray-500 mb-3">
+          Add 0-10 random themes for variety. Higher numbers create more experimental decks.
+        </p>
+        <input
+          id="random-tag-count"
+          type="range"
+          min="0"
+          max="10"
+          step="1"
+          value={constraints.random_tag_count || 0}
+          onChange={(e) => updateConstraint('random_tag_count', parseInt(e.target.value))}
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+        />
+        <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <span>0 (None)</span>
+          <span>5 (Balanced)</span>
+          <span>10 (Chaos)</span>
+        </div>
+      </div>
+
       {/* Budget Controls - DISABLED: Budget filtering has been removed */}
       {/* 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

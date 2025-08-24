@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
         instants: 5,
         sorceries: 5,
         planeswalkers: 5
-      }
+      },
+      random_tag_count: Math.max(0, Math.min(10, constraints.random_tag_count || 0)) // Clamp to 0-10
     };
 
     // Debug: Check if card type weights are being passed (uncomment for debugging)

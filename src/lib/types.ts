@@ -111,6 +111,7 @@ export interface GenerationConstraints {
   keywords?: string[]; // User-specified keywords/themes to emphasize
   keyword_focus?: string[]; // Legacy field, use keywords instead
   card_type_weights?: CardTypeWeights; // Card type preferences (0-10 scale)
+  random_tag_count?: number; // Number of random tags to select (0-10)
   random_tags?: string[]; // Randomly selected tags for variety (added during generation)
 }
 
