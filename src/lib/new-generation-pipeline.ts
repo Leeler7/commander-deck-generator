@@ -142,7 +142,7 @@ export class NewDeckGenerator {
       for (const card of finalDeck) {
         // Determine role based on card type
         let role = 'synergy';
-        const type = card.type_line.toLowerCase();
+        const type = (card.type_line || '').toLowerCase();
         if (type.includes('creature')) role = 'creature';
         else if (type.includes('artifact')) role = 'artifact';
         else if (type.includes('enchantment')) role = 'enchantment';
@@ -162,7 +162,7 @@ export class NewDeckGenerator {
         
         // Only basic lands and utility lands should go in lands section
         // Most artifacts, creatures, etc. should be non-lands even if they mention "land" in text
-        const typeLine = card.type_line.toLowerCase();
+        const typeLine = (card.type_line || '').toLowerCase();
         if (typeLine.includes('land') && !typeLine.includes('creature') && !typeLine.includes('artifact')) {
           landCards.push(deckCard);
         } else {
@@ -237,7 +237,7 @@ export class NewDeckGenerator {
             };
             
             for (const card of nonPlaneswalkers) {
-              const type = card.type_line.toLowerCase();
+              const type = (card.type_line || '').toLowerCase();
               if (type.includes('creature')) byType.creature.push(card);
               else if (type.includes('artifact')) byType.artifact.push(card);
               else if (type.includes('enchantment')) byType.enchantment.push(card);
@@ -1112,7 +1112,7 @@ export class NewDeckGenerator {
         this.log(`🔍 PROCESSING KEYWORDS for ${card.name}: ${userKeywords.join(', ')}`);
         let keywordMatches = 0;
         const cardText = (card.oracle_text || '').toLowerCase();
-        const cardType = card.type_line.toLowerCase();
+        const cardType = (card.type_line || '').toLowerCase();
         const cardName = card.name.toLowerCase();
         
         try {
@@ -1264,7 +1264,7 @@ export class NewDeckGenerator {
             }
             
             // Check card types, subtypes, and supertypes for keyword matches
-            const typeLine = card.type_line.toLowerCase();
+            const typeLine = (card.type_line || '').toLowerCase();
             const userTagLower = userTag.toLowerCase();
             if (typeLine.includes(userTagLower)) {
               themeBonus += 500; // Strong bonus for type/subtype matches
@@ -1291,7 +1291,7 @@ export class NewDeckGenerator {
           // Enhanced fallback with strong bonuses
           const cardText = (card.oracle_text || '').toLowerCase();
           const cardName = card.name.toLowerCase();
-          const typeLine = card.type_line.toLowerCase();
+          const typeLine = (card.type_line || '').toLowerCase();
           
           for (const userTag of userTags) {
             const tagLower = userTag.toLowerCase();
@@ -1338,7 +1338,7 @@ export class NewDeckGenerator {
     };
     
     for (const card of cards) {
-      const type = card.type_line.toLowerCase();
+      const type = (card.type_line || '').toLowerCase();
       
       if (type.includes('creature')) {
         cardsByType.creatures.push(card);
@@ -1449,7 +1449,7 @@ export class NewDeckGenerator {
       if ((planeswalkerCount > 5 || availablePlaneswalkers.length < planeswalkerCount) && allColorMatched) {
         this.log(`🔍 Expanding planeswalker search to original color-matched pool (requested: ${planeswalkerCount}, filtered: ${availablePlaneswalkers.length})`);
         const allPlaneswalkers = allColorMatched.filter(card => 
-          card.type_line.toLowerCase().includes('planeswalker')
+          (card.type_line || '').toLowerCase().includes('planeswalker')
         );
         
         this.log(`🔍 Found ${allPlaneswalkers.length} total planeswalkers in color-matched pool`);
@@ -1571,8 +1571,8 @@ export class NewDeckGenerator {
     const maxPrice = constraints.max_card_price || 50;
     
     // Temporarily exclude planeswalkers from budget filtering to test synergy selection
-    const planeswalkers = cards.filter(card => card.type_line.toLowerCase().includes('planeswalker'));
-    const nonPlaneswalkers = cards.filter(card => !card.type_line.toLowerCase().includes('planeswalker'));
+    const planeswalkers = cards.filter(card => (card.type_line || '').toLowerCase().includes('planeswalker'));
+    const nonPlaneswalkers = cards.filter(card => !(card.type_line || '').toLowerCase().includes('planeswalker'));
     
     const affordableCards = nonPlaneswalkers.filter(card => card.isAffordable);
     const expensiveCards = nonPlaneswalkers.filter(card => !card.isAffordable);
@@ -1633,7 +1633,7 @@ export class NewDeckGenerator {
       
       // Group cards by type
       for (const card of cards) {
-        const type = card.type_line.toLowerCase();
+        const type = (card.type_line || '').toLowerCase();
         if (type.includes('creature')) cardsByType.creatures.push(card);
         else if (type.includes('artifact')) cardsByType.artifacts.push(card);
         else if (type.includes('enchantment')) cardsByType.enchantments.push(card);
@@ -1715,8 +1715,8 @@ export class NewDeckGenerator {
       
       // If we're still over target, trim by lowest score overall but protect planeswalkers
       if (trimmed.length > targetSize) {
-        const planeswalkers = trimmed.filter(card => card.type_line.toLowerCase().includes('planeswalker'));
-        const nonPlaneswalkers = trimmed.filter(card => !card.type_line.toLowerCase().includes('planeswalker'));
+        const planeswalkers = trimmed.filter(card => (card.type_line || '').toLowerCase().includes('planeswalker'));
+        const nonPlaneswalkers = trimmed.filter(card => !(card.type_line || '').toLowerCase().includes('planeswalker'));
         
         // Sort non-planeswalkers by score and trim them if needed
         const sortedNonPW = nonPlaneswalkers.sort((a, b) => b.finalScore - a.finalScore);
@@ -1768,7 +1768,7 @@ export class NewDeckGenerator {
     };
     
     for (const card of currentDeck) {
-      const type = card.type_line.toLowerCase();
+      const type = (card.type_line || '').toLowerCase();
       if (type.includes('creature')) currentByType.creatures++;
       else if (type.includes('artifact')) currentByType.artifacts++;
       else if (type.includes('enchantment')) currentByType.enchantments++;
@@ -1828,7 +1828,7 @@ export class NewDeckGenerator {
     for (const card of allScoredCards) {
       if (usedCardNames.has(card.name)) continue;
       
-      const type = card.type_line.toLowerCase();
+      const type = (card.type_line || '').toLowerCase();
       if (type.includes('creature')) availableByType.creatures.push(card);
       else if (type.includes('artifact')) availableByType.artifacts.push(card);
       else if (type.includes('enchantment')) availableByType.enchantments.push(card);
@@ -2177,7 +2177,7 @@ export class NewDeckGenerator {
    * Check if a card matches a cost reduction target
    */
   private cardMatchesCostReductionTarget(card: ScryfallCard, target: string, cardText: string): boolean {
-    const cardTypeLine = card.type_line.toLowerCase();
+    const cardTypeLine = (card.type_line || '').toLowerCase();
     const cardName = card.name.toLowerCase();
     
     // Check for creature type matches (e.g., "hydra" matches Hydra creatures)
@@ -2227,7 +2227,7 @@ export class NewDeckGenerator {
    */
   private extractSupportedCreatureTypes(commander: ScryfallCard, commanderText: string): string[] {
     const supportedTypes: string[] = [];
-    const commanderTypeLine = commander.type_line.toLowerCase();
+    const commanderTypeLine = (commander.type_line || '').toLowerCase();
     const commanderName = commander.name.toLowerCase();
     
     // Add commander's own creature types
