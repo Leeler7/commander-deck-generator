@@ -9,8 +9,8 @@ function calculateBasicSynergy(card: ScryfallCard, commander: ScryfallCard): num
   
   const cardText = (card.oracle_text || '').toLowerCase();
   const commanderText = (commander.oracle_text || '').toLowerCase();
-  const cardType = card.type_line.toLowerCase();
-  const cardName = card.name.toLowerCase();
+  const cardType = (card.type_line || '').toLowerCase();
+  const cardName = (card.name || '').toLowerCase();
   
   // Enhanced ETB/LTB synergy detection for flicker/exile commanders
   if (commanderText.includes('exile') || commanderText.includes('enters') || 

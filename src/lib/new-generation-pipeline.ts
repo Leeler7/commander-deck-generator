@@ -387,7 +387,7 @@ export class NewDeckGenerator {
       
       // Exclude basic lands (handled separately)
       const basicLands = ['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes'];
-      if (basicLands.includes(card.name.toLowerCase())) {
+      if (card.name && basicLands.includes(card.name.toLowerCase())) {
         return false;
       }
 
@@ -395,8 +395,8 @@ export class NewDeckGenerator {
       const unSets = ['unk', 'ulst', 'sunf', 'unf', 'und', 'ust', 'unh', 'ugl'];
       const setCode = (card.set || '').toLowerCase();
       const setName = (card.set_name || '').toLowerCase();
-      const cardName = card.name.toLowerCase();
-      const typeLine = card.type_line.toLowerCase();
+      const cardName = (card.name || '').toLowerCase();
+      const typeLine = (card.type_line || '').toLowerCase();
       
       // Method 1: Check set codes
       if (unSets.includes(setCode)) {
