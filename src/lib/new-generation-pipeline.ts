@@ -68,6 +68,9 @@ export class NewDeckGenerator {
         await this.localDatabase.performFullSync();
       }
       
+      // 🎲 FEATURE: Add randomized tags for variety (0-10 random tags)
+      await this.addRandomizedTags(constraints);
+      
       // Validate and get commander
       const commanderValidation = await this.scryfallClient.validateCommander(commanderName);
       if (!commanderValidation.isValid || !commanderValidation.card) {
@@ -348,9 +351,11 @@ export class NewDeckGenerator {
         generation_notes: [
           `Generated ${finalNonlands.length} non-land cards and ${finalLands.length} lands`,
           `Total synergy-focused cards: ${finalNonlands.filter(c => c.role === 'synergy').length}`,
-          `Average synergy score: ${(finalDeck.reduce((sum, card) => sum + card.finalScore, 0) / finalDeck.length).toFixed(1)}`
+          `Average synergy score: ${(finalDeck.reduce((sum, card) => sum + card.finalScore, 0) / finalDeck.length).toFixed(1)}`,
+          ...(constraints.random_tags && constraints.random_tags.length > 0 ? [`🎲 Random tags: ${constraints.random_tags.join(', ')}`] : [])
         ],
-        deck_explanation: `This deck focuses on synergy with ${commander.name}, prioritizing cards that work well with the commander's abilities and strategy.`
+        deck_explanation: `This deck focuses on synergy with ${commander.name}, prioritizing cards that work well with the commander's abilities and strategy.`,
+        random_tags: constraints.random_tags || []
       };
 
     } catch (error) {
@@ -2294,6 +2299,58 @@ export class NewDeckGenerator {
     }
     
     return [...new Set(requiredTypes)]; // Remove duplicates
+  }
+
+  /**
+   * 🎲 Add randomized tags for deck variety
+   * Selects 0-10 random tags from available tags to add spice to generation
+   */
+  private async addRandomizedTags(constraints: GenerationConstraints): Promise<void> {
+    try {
+      // Get available tags from database
+      const availableTags = await this.localDatabase.getAvailableTags();
+      if (!availableTags || availableTags.length === 0) {
+        console.log('🎲 No tags available for randomization');
+        return;
+      }
+
+      // Select 0-10 random tags (default 0 for no change to existing behavior)
+      const randomTagCount = Math.floor(Math.random() * 11); // 0 to 10
+      if (randomTagCount === 0) {
+        console.log('🎲 No random tags selected this time');
+        return;
+      }
+
+      // Filter for interesting tags (avoid boring ones like basic card types)
+      const interestingTags = availableTags.filter(tag => {
+        const tagName = tag.tag_name || tag.name || '';
+        const isInteresting = !tagName.includes('basic_') && 
+                             !tagName.includes('generic_') &&
+                             tagName.length > 3 && // Avoid very short tags
+                             (tag.count || 1) > 10; // Avoid very rare tags
+        return isInteresting;
+      });
+
+      if (interestingTags.length === 0) {
+        console.log('🎲 No interesting tags available for randomization');
+        return;
+      }
+
+      // Randomly select tags
+      const shuffled = interestingTags.sort(() => 0.5 - Math.random());
+      const selectedTags = shuffled.slice(0, Math.min(randomTagCount, interestingTags.length));
+      const selectedTagNames = selectedTags.map(tag => tag.tag_name || tag.name || '');
+
+      // Add to constraints
+      constraints.random_tags = selectedTagNames;
+      constraints.keywords = [...(constraints.keywords || []), ...selectedTagNames];
+
+      console.log(`🎲 Added ${selectedTagNames.length} random tags: ${selectedTagNames.join(', ')}`);
+      
+    } catch (error) {
+      console.error('Error adding randomized tags:', error);
+      // Don't fail generation if random tags fail
+    }
   }
 }
 

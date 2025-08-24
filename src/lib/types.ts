@@ -111,6 +111,7 @@ export interface GenerationConstraints {
   keywords?: string[]; // User-specified keywords/themes to emphasize
   keyword_focus?: string[]; // Legacy field, use keywords instead
   card_type_weights?: CardTypeWeights; // Card type preferences (0-10 scale)
+  random_tags?: string[]; // Randomly selected tags for variety (added during generation)
 }
 
 export interface DeckComposition {
@@ -133,6 +134,7 @@ export interface GeneratedDeck {
   warnings: string[];
   generation_notes: string[];
   deck_explanation: string;
+  random_tags?: string[]; // Random tags selected for this generation
 }
 
 export interface PowerLevelConfig {
