@@ -565,8 +565,12 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
     // Use admin client only if service key is available (for admin operations)
     // Otherwise use regular client (for normal deck generation)
     if (SUPABASE_SERVICE_KEY && SUPABASE_SERVICE_KEY.length > 0) {
+      console.log('Using admin client (service key available)');
       return supabaseAdmin;
     }
+    console.log('Using regular client (no service key or empty)');
+    console.log('Anon key present:', SUPABASE_ANON_KEY ? 'Yes' : 'No');
+    console.log('Anon key length:', SUPABASE_ANON_KEY?.length || 0);
     return supabase;
   }
 
