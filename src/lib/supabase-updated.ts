@@ -562,8 +562,12 @@ export class SupabaseCardDatabase implements Partial<DatabaseInterface> {
 
   // Get Supabase client (for sync operations)
   get supabase() {
-    // Use admin client for write operations to bypass RLS
-    return supabaseAdmin;
+    // Use admin client only if service key is available (for admin operations)
+    // Otherwise use regular client (for normal deck generation)
+    if (SUPABASE_SERVICE_KEY && SUPABASE_SERVICE_KEY.length > 0) {
+      return supabaseAdmin;
+    }
+    return supabase;
   }
 
   // Get available tags (compatibility method)
