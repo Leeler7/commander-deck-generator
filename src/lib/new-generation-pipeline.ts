@@ -2323,11 +2323,11 @@ export class NewDeckGenerator {
 
       // Filter for interesting tags (avoid boring ones like basic card types)
       const interestingTags = availableTags.filter(tag => {
-        const tagName = tag.tag_name || tag.name || '';
+        const tagName = tag.name || '';
         const isInteresting = !tagName.includes('basic_') && 
                              !tagName.includes('generic_') &&
                              tagName.length > 3 && // Avoid very short tags
-                             (tag.count || 1) > 10; // Avoid very rare tags
+                             tag.is_active !== false; // Only active tags
         return isInteresting;
       });
 
@@ -2339,7 +2339,7 @@ export class NewDeckGenerator {
       // Randomly select tags
       const shuffled = interestingTags.sort(() => 0.5 - Math.random());
       const selectedTags = shuffled.slice(0, Math.min(randomTagCount, interestingTags.length));
-      const selectedTagNames = selectedTags.map(tag => tag.tag_name || tag.name || '');
+      const selectedTagNames = selectedTags.map(tag => tag.name || '');
 
       // Add to constraints
       constraints.random_tags = selectedTagNames;
