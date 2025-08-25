@@ -2326,13 +2326,18 @@ export class NewDeckGenerator {
         const tagName = tag.name || '';
         const isInteresting = !tagName.includes('basic_') && 
                              !tagName.includes('generic_') &&
-                             tagName.length > 3 && // Avoid very short tags
+                             tagName.length > 4 && // Avoid very short tags
+                             !tagName.startsWith('type_') && // Skip type markers
+                             !tagName.startsWith('supertype_') && // Skip supertype markers
                              tag.is_active !== false; // Only active tags
         return isInteresting;
       });
 
+      console.log(`🎲 Total available tags: ${availableTags.length}, Filtered interesting tags: ${interestingTags.length}`);
+      
       if (interestingTags.length === 0) {
         console.log('🎲 No interesting tags available for randomization');
+        console.log('🎲 Sample of available tags:', availableTags.slice(0, 5).map(t => t.name));
         return;
       }
 
