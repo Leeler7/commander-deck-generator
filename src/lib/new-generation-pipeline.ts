@@ -1,15 +1,14 @@
 import { ScryfallCard, DeckCard, GeneratedDeck, GenerationConstraints, CardTypeWeights } from './types';
 import { scryfallClient } from './scryfall';
-import { database } from './supabase-updated';
-import { 
+import {
   isColorIdentityValid, 
   isCardLegalInCommander,
   validateDeckComposition 
 } from './rules';
 import { extractCardPrice, extractCardPriceWithSource, extractBatchCardPrices } from './pricing';
 import { calculateEnhancedKeywordSynergy, mtgjsonKeywords } from './mtgjson-keywords';
-import { CardMechanicsTagger } from './card-mechanics-tagger';
-import { tagSynergyScorer } from './tag-based-synergy';
+import { edhrecClient } from './edhrec';
+import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
 
 /**
@@ -34,9 +33,12 @@ export interface ScoredCard extends ScryfallCard {
 
 export class NewDeckGenerator {
   private scryfallClient = scryfallClient;
-  private localDatabase = database;
-  private mechanicsTagger = new CardMechanicsTagger();
   private verbose = process.env.NODE_ENV === 'development';
+
+  // EDHREC data cached for the current generation run
+  private edhrecRecs: Map<string, EDHRECCardRecommendation> = new Map();
+  private edhrecTotalDecks = 0;
+  private _currentCommanderName: string | null = null;
 
   private log(message: string): void {
     // Reduce logging in production to avoid Railway rate limits
@@ -51,23 +53,7 @@ export class NewDeckGenerator {
   ): Promise<GeneratedDeck> {
     try {
       console.log('🎯 NEW PIPELINE: Starting deck generation for', commanderName);
-      
-      // Initialize local database for performance (if method exists)
-      if ('initialize' in this.localDatabase && typeof this.localDatabase.initialize === 'function') {
-        console.log('🗄️ Initializing database...');
-        await this.localDatabase.initialize();
-      }
-      
-      // Get cards for generation (limited to reasonable amount for performance)
-      const allCards = 'getCardsForGeneration' in this.localDatabase && typeof this.localDatabase.getCardsForGeneration === 'function'
-        ? await this.localDatabase.getCardsForGeneration(15000)
-        : await this.localDatabase.getAllCards(15000);
-      
-      if (allCards.length === 0 && 'performFullSync' in this.localDatabase && typeof this.localDatabase.performFullSync === 'function') {
-        this.log('⚠️ Database is empty, performing initial sync...');
-        await this.localDatabase.performFullSync();
-      }
-      
+
       // 🎲 FEATURE: Add randomized tags for variety (0-10 random tags)
       await this.addRandomizedTags(constraints);
       
@@ -80,6 +66,9 @@ export class NewDeckGenerator {
       const commander = commanderValidation.card;
       this.log(`🎯 NEW PIPELINE: Generating deck for ${commander.name}`);
 
+      // Pre-load EDHREC recommendations (used by step2 and step3)
+      await this.loadEDHRECData(commander.name);
+
       // STEP 1: Color match the commander
       this.log('📋 STEP 1: Color matching cards to commander');
       const colorMatchedCards = await this.step1_ColorMatchCommander(commander);
@@ -88,7 +77,7 @@ export class NewDeckGenerator {
       // Critical check: If no cards found, throw an error to prevent land-only decks
       if (colorMatchedCards.length === 0) {
         console.error(`❌ CRITICAL ERROR: No cards found matching commander ${commander.name}'s color identity`);
-        throw new Error(`Unable to find cards matching ${commander.name}'s color identity. This may be a database issue. Please try again or check if the card database is properly loaded.`);
+        throw new Error(`Unable to find cards matching ${commander.name}'s color identity. Please try again.`);
       }
 
       // STEP 2: Determine synergy score based on the commander
@@ -369,13 +358,26 @@ export class NewDeckGenerator {
    * Get all cards that match the commander's color identity and are legal
    */
   private async step1_ColorMatchCommander(commander: ScryfallCard): Promise<ScryfallCard[]> {
-    // Search for all cards matching commander's color identity
-    const candidates = await this.localDatabase.searchByFilters({
-      colorIdentity: commander.color_identity,
-      legal_in_commander: true
-    }, 50000); // Get comprehensive card pool
-    
-    return candidates.filter(card => {
+    // Fetch commander-legal cards in this color identity from Scryfall (up to 5 pages = ~875 cards)
+    const colorQuery = commander.color_identity.length > 0
+      ? `id<=${commander.color_identity.sort().join('')}`
+      : 'id:c';
+    const query = `${colorQuery} f:commander -type:basic`;
+
+    const allCards: ScryfallCard[] = [];
+    const MAX_PAGES = 5;
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      try {
+        const response = await this.scryfallClient.searchCards(query, page, 'edhrec');
+        allCards.push(...response.data);
+        if (!response.has_more) break;
+      } catch {
+        break;
+      }
+    }
+    this.log(`📋 STEP1: fetched ${allCards.length} candidates from Scryfall`);
+
+    return allCards.filter(card => {
       // Color identity check
       if (!isColorIdentityValid(card, commander.color_identity)) {
         return false;
@@ -435,102 +437,94 @@ export class NewDeckGenerator {
   }
 
   /**
-   * STEP 2: Determine synergy score based on the commander
-   * Calculate how well each card synergizes with the commander using comprehensive tagging
+   * Load EDHREC data for a commander and cache it for this generation run.
+   * Falls back gracefully if EDHREC has no data.
+   */
+  private async loadEDHRECData(commanderName: string): Promise<void> {
+    this.edhrecRecs.clear();
+    this.edhrecTotalDecks = 0;
+    this._currentCommanderName = commanderName;
+
+    try {
+      const recs = await edhrecClient.getThemedRecommendations(commanderName);
+      if (recs.length === 0) {
+        this.log(`⚠️ EDHREC: no recommendations for ${commanderName}, will use fallback scoring`);
+        return;
+      }
+
+      for (const rec of recs) {
+        this.edhrecRecs.set(rec.name.toLowerCase(), rec);
+      }
+
+      // Determine total deck count from the first rec that has it
+      const firstWithTotal = recs.find(r => r.potentialDecks > 0);
+      this.edhrecTotalDecks = firstWithTotal?.potentialDecks ?? 0;
+
+      this.log(`✅ EDHREC: loaded ${recs.length} recommendations for ${commanderName} (${this.edhrecTotalDecks} total decks sampled)`);
+    } catch (err) {
+      console.error('[EDHREC] loadEDHRECData failed:', err);
+    }
+  }
+
+  /**
+   * STEP 2: Determine synergy score based on the commander.
+   * Uses EDHREC synergy + inclusion data when available (≥50 decks).
+   * Falls back to keyword-based text analysis for unknown/fringe commanders.
    */
   private async step2_ScoreSynergy(cards: ScryfallCard[], commander: ScryfallCard): Promise<ScoredCard[]> {
-    this.log('🎯 ENHANCED SYNERGY: Using comprehensive tagging system for synergy analysis...');
-    
-    // Analyze commander with comprehensive tagging system
-    const commanderMechanics = await this.mechanicsTagger.analyzeCardEnhanced(commander);
-    const commanderProfile = tagSynergyScorer.analyzeCommander(commander, commanderMechanics);
-    
-    this.log(`👑 Commander Analysis: ${commander.name}`);
-    this.log(`   Tags: ${commanderProfile.tags.join(', ')}`);
-    this.log(`   Strategies: ${commanderProfile.strategies.join(', ')}`);
-    this.log(`   Total mechanic tags: ${commanderMechanics.mechanicTags.length}`);
-    
-    // Pre-load MTGJSON keywords for enhanced synergy detection (fallback)
+    const useEDHREC = this.edhrecTotalDecks >= 50;
+    this.log(`🎯 SYNERGY SOURCE: ${useEDHREC ? `EDHREC (${this.edhrecTotalDecks} decks)` : 'fallback text analysis'}`);
+
+    // Pre-load MTGJSON keywords for fallback scoring
     await mtgjsonKeywords.getKeywordCategories();
-    
+
     const scoredCards = await Promise.all(cards.map(async card => {
-      // ENHANCED: Try to use database mechanics with synergy weights first, fallback to text analysis
-      let cardMechanics = null;
-      
-      // Try to get mechanics from database (with synergy weights)
-      if (this.cardDatabase && typeof this.cardDatabase.getCardMechanicsFromDatabase === 'function') {
-        try {
-          cardMechanics = await (this.cardDatabase as any).getCardMechanicsFromDatabase(card.id);
-        } catch (error) {
-          console.log(`Database mechanics not available for ${card.name}, using text analysis`);
+      let synergyScore: number;
+      let synergy_notes: string | undefined;
+
+      const edhrecEntry = this.edhrecRecs.get(card.name.toLowerCase());
+
+      if (useEDHREC && edhrecEntry) {
+        // EDHREC synergy is -1 to 1; scale to a 0–100 range centred on inclusion
+        // Formula: base from inclusion (0-40) + synergy bonus (-20 to +60)
+        const inclusionScore = edhrecEntry.inclusion * 40;
+        const synergyBonus = edhrecEntry.synergy * 60;
+        synergyScore = Math.max(0, inclusionScore + synergyBonus);
+
+        const pct = Math.round(edhrecEntry.inclusion * 100);
+        const syn = (edhrecEntry.synergy >= 0 ? '+' : '') + (edhrecEntry.synergy * 100).toFixed(0) + '%';
+        synergy_notes = `EDHREC: ${syn} synergy, in ${pct}% of decks`;
+
+        if (synergyScore >= 30) {
+          this.log(`🎯 HIGH SYNERGY: ${card.name} = ${synergyScore.toFixed(1)} (${synergy_notes})`);
         }
+      } else if (useEDHREC && !edhrecEntry) {
+        // Card not found in EDHREC recommendations → low base score
+        // Still run keyword analysis so staples aren't penalised
+        const kw = await calculateEnhancedKeywordSynergy(commander.oracle_text || '', card.oracle_text || '');
+        synergyScore = Math.max(2, kw.score);
+        synergy_notes = kw.score > 0 ? `Keyword match: ${kw.analysis}` : undefined;
+      } else {
+        // EDHREC data insufficient — full fallback
+        const basicScore = this.calculateCommanderSynergy(card, commander);
+        const kw = await calculateEnhancedKeywordSynergy(commander.oracle_text || '', card.oracle_text || '');
+        synergyScore = basicScore + kw.score;
+        synergy_notes = kw.score > 0 ? `Keyword: ${kw.analysis}` : undefined;
       }
-      
-      // Fallback to text analysis if no database mechanics
-      if (!cardMechanics) {
-        cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
-      }
-      
-      const tagBasedSynergy = tagSynergyScorer.calculateTagSynergy(commanderProfile, cardMechanics);
-      
-      // Legacy: Keep basic synergy for cards without comprehensive tags  
-      const basicSynergyScore = this.calculateCommanderSynergy(card, commander);
-      
-      // Legacy: Enhanced keyword-based synergy using MTGJSON data
-      const keywordSynergy = await calculateEnhancedKeywordSynergy(
-        commander.oracle_text || '', 
-        card.oracle_text || ''
-      );
-      
-      // COMBINED: Tag-based synergy takes priority, then basic + keyword synergy
-      const primarySynergy = tagBasedSynergy > 0 ? tagBasedSynergy : basicSynergyScore;
-      const totalSynergyScore = primarySynergy + keywordSynergy.score;
-      
-      // Enhanced logging for high-synergy cards
-      if (totalSynergyScore >= 15 || tagBasedSynergy >= 10) {
-        this.log(`🎯 HIGH SYNERGY: ${card.name} = ${totalSynergyScore.toFixed(1)} (tag-based: ${tagBasedSynergy.toFixed(1)}, basic: ${basicSynergyScore}, keyword: ${keywordSynergy.score})`);
-        
-        if (cardMechanics.mechanicTags.length > 0) {
-          const topTags = cardMechanics.mechanicTags
-            .sort((a, b) => b.priority - a.priority)
-            .slice(0, 3)
-            .map(tag => `${tag.name}(P${tag.priority})`)
-            .join(', ');
-          this.log(`   Top tags: ${topTags}`);
-        }
-      }
-      
-      if (keywordSynergy.score > 0) {
-        this.log(`🎯 KEYWORD SYNERGY: ${card.name} gets +${keywordSynergy.score} synergy (${keywordSynergy.analysis})`);
-      }
-      
+
       return {
         ...card,
-        synergyScore: totalSynergyScore,
-        finalScore: totalSynergyScore,
+        synergyScore,
+        finalScore: synergyScore,
         priceScore: 5,
         isAffordable: true,
-        keywordSynergy: keywordSynergy,
-        // Enhanced: Store comprehensive mechanics for later use
-        comprehensiveMechanics: cardMechanics,
-        tagBasedSynergyScore: tagBasedSynergy
-      } as ScoredCard & { 
-        comprehensiveMechanics?: any, 
-        tagBasedSynergyScore?: number 
-      };
+        synergy_notes,
+      } as ScoredCard;
     }));
-    
-    // Summary statistics
-    const tagBasedCards = scoredCards.filter(card => (card as any).tagBasedSynergyScore > 0);
-    const averageTagSynergy = tagBasedCards.length > 0 
-      ? tagBasedCards.reduce((sum, card) => sum + ((card as any).tagBasedSynergyScore || 0), 0) / tagBasedCards.length
-      : 0;
-    
-    this.log(`📊 SYNERGY SUMMARY:`);
-    this.log(`   Cards with tag-based synergy: ${tagBasedCards.length}/${scoredCards.length}`);
-    this.log(`   Average tag-based synergy: ${averageTagSynergy.toFixed(1)}`);
-    this.log(`   Cards with total synergy ≥ 15: ${scoredCards.filter(c => c.finalScore >= 15).length}`);
-    
+
+    const withScore = scoredCards.filter(c => c.synergyScore > 0).length;
+    this.log(`📊 SYNERGY SUMMARY: ${withScore}/${scoredCards.length} cards with positive synergy`);
+
     return scoredCards;
   }
 
@@ -1087,234 +1081,96 @@ export class NewDeckGenerator {
   }
 
   /**
-   * STEP 3: Consider additional keywords from user and increase synergy score
-   * Apply theme bonuses based on user preferences
+   * STEP 3: Consider additional keywords from user and boost synergy scores.
+   * Matches user keywords to EDHREC themes; falls back to text matching.
    */
   private async step3_ApplyUserThemes(cards: ScoredCard[], constraints: GenerationConstraints): Promise<ScoredCard[]> {
-    const userKeywords = constraints.keyword_focus || [];
-    const userTags = constraints.keywords || []; // New tag-based themes
-    
-    this.log(`🔍 THEME PROCESSING: ${userKeywords.length} keywords, ${userTags.length} tags`);
-    if (userKeywords.length > 0) {
-      this.log(`🔍 KEYWORDS: ${userKeywords.join(', ')}`);
-    }
-    if (userTags.length > 0) {
-      this.log(`🏷️ TAGS: ${userTags.join(', ')}`);
-    }
-    
+    const userKeywords = [...(constraints.keyword_focus || []), ...(constraints.keywords || [])];
+
+    this.log(`🏷️ THEME PROCESSING: ${userKeywords.length} user keyword(s): ${userKeywords.join(', ') || 'none'}`);
+
     // If no themes specified, return cards unchanged
-    if (userKeywords.length === 0 && userTags.length === 0) {
+    if (userKeywords.length === 0) {
       return cards.map(card => ({ ...card, finalScore: card.synergyScore }));
     }
     
+    // ── Try to match user keywords to EDHREC themes ──────────────────────────
+    // Build a map from themed EDHREC recs: card name → theme bonus score
+    const themedBonuses = new Map<string, number>();
+
+    // We need the commander name — derive it from any existing rec or from generateDeck context.
+    // We'll attempt themed recs for each user keyword that looks like an EDHREC theme slug.
+    // Use the cached commander page to find available themes.
+    // NOTE: commanderName is not directly available here, but the edhrecRecs map was populated
+    // in loadEDHRECData — if it's non-empty, we can infer the commander was found.
+    if (this.edhrecTotalDecks >= 50) {
+      // Find commander name from the first rec (not possible directly); instead we use
+      // the edhrecClient directly with the commander's name which we pass in via context.
+      // We store it on the class during loadEDHRECData for convenience.
+      const themes = this._currentCommanderName
+        ? await edhrecClient.getCommanderThemes(this._currentCommanderName)
+        : [];
+
+      for (const keyword of userKeywords) {
+        const kwLower = keyword.toLowerCase();
+        // Match keyword to EDHREC theme (substring match on name or slug)
+        const matchedTheme = themes.find(t =>
+          t.name.toLowerCase().includes(kwLower) ||
+          kwLower.includes(t.name.toLowerCase()) ||
+          t.slug.includes(kwLower) ||
+          kwLower.includes(t.slug)
+        );
+
+        if (matchedTheme && this._currentCommanderName) {
+          this.log(`🏷️ Matched keyword "${keyword}" → EDHREC theme "${matchedTheme.name}" (${matchedTheme.count} decks)`);
+          const themedRecs = await edhrecClient.getThemedRecommendations(
+            this._currentCommanderName,
+            matchedTheme.slug
+          );
+          for (const rec of themedRecs) {
+            const key = rec.name.toLowerCase();
+            const bonus = Math.max(themedBonuses.get(key) ?? 0, Math.round(rec.synergy * 200 + rec.inclusion * 100));
+            themedBonuses.set(key, bonus);
+          }
+        }
+      }
+    }
+
     const enhancedCards: ScoredCard[] = [];
-    
+
     for (const card of cards) {
       let themeBonus = 0;
-      
-      // Enhanced keyword processing - apply strong bonuses like tags
-      if (userKeywords.length > 0) {
-        this.log(`🔍 PROCESSING KEYWORDS for ${card.name}: ${userKeywords.join(', ')}`);
-        let keywordMatches = 0;
+
+      // 1. EDHREC themed bonus (primary)
+      const edhrecBonus = themedBonuses.get(card.name.toLowerCase());
+      if (edhrecBonus) {
+        themeBonus += edhrecBonus;
+        this.log(`🏷️ EDHREC THEME BOOST: ${card.name} +${edhrecBonus}`);
+      }
+
+      // 2. Text-match fallback for keywords not matched to a theme
+      {
         const cardText = (card.oracle_text || '').toLowerCase();
         const cardType = (card.type_line || '').toLowerCase();
-        const cardName = card.name.toLowerCase();
-        
-        try {
-          // Try database mechanics first, fallback to text analysis
-          let cardMechanics = null;
-          if (this.cardDatabase && typeof this.cardDatabase.getCardMechanicsFromDatabase === 'function') {
-            try {
-              cardMechanics = await (this.cardDatabase as any).getCardMechanicsFromDatabase(card.id);
-            } catch (error) {
-              // Silently fallback
-            }
-          }
-          if (!cardMechanics) {
-            cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
-          }
-          
-          for (const keyword of userKeywords) {
-            const keywordLower = keyword.toLowerCase();
-            
-            // Check for direct text/type/name matches
-            if (cardText.includes(keywordLower) || cardType.includes(keywordLower) || cardName.includes(keywordLower)) {
-              themeBonus += 500; // Strong bonus for keyword matches
-              keywordMatches++;
-              this.log(`🎯 KEYWORD MATCH: ${card.name} +500 Strong bonus for '${keyword}' in text/type/name`);
-            }
-            
-            // Find related tags that contain this keyword
-            const relatedTags = cardMechanics.mechanicTags.filter(tag => 
-              tag.name.toLowerCase().includes(keywordLower) || 
-              keywordLower.includes(tag.name.toLowerCase())
-            );
-            
-            for (const relatedTag of relatedTags) {
-              keywordMatches++;
-              let baseBonus = 500;
-              if (relatedTag.priority >= 8) baseBonus = 750;
-              else if (relatedTag.priority >= 5) baseBonus = 600;
-              
-              const confidenceBonus = baseBonus * relatedTag.confidence;
-              themeBonus += Math.round(confidenceBonus);
-              
-              this.log(`🏷️ KEYWORD-TAG MATCH: ${card.name} +${Math.round(confidenceBonus)} for '${keyword}' → ${relatedTag.name}`);
-            }
-            
-            // Check functional roles, archetype relevance for keyword matches
-            if (cardMechanics.functionalRoles.some(role => 
-                role.toLowerCase().includes(keywordLower) || keywordLower.includes(role.toLowerCase())
-              )) {
-              themeBonus += 500;
-              keywordMatches++;
-              this.log(`🛠️ KEYWORD-ROLE MATCH: ${card.name} +500 Strong bonus for '${keyword}' in roles`);
-            }
-            
-            if (cardMechanics.archetypeRelevance.some(arch => 
-                arch.toLowerCase().includes(keywordLower) || keywordLower.includes(arch.toLowerCase())
-              )) {
-              themeBonus += 500;
-              keywordMatches++;
-              this.log(`🏗️ KEYWORD-ARCHETYPE MATCH: ${card.name} +500 Strong bonus for '${keyword}' in archetypes`);
-            }
-          }
-          
-          // Progressive bonus for multiple keyword matches
-          if (keywordMatches >= 2) {
-            const multiKeywordBonus = Math.pow(keywordMatches, 2) * 50;
-            themeBonus += multiKeywordBonus;
-            this.log(`🌟 MULTI-KEYWORD BONUS: ${card.name} +${multiKeywordBonus} for ${keywordMatches} keyword matches`);
-          }
-          
-        } catch (error) {
-          // Fallback to simple text matching with strong bonuses
-          for (const keyword of userKeywords) {
-            const keywordLower = keyword.toLowerCase();
-            if (cardText.includes(keywordLower) || cardType.includes(keywordLower) || cardName.includes(keywordLower)) {
-              themeBonus += 500; // Strong fallback bonus
-              keywordMatches++;
-              this.log(`📝 KEYWORD FALLBACK: ${card.name} +500 Strong bonus for '${keyword}' (fallback)`);
-            }
+        const cardNameLower = card.name.toLowerCase();
+        let textMatches = 0;
+
+        for (const keyword of userKeywords) {
+          const kwLower = keyword.toLowerCase();
+          if (cardText.includes(kwLower) || cardType.includes(kwLower) || cardNameLower.includes(kwLower)) {
+            themeBonus += 300;
+            textMatches++;
+            this.log(`📝 TEXT MATCH: ${card.name} +300 for "${keyword}"`);
           }
         }
-      }
-      
-      // Enhanced tag-based theme bonuses - HEAVILY emphasize user selections  
-      if (userTags.length > 0) {
-        let totalTagMatches = 0;
-        try {
-          // Try database mechanics first, fallback to text analysis
-          let cardMechanics = null;
-          if (this.cardDatabase && typeof this.cardDatabase.getCardMechanicsFromDatabase === 'function') {
-            try {
-              cardMechanics = await (this.cardDatabase as any).getCardMechanicsFromDatabase(card.id);
-            } catch (error) {
-              // Silently fallback
-            }
-          }
-          if (!cardMechanics) {
-            cardMechanics = await this.mechanicsTagger.analyzeCardEnhanced(card);
-          }
-          
-          for (const userTag of userTags) {
-            // Find matching tags in the card's mechanics - improved partial matching
-            const matchingTags = cardMechanics.mechanicTags.filter(tag => 
-              tag.name === userTag || 
-              tag.name.includes(userTag) || 
-              userTag.includes(tag.name) ||
-              tag.name.toLowerCase().includes(userTag.toLowerCase()) ||
-              userTag.toLowerCase().includes(tag.name.toLowerCase())
-            );
-            
-            for (const matchingTag of matchingTags) {
-              totalTagMatches++;
-              // Strong bonuses for user-selected themes
-              // High priority (8-10): 750 points - Very Strong emphasis
-              // Medium priority (5-7): 600 points - Strong emphasis  
-              // Low priority (1-4): 500 points - Moderate emphasis
-              let baseBonus = 500;
-              if (matchingTag.priority >= 8) baseBonus = 750;
-              else if (matchingTag.priority >= 5) baseBonus = 600;
-              
-              const confidenceBonus = baseBonus * matchingTag.confidence;
-              themeBonus += Math.round(confidenceBonus);
-              
-              this.log(`🎯 USER TAG BOOST: ${card.name} +${Math.round(confidenceBonus)} for ${matchingTag.name} (P${matchingTag.priority}, C${matchingTag.confidence.toFixed(2)})`);
-            }
-            
-            // Check functional roles, archetype relevance, and synergy keywords
-            if (cardMechanics.functionalRoles.some(role => 
-                role === userTag || role.includes(userTag) || userTag.includes(role)
-              )) {
-              themeBonus += 500; // Strong bonus for functional role matches
-              totalTagMatches++;
-              this.log(`🛠️ ROLE MATCH: ${card.name} gets +500 Strong bonus for ${userTag} role`);
-            }
-            
-            if (cardMechanics.archetypeRelevance.some(arch => 
-                arch === userTag || arch.includes(userTag) || userTag.includes(arch)
-              )) {
-              themeBonus += 500; // Strong bonus for archetype matches  
-              totalTagMatches++;
-              this.log(`🏗️ ARCHETYPE MATCH: ${card.name} gets +500 Strong bonus for ${userTag} archetype`);
-            }
-            
-            if (cardMechanics.synergyKeywords.some(kw => 
-                kw === userTag || kw.includes(userTag) || userTag.includes(kw)
-              )) {
-              themeBonus += 500; // Strong bonus for synergy keywords
-              totalTagMatches++;
-              this.log(`🔗 SYNERGY MATCH: ${card.name} gets +500 Strong bonus for ${userTag} synergy`);
-            }
-            
-            // Check card types, subtypes, and supertypes for keyword matches
-            const typeLine = (card.type_line || '').toLowerCase();
-            const userTagLower = userTag.toLowerCase();
-            if (typeLine.includes(userTagLower)) {
-              themeBonus += 500; // Strong bonus for type/subtype matches
-              totalTagMatches++;
-              this.log(`🔖 TYPE MATCH: ${card.name} gets +500 Strong bonus for ${userTag} in type line`);
-            }
-          }
-          
-          // Progressive bonus system - multiple tag matches get very strong rewards
-          if (totalTagMatches >= 2) {
-            const multiTagBonus = Math.pow(totalTagMatches, 3) * 100; // Very Strong: 2 tags = +800, 3 tags = +2700
-            themeBonus += multiTagBonus;
-            this.log(`🌟 MULTI-TAG MULTIPLIER: ${card.name} gets +${multiTagBonus} Very Strong bonus for ${totalTagMatches} tag matches`);
-          }
-          
-          // Premium cards with 3+ user tags get guaranteed priority
-          if (totalTagMatches >= 3) {
-            themeBonus += 1000; // Guaranteed selection for highly relevant cards
-            this.log(`💎 PREMIUM USER SELECTION: ${card.name} gets +1000 guaranteed priority bonus for ${totalTagMatches} tag matches`);
-          }
-          
-        } catch (error) {
-          console.warn(`⚠️ Could not analyze mechanics for ${card.name}:`, error);
-          // Enhanced fallback with strong bonuses
-          const cardText = (card.oracle_text || '').toLowerCase();
-          const cardName = card.name.toLowerCase();
-          const typeLine = (card.type_line || '').toLowerCase();
-          
-          for (const userTag of userTags) {
-            const tagLower = userTag.toLowerCase();
-            if (cardText.includes(tagLower) || cardName.includes(tagLower) || typeLine.includes(tagLower)) {
-              themeBonus += 500; // Strong fallback bonus (minimum 500 per tag)
-              totalTagMatches++;
-              this.log(`📝 TEXT MATCH: ${card.name} gets +500 Strong fallback bonus for ${userTag}`);
-            }
-          }
-          
-          // Even fallback gets very strong progressive bonus
-          if (totalTagMatches >= 2) {
-            const fallbackMultiBonus = totalTagMatches * 200;
-            themeBonus += fallbackMultiBonus;
-            this.log(`📈 FALLBACK MULTI-BONUS: ${card.name} gets +${fallbackMultiBonus} ASTRONOMICAL bonus for multiple text matches`);
-          }
+
+        if (textMatches >= 2) {
+          const multiBonus = textMatches * 150;
+          themeBonus += multiBonus;
+          this.log(`🌟 MULTI-TEXT BONUS: ${card.name} +${multiBonus} for ${textMatches} text matches`);
         }
       }
+
       
       enhancedCards.push({
         ...card,
@@ -2303,59 +2159,29 @@ export class NewDeckGenerator {
 
   /**
    * 🎲 Add randomized tags for deck variety
-   * Selects 0-10 random tags from available tags to add spice to generation
+   * Selects 0-10 random themes from a curated list to add spice to generation
    */
   private async addRandomizedTags(constraints: GenerationConstraints): Promise<void> {
-    try {
-      // Get available tags from database
-      const availableTags = await this.localDatabase.getAvailableTags();
-      if (!availableTags || availableTags.length === 0) {
-        console.log('🎲 No tags available for randomization');
-        return;
-      }
+    const randomTagCount = constraints.random_tag_count || 0;
+    if (randomTagCount === 0) return;
 
-      // Use user-specified random tag count (default 0)
-      const randomTagCount = constraints.random_tag_count || 0;
-      if (randomTagCount === 0) {
-        console.log('🎲 No random tags selected (count set to 0)');
-        return;
-      }
+    // Curated list of popular Commander themes (replaces database tag lookup)
+    const RANDOM_THEMES = [
+      'tokens','graveyard','draw','ramp','removal','counters','+1/+1 counters',
+      'tribal','artifacts','enchantments','sacrifice','lifegain','lifelink',
+      'flying','trample','haste','deathtouch','vigilance','hexproof',
+      'mill','reanimator','combo','aggro','control','storm','voltron',
+      'landfall','spellslinger','treasure','food','clue','blood','energy',
+      'proliferate','infect','anthem','aura','equipment','recursion',
+      'flicker','blink','copy','steal','chaos','politics','group-hug',
+    ];
 
-      // Filter for interesting tags (avoid boring ones like basic card types)
-      const interestingTags = availableTags.filter(tag => {
-        const tagName = tag.name || '';
-        const isInteresting = !tagName.includes('basic_') && 
-                             !tagName.includes('generic_') &&
-                             tagName.length > 4 && // Avoid very short tags
-                             !tagName.startsWith('type_') && // Skip type markers
-                             !tagName.startsWith('supertype_') && // Skip supertype markers
-                             tag.is_active !== false; // Only active tags
-        return isInteresting;
-      });
+    const shuffled = [...RANDOM_THEMES].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, Math.min(randomTagCount, shuffled.length));
 
-      console.log(`🎲 Total available tags: ${availableTags.length}, Filtered interesting tags: ${interestingTags.length}`);
-      
-      if (interestingTags.length === 0) {
-        console.log('🎲 No interesting tags available for randomization');
-        console.log('🎲 Sample of available tags:', availableTags.slice(0, 5).map(t => t.name));
-        return;
-      }
-
-      // Randomly select tags
-      const shuffled = interestingTags.sort(() => 0.5 - Math.random());
-      const selectedTags = shuffled.slice(0, Math.min(randomTagCount, interestingTags.length));
-      const selectedTagNames = selectedTags.map(tag => tag.name || '');
-
-      // Add to constraints
-      constraints.random_tags = selectedTagNames;
-      constraints.keywords = [...(constraints.keywords || []), ...selectedTagNames];
-
-      console.log(`🎲 Added ${selectedTagNames.length} random tags: ${selectedTagNames.join(', ')}`);
-      
-    } catch (error) {
-      console.error('Error adding randomized tags:', error);
-      // Don't fail generation if random tags fail
-    }
+    constraints.random_tags = selected;
+    constraints.keywords = [...(constraints.keywords || []), ...selected];
+    console.log(`🎲 Added ${selected.length} random themes: ${selected.join(', ')}`);
   }
 }
 

@@ -230,3 +230,45 @@ export interface DatabaseSyncStatus {
   sync_progress: number;         // 0-100
   last_error?: string;
 }
+
+// ─── EDHREC types ────────────────────────────────────────────────────────────
+
+export interface EDHRECCardRecommendation {
+  name: string;
+  /** Synergy score from EDHREC (-1 to 1, higher = more synergistic) */
+  synergy: number;
+  /** Fraction of decks with this commander that include this card (0-1) */
+  inclusion: number;
+  /** Absolute number of decks that include this card */
+  numDecks: number;
+  /** Total decks with this commander sampled by EDHREC */
+  potentialDecks: number;
+}
+
+export interface EDHRECTheme {
+  name: string;
+  /** URL slug used in EDHREC API paths */
+  slug: string;
+  /** Number of decks using this theme */
+  count: number;
+}
+
+// ─── Commander Spellbook / combo types ───────────────────────────────────────
+
+export interface ComboResult {
+  /** Card names involved in the combo */
+  cards: string[];
+  /** Setup requirements before the combo goes off */
+  prerequisites: string[];
+  /** Step-by-step instructions */
+  steps: string[];
+  /** What the combo produces / wins with */
+  results: string[];
+}
+
+export interface BracketEstimate {
+  /** Estimated power bracket (1-4) */
+  bracket: number;
+  /** Combos found in the deck */
+  combos: ComboResult[];
+}
