@@ -1,6 +1,24 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 4)
+**Last Updated:** March 20, 2026 (session 5)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Singleton Enforcement Deep Fix
+
+### BUG — Duplicate non-basic cards still appearing after initial fix
+- **Root cause #1:** Budget swap, combo card removal, and Game Changer removal all built `usedNames` from `finalNonlands` only — completely blind to cards already in `finalLands`. Cards like Castle Embereth and Path of Ancestry (placed in `finalLands`) could be swapped back in as nonlands.
+- **Fix:** All three `usedNames` Sets now built from `[...finalNonlands, ...finalLands]` (commit `363e87f`)
+- **Root cause #2:** Initial dedup pass ran before the budget enforcement swaps — swaps then re-introduced duplicates after dedup had already run.
+- **Fix:** Layer order corrected — `usedNames` in all swap operations is now aware of full deck before any card is substituted
+
+### Singleton enforcement now applied at 6 layers (belt + suspenders):
+1. **Pool (step1):** `seenNames` Set deduplicates by card name across all printings
+2. **step4 output:** Dedup pass before return — catches any duplicates from type-bucket merging
+3. **step8 fill:** `toAddNames` guards per-card loop — fill slots can't repeat names
+4. **Final validation:** Dedup with backfill from `themeEnhanced` pool after step8
+5. **Budget/bracket swaps:** `usedNames` now includes both `finalNonlands` AND `finalLands`
+6. **React (DeckList.tsx):** `key` changed from `card.id` to `` `${card.name}-${index}` `` — crash-safe even if an edge case slips through
+
+---
 
 ## Sprint — 2026-03-20: Soft Budget, Spice Filtering, Combo-Aware Scoring, Official Bracket System
 
