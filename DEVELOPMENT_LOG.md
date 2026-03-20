@@ -592,6 +592,7 @@ The slider values now have semantic meaning:
 | `fbeb485` | `feat: remove Supabase and all dead-code; rewire to EDHREC + Scryfall` |
 | `0c00767` | `feat: wire combos + bracket estimation + spice slider + fix type errors` |
 | `3719c52` | `feat: inverted card pool + theme selector + bracket display + spice labels` |
+| `8924c0b` | `refactor: replace tag browser with simple keyword input` |
 
 All commits are local only — not pushed to origin.
 
@@ -704,6 +705,18 @@ EDHREC data:
   → edhrec.ts → json.edhrec.com (24h in-memory cache, 1 req/sec)
   → getCommanderThemes() feeds ThemeSelector UI + spice slider pool
 ```
+
+---
+
+## Refactor: Simplified Keyword Input (2026-03-20)
+
+**`src/components/BudgetPowerControls.tsx`**
+- Removed "Theme Focus" section entirely — category filter dropdown, tag search input, debounced `fetch('/api/admin/tag-categories')` + `fetch('/api/admin/search-tags')` calls, search results display, and all related state (`searchResults`, `selectedCategory`, `tagSearchTerm`, `isSearching`, `showSuggestions`, `categories`) and effects
+- Removed `useRef` import and `searchContainerRef`
+- Removed `addTag`, `removeTag`, `formatTagDisplay`, `getFilteredSearchResults`, `keywordSuggestions` helpers
+- Replaced with plain **"Add Keywords (Optional)"** section: text input + Add button + removable pills
+- Enter key or clicking Add appends to `keyword_focus`; `constraints.keywords` (old tag array) no longer populated from this component
+- Net: −264 lines
 
 ---
 *This log should be updated after each development session to maintain project continuity.*
