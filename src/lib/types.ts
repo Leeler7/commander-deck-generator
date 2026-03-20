@@ -124,6 +124,8 @@ export interface GenerationConstraints {
   no_extra_turns?: boolean;
   no_stax?: boolean;
   no_fast_mana?: boolean;
+  /** Target power bracket (1–4). Generator will try not to exceed this. */
+  targetBracket?: number;
 }
 
 export interface DeckComposition {

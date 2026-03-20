@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
         sorceries: 5,
         planeswalkers: 5
       },
-      random_tag_count: Math.max(0, Math.min(10, constraints.random_tag_count || 0)) // Clamp to 0-10
+      random_tag_count: Math.max(0, Math.min(10, constraints.random_tag_count || 0)), // Clamp to 0-10
+      ...(constraints.targetBracket ? { targetBracket: Math.min(4, Math.max(1, constraints.targetBracket)) } : {})
     };
 
     // Debug: Check if card type weights are being passed (uncomment for debugging)

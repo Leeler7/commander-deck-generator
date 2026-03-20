@@ -89,9 +89,14 @@ export class NewDeckGenerator {
       const synergyScored = await this.step2_ScoreSynergy(colorMatchedCards, commander);
       this.log(`✅ Scored ${synergyScored.length} cards for synergy`);
 
+      // STEP 2b: Boost combo-completing cards discovered in the scored pool
+      this.log('🔗 STEP 2b: Combo-aware scoring boost');
+      const comboScored = await this.step2b_ComboAwareScoring(synergyScored, commander);
+      this.log(`✅ Combo scoring done`);
+
       // STEP 3: Consider additional keywords from user and increase synergy score
       this.log('🏷️ STEP 3: Applying user theme bonuses');
-      const themeEnhanced = await this.step3_ApplyUserThemes(synergyScored, constraints);
+      const themeEnhanced = await this.step3_ApplyUserThemes(comboScored, constraints);
       this.log(`✅ Applied theme bonuses to ${themeEnhanced.length} cards`);
 
       // STEP 4: Narrow card pool to recommended ratios based on sliders
@@ -309,6 +314,48 @@ export class NewDeckGenerator {
       const finalTotal = finalNonlands.length + finalLands.length;
       this.log(`📊 Final deck composition: ${finalNonlands.length} non-lands + ${finalLands.length} lands = ${finalTotal} total + commander = ${finalTotal + 1}`);
 
+      // ── Soft budget enforcement ───────────────────────────────────────────
+      if (constraints.total_budget) {
+        const currentCost = this.calculateTotalPrice([...finalNonlands, ...finalLands], constraints);
+        const overFraction = (currentCost - constraints.total_budget) / constraints.total_budget;
+        if (overFraction > 0.5) {
+          console.log(`💰 BUDGET: $${currentCost.toFixed(2)} vs target $${constraints.total_budget} (${(overFraction * 100).toFixed(0)}% over) — swapping aggressively`);
+          const usedNames = new Set(finalNonlands.map(c => c.name));
+          const perCardBudget = constraints.total_budget / finalNonlands.length;
+          // Cheap candidates not already in deck, sorted by score desc
+          const cheapCandidates = themeEnhanced
+            .filter(c => !usedNames.has(c.name) &&
+              extractCardPrice(c, constraints.prefer_cheapest) <= perCardBudget * 1.2 &&
+              extractCardPrice(c, constraints.prefer_cheapest) <= (constraints.max_card_price ?? 50))
+            .sort((a, b) => b.finalScore - a.finalScore);
+          // Sort nonlands by price desc (most expensive first)
+          const byPrice = [...finalNonlands]
+            .sort((a, b) => extractCardPrice(b, constraints.prefer_cheapest) - extractCardPrice(a, constraints.prefer_cheapest));
+          let swaps = 0;
+          const maxSwaps = Math.ceil(finalNonlands.length * 0.2);
+          for (const expensive of byPrice) {
+            if (swaps >= maxSwaps) break;
+            const expPrice = extractCardPrice(expensive, constraints.prefer_cheapest);
+            if (expPrice <= perCardBudget * 1.5) break; // Already within reasonable range
+            const sub = cheapCandidates.find(c => !usedNames.has(c.name));
+            if (!sub) break;
+            const subPrice = extractCardPrice(sub, constraints.prefer_cheapest);
+            if (subPrice >= expPrice) continue;
+            finalNonlands = finalNonlands.filter(c => c.name !== expensive.name);
+            finalNonlands.push({ ...sub, quantity: 1, role: 'synergy', tags: [], price_used: subPrice, price_source: 'Scryfall' } as DeckCard);
+            usedNames.delete(expensive.name);
+            usedNames.add(sub.name);
+            cheapCandidates.splice(cheapCandidates.indexOf(sub), 1);
+            swaps++;
+            console.log(`💰 BUDGET: Swapped ${expensive.name} ($${expPrice.toFixed(2)}) → ${sub.name} ($${subPrice.toFixed(2)})`);
+          }
+          const newCost = this.calculateTotalPrice([...finalNonlands, ...finalLands], constraints);
+          console.log(`💰 BUDGET: After ${swaps} swaps: $${newCost.toFixed(2)}`);
+        } else if (overFraction > 0.2) {
+          console.log(`💰 BUDGET: $${currentCost.toFixed(2)} vs target $${constraints.total_budget} (${(overFraction * 100).toFixed(0)}% over) — within tolerance, keeping deck quality`);
+        }
+      }
+
       // Analyze mana curve
       const curveAnalysis = performManaCurveAnalysis(finalNonlands, commander);
       const commanderArchetype = determineArchetype(commander);
@@ -345,6 +392,39 @@ export class NewDeckGenerator {
         if (bracket) bracketEstimate = bracket;
       } catch {
         // Spellbook is optional — fail silently
+      }
+
+      // ── Bracket targeting: remove combo cards if deck exceeds targetBracket ─
+      if (constraints.targetBracket && bracketEstimate && bracketEstimate.bracket > constraints.targetBracket) {
+        console.log(`🎯 BRACKET: Estimated bracket ${bracketEstimate.bracket} exceeds target ${constraints.targetBracket} — removing combo cards`);
+        // Collect all card names involved in any detected combo
+        const comboCardNames = new Set(bracketEstimate.combos.flatMap(c => c.cards));
+        // Remove combo cards from nonlands, replace with next-best non-combo cards from themeEnhanced
+        const usedNames = new Set(finalNonlands.map(c => c.name));
+        const replacements = themeEnhanced
+          .filter(c => !usedNames.has(c.name) && !comboCardNames.has(c.name) &&
+            extractCardPrice(c, constraints.prefer_cheapest) <= (constraints.max_card_price ?? 50))
+          .sort((a, b) => b.finalScore - a.finalScore);
+        const removed: string[] = [];
+        finalNonlands = finalNonlands.filter(c => {
+          if (comboCardNames.has(c.name)) { removed.push(c.name); return false; }
+          return true;
+        });
+        for (const r of replacements.slice(0, removed.length)) {
+          finalNonlands.push({ ...r, quantity: 1, role: 'synergy', tags: [], price_used: extractCardPrice(r, constraints.prefer_cheapest), price_source: 'Scryfall' } as DeckCard);
+        }
+        console.log(`🎯 BRACKET: Removed ${removed.length} combo cards (${removed.join(', ')}), added ${Math.min(removed.length, replacements.length)} replacements`);
+        // Re-estimate bracket once after removal
+        try {
+          const updatedNames = [...finalNonlands, ...finalLands].map(c => c.name);
+          const reBracket = await spellbookClient.estimateBracket(commander.name, updatedNames);
+          if (reBracket) {
+            bracketEstimate = reBracket;
+            console.log(`🎯 BRACKET: Re-estimated bracket after removal: ${reBracket.bracket}`);
+          }
+        } catch {
+          // fail silently
+        }
       }
 
       // Inject one combo package when power level is >= 7 and combos are allowed
@@ -436,11 +516,15 @@ export class NewDeckGenerator {
     const broadQuery = `${colorQuery} f:commander -type:basic`;
 
     const spiceLevel = constraints?.random_tag_count ?? 0;
-    const userKeywords = [
-      ...(constraints?.keyword_focus || []),
-      ...(constraints?.keywords || []),
-      ...(constraints?.random_tags || [])
-    ];
+    // At spice 0: only explicitly user-typed keywords (keyword_focus) trigger oracle searches.
+    // Injected themes (keywords) and random tags only activate at spice >= 1.
+    const userKeywords = spiceLevel === 0
+      ? [...(constraints?.keyword_focus || [])]
+      : [
+          ...(constraints?.keyword_focus || []),
+          ...(constraints?.keywords || []),
+          ...(constraints?.random_tags || [])
+        ];
 
     const seenIds = new Set<string>();
     const allCards: ScryfallCard[] = [];
@@ -617,11 +701,11 @@ export class NewDeckGenerator {
           this.log(`🎯 HIGH SYNERGY: ${card.name} = ${synergyScore.toFixed(1)} (${synergy_notes})`);
         }
       } else if (useEDHREC && !edhrecEntry) {
-        // Card not found in EDHREC recommendations → low base score
-        // Still run keyword analysis so staples aren't penalised
+        // Card not found in EDHREC recommendations → capped low score so EDHREC cards dominate.
+        // Max 15 means these only fill slots that genuinely EDHREC-recommended cards can't.
         const kw = await calculateEnhancedKeywordSynergy(commander.oracle_text || '', card.oracle_text || '');
-        synergyScore = Math.max(2, kw.score);
-        synergy_notes = kw.score > 0 ? `Keyword match: ${kw.analysis}` : undefined;
+        synergyScore = Math.min(15, Math.max(2, kw.score));
+        synergy_notes = kw.score > 0 ? `Keyword match (no EDHREC data): ${kw.analysis}` : undefined;
       } else {
         // EDHREC data insufficient — full fallback
         const basicScore = this.calculateCommanderSynergy(card, commander);
@@ -656,6 +740,68 @@ export class NewDeckGenerator {
     console.log();
 
     return scoredCards;
+  }
+
+  /**
+   * STEP 2b: Combo-aware scoring boost.
+   * Finds combos that can assemble from the top-30 pool, then boosts any combo-completing
+   * cards that are present in the wider pool but scored low.
+   */
+  private async step2b_ComboAwareScoring(cards: ScoredCard[], commander: ScryfallCard): Promise<ScoredCard[]> {
+    try {
+      const top30Names = [...cards]
+        .sort((a, b) => b.synergyScore - a.synergyScore)
+        .slice(0, 30)
+        .map(c => c.name);
+
+      const combos = await spellbookClient.findCombos(commander.name, top30Names);
+      if (combos.length === 0) {
+        this.log(`🔗 STEP2b: No combos found in top-30 pool`);
+        return cards;
+      }
+
+      this.log(`🔗 STEP2b: Found ${combos.length} potential combos — boosting combo pieces`);
+
+      // Build a set of all combo card names that are present anywhere in the pool
+      const poolNames = new Set(cards.map(c => c.name));
+      const boostMap = new Map<string, { bonus: number; note: string }>();
+
+      for (const combo of combos) {
+        const result = combo.results[0] ?? 'combo';
+        for (const pieceName of combo.cards) {
+          if (poolNames.has(pieceName)) {
+            const existing = boostMap.get(pieceName);
+            const note = `Completes combo: ${combo.cards.join(' + ')} → ${result}`;
+            if (!existing || existing.bonus < 25) {
+              boostMap.set(pieceName, { bonus: 25, note });
+            }
+          }
+        }
+      }
+
+      if (boostMap.size === 0) {
+        this.log(`🔗 STEP2b: Combo pieces not found in card pool`);
+        return cards;
+      }
+
+      this.log(`🔗 STEP2b: Boosting ${boostMap.size} combo pieces by +25`);
+
+      return cards.map(card => {
+        const boost = boostMap.get(card.name);
+        if (!boost) return card;
+        const newScore = card.synergyScore + boost.bonus;
+        this.log(`  ⚡ ${card.name}: ${card.synergyScore.toFixed(1)} → ${newScore.toFixed(1)} (${boost.note})`);
+        return {
+          ...card,
+          synergyScore: newScore,
+          finalScore: newScore,
+          synergy_notes: boost.note,
+        };
+      });
+    } catch {
+      // Combos are optional — fail silently
+      return cards;
+    }
   }
 
   /**

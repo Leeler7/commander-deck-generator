@@ -29,6 +29,7 @@ import CommanderInput from '@/components/CommanderInput';
 import BudgetPowerControls from '@/components/BudgetPowerControls';
 import ThemeSelector from '@/components/ThemeSelector';
 import BracketEstimate from '@/components/BracketEstimate';
+import ComboDisplay from '@/components/ComboDisplay';
 import DeckList from '@/components/DeckList';
 import RoleBreakdown from '@/components/RoleBreakdown';
 import PriceBar from '@/components/PriceBar';
@@ -578,13 +579,24 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* Target Bracket */}
+                  {constraints.targetBracket && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Target Bracket</h4>
+                      <div className="text-xs">
+                        <span className="text-gray-600">Max bracket: </span>
+                        <span className="font-medium">{constraints.targetBracket} — {['Exhibition', 'Core', 'Upgraded', 'cEDH'][constraints.targetBracket - 1]}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Budget Settings */}
                   {(constraints.total_budget || constraints.max_card_price) && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Budget</h4>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Total Budget:</span>
+                          <span className="text-gray-600">Budget Target:</span>
                           <span className="font-medium">{constraints.total_budget ? `$${constraints.total_budget}` : 'No limit'}</span>
                         </div>
                         <div className="flex justify-between">
@@ -670,6 +682,11 @@ export default function Home() {
               <div className="max-w-md">
                 <BracketEstimate bracketEstimate={generatedDeck.bracketEstimate} />
               </div>
+            )}
+
+            {/* Detected Combos */}
+            {generatedDeck.bracketEstimate && generatedDeck.bracketEstimate.combos.length > 0 && (
+              <ComboDisplay combos={generatedDeck.bracketEstimate.combos} />
             )}
 
             {/* Overview Cards */}

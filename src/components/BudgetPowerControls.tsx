@@ -89,8 +89,11 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="total-budget" className="block text-xs text-gray-600 mb-1">
-              Total Budget ($)
+              Budget Target ($)
             </label>
+            <p className="text-xs text-gray-400 mb-2">
+              We&apos;ll aim for this price while keeping the deck playable. Cards may exceed this if cheaper alternatives don&apos;t exist.
+            </p>
             <input
               id="total-budget"
               type="number"
@@ -133,6 +136,37 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         </label>
       </div>
 
+
+      {/* Target Bracket */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Target Bracket (Optional)</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Keep the deck at or below this power level. Combo cards that push over the target will be removed.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {[
+            { value: undefined, label: 'Any', sub: 'No limit' },
+            { value: 1, label: '1', sub: 'Exhibition' },
+            { value: 2, label: '2', sub: 'Core' },
+            { value: 3, label: '3', sub: 'Upgraded' },
+            { value: 4, label: '4', sub: 'cEDH' },
+          ].map(({ value, label, sub }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => updateConstraint('targetBracket', value as GenerationConstraints['targetBracket'])}
+              className={`px-3 py-2 rounded-md border text-sm transition-colors ${
+                constraints.targetBracket === value
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+              }`}
+            >
+              <span className="font-medium">{label}</span>
+              <span className="block text-xs opacity-70">{sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Add Keywords */}
       <div>
