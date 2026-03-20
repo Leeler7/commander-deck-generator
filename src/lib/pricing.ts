@@ -135,8 +135,9 @@ export function sortCardsByBudgetPriority(
     const priceB = extractCardPrice(b, constraints.prefer_cheapest);
     
     // Prioritize cards that fit within per-card budget
-    const aFitsPerCard = priceA <= constraints.per_card_cap;
-    const bFitsPerCard = priceB <= constraints.per_card_cap;
+    const perCardCap = constraints.per_card_cap ?? constraints.max_card_price ?? 50;
+    const aFitsPerCard = priceA <= perCardCap;
+    const bFitsPerCard = priceB <= perCardCap;
     
     if (aFitsPerCard && !bFitsPerCard) return -1;
     if (!aFitsPerCard && bFitsPerCard) return 1;
@@ -188,12 +189,13 @@ export async function fitCardsIntoBudget(
   console.log('🔍 Getting enhanced pricing for candidate cards...');
   const cardPricings = await extractBatchCardPrices(sortedCandidates, constraints.prefer_cheapest, 'tcgplayer');
   
+  const perCardCap = constraints.per_card_cap ?? constraints.max_card_price ?? 50;
   for (const { card, price, source } of cardPricings) {
     // Check per-card budget constraint
-    if (price > constraints.per_card_cap) {
+    if (price > perCardCap) {
       result.excluded_cards.push({
         card,
-        reason: `Exceeds per-card budget of $${constraints.per_card_cap} (costs $${price.toFixed(2)})`
+        reason: `Exceeds per-card budget of $${perCardCap} (costs $${price.toFixed(2)})`
       });
       continue;
     }
@@ -345,14 +347,14 @@ export function calculatePriceTrends(cards: DeckCard[]): {
   price_distribution: { range: string; count: number }[];
   most_expensive: DeckCard[];
 } {
-  const prices = cards.map(card => card.price_used).sort((a, b) => a - b);
+  const prices = cards.map(card => card.price_used ?? 0).sort((a, b) => a - b);
   const total = prices.reduce((sum, price) => sum + price, 0);
-  
+
   const average_price = total / prices.length;
   const median_price = prices.length % 2 === 0
-    ? (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2
-    : prices[Math.floor(prices.length / 2)];
-  
+    ? ((prices[prices.length / 2 - 1] ?? 0) + (prices[prices.length / 2] ?? 0)) / 2
+    : prices[Math.floor(prices.length / 2)] ?? 0;
+
   // Price distribution
   const ranges = [
     { min: 0, max: 1, label: '$0-1' },
@@ -362,15 +364,15 @@ export function calculatePriceTrends(cards: DeckCard[]): {
     { min: 25, max: 50, label: '$25-50' },
     { min: 50, max: Infinity, label: '$50+' }
   ];
-  
+
   const price_distribution = ranges.map(range => ({
     range: range.label,
     count: prices.filter(price => price >= range.min && price < range.max).length
   }));
-  
+
   // Most expensive cards (top 5)
   const most_expensive = cards
-    .sort((a, b) => b.price_used - a.price_used)
+    .sort((a, b) => (b.price_used ?? 0) - (a.price_used ?? 0))
     .slice(0, 5);
   
   return {

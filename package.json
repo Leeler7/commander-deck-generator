@@ -10,11 +10,7 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "typecheck": "tsc --noEmit",
-    "db:export": "node scripts/manage-database.js export",
-    "db:import": "node scripts/manage-database.js import",
-    "db:download": "node scripts/download-external-db.js",
-    "db:help": "node scripts/manage-database.js"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",

@@ -41,7 +41,7 @@ export default function DeckList({ deck }: DeckListProps) {
     }
   });
 
-  const roleColors: Record<CardRole, string> = {
+  const roleColors: Record<string, string> = {
     'Commander': 'bg-purple-100 text-purple-800 border-purple-200',
     'Ramp': 'bg-green-100 text-green-800 border-green-200',
     'Draw/Advantage': 'bg-blue-100 text-blue-800 border-blue-200',
@@ -184,7 +184,7 @@ function CardListItem({
   getSubtypes
 }: { 
   card: DeckCard; 
-  roleColors: Record<CardRole, string>;
+  roleColors: Record<string, string>;
   getScryfallUrl: (cardName: string) => string;
   getSubtypes: (typeLine: string) => string;
 }) {
@@ -267,7 +267,7 @@ function CardGridItem({
   getSubtypes
 }: { 
   card: DeckCard; 
-  roleColors: Record<CardRole, string>;
+  roleColors: Record<string, string>;
   getScryfallUrl: (cardName: string) => string;
   getSubtypes: (typeLine: string) => string;
 }) {

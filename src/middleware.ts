@@ -15,9 +15,9 @@ export function middleware(request: NextRequest) {
     
     // Optional: IP restriction (uncomment to enable)
     /*
-    const clientIP = request.ip || 
-                    request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                    request.headers.get('x-real-ip') || 
+    const clientIP = (request as any).ip ||
+                    request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                    request.headers.get('x-real-ip') ||
                     'unknown';
     
     if (!ALLOWED_IPS.includes(clientIP) && clientIP !== 'unknown') {
@@ -28,9 +28,9 @@ export function middleware(request: NextRequest) {
     
     // Log admin access attempts
     const userAgent = request.headers.get('user-agent') || 'unknown';
-    const clientIP = request.ip || 
-                    request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                    request.headers.get('x-real-ip') || 
+    const clientIP = (request as any).ip ||
+                    request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                    request.headers.get('x-real-ip') ||
                     'unknown';
     
     console.log(`🔐 Admin access attempt: ${request.nextUrl.pathname} from ${clientIP} (${userAgent})`);

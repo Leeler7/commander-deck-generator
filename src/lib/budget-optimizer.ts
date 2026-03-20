@@ -113,8 +113,8 @@ export class BudgetOptimizer {
       const priceB = extractCardPrice(b, this.constraints.prefer_cheapest);
       
       // 1. First priority: cards within per-card budget
-      const aWithinBudget = priceA <= this.constraints.per_card_cap;
-      const bWithinBudget = priceB <= this.constraints.per_card_cap;
+      const aWithinBudget = priceA <= (this.constraints.per_card_cap ?? this.constraints.max_card_price);
+      const bWithinBudget = priceB <= (this.constraints.per_card_cap ?? this.constraints.max_card_price);
       
       if (aWithinBudget && !bWithinBudget) return -1;
       if (!aWithinBudget && bWithinBudget) return 1;
@@ -258,8 +258,8 @@ export class BudgetOptimizer {
       const priceB = extractCardPrice(b, this.constraints.prefer_cheapest);
       
       // 1. First priority: cards within per-card budget
-      const aWithinBudget = priceA <= this.constraints.per_card_cap;
-      const bWithinBudget = priceB <= this.constraints.per_card_cap;
+      const aWithinBudget = priceA <= (this.constraints.per_card_cap ?? this.constraints.max_card_price);
+      const bWithinBudget = priceB <= (this.constraints.per_card_cap ?? this.constraints.max_card_price);
       
       if (aWithinBudget && !bWithinBudget) return -1;
       if (!aWithinBudget && bWithinBudget) return 1;
@@ -407,7 +407,7 @@ export class BudgetOptimizer {
         
         // Check if we can afford this card
         if (currentCost + price > this.constraints.total_budget) continue;
-        if (price > this.constraints.per_card_cap) continue;
+        if (price > (this.constraints.per_card_cap ?? this.constraints.max_card_price)) continue;
         
         const deckCard = this.createDeckCard(candidate, candidateRole, price);
         deck.push(deckCard);
@@ -433,7 +433,7 @@ export class BudgetOptimizer {
   ): DeckCard[] {
     const deck = [...currentDeck];
     const usedCards = new Set(deck.map(card => card.name));
-    let currentCost = this.commanderPrice + deck.reduce((sum, card) => sum + card.price_used, 0);
+    let currentCost = this.commanderPrice + deck.reduce((sum, card) => sum + (card.price_used ?? 0), 0);
     
     // Fill remaining slots to reach target card count
     for (const candidate of candidates) {
@@ -472,7 +472,7 @@ export class BudgetOptimizer {
         continue;
       }
       
-      if (price > this.constraints.per_card_cap) continue;
+      if (price > (this.constraints.per_card_cap ?? this.constraints.max_card_price)) continue;
       
       const deckCard = this.createDeckCard(candidate, candidateRole, price);
       deck.push(deckCard);
@@ -504,7 +504,7 @@ export class BudgetOptimizer {
       if (role !== targetRole) return false;
       
       const price = extractCardPrice(card, this.constraints.prefer_cheapest);
-      return price <= maxPrice && price <= this.constraints.per_card_cap;
+      return price <= maxPrice && price <= (this.constraints.per_card_cap ?? this.constraints.max_card_price);
     });
     
     // Sort by value (efficiency and power level)
@@ -537,7 +537,7 @@ export class BudgetOptimizer {
     const replacements: Array<{removed: ScryfallCard; added: ScryfallCard; reason: string}> = [];
     const warnings: string[] = [];
     
-    let totalCost = this.commanderPrice + finalDeck.reduce((sum, card) => sum + card.price_used, 0);
+    let totalCost = this.commanderPrice + finalDeck.reduce((sum, card) => sum + (card.price_used ?? 0), 0);
     
     // If over budget, replace expensive cards with cheaper alternatives
     while (totalCost > this.constraints.total_budget && finalDeck.length > 90) {
@@ -548,24 +548,24 @@ export class BudgetOptimizer {
       const replacement = this.findCheaperAlternative(
         allCandidates,
         expensiveCard.role,
-        expensiveCard.price_used - 1,
+        (expensiveCard.price_used ?? 0) - 1,
         usedNames
       );
-      
+
       if (replacement) {
         const newPrice = extractCardPrice(replacement, this.constraints.prefer_cheapest);
         const newDeckCard = this.createDeckCard(replacement, expensiveCard.role, newPrice);
-        
+
         // Replace in deck
         const index = finalDeck.findIndex(c => c.name === expensiveCard.name);
         if (index !== -1) {
           finalDeck[index] = newDeckCard;
-          totalCost = totalCost - expensiveCard.price_used + newPrice;
-          
+          totalCost = totalCost - (expensiveCard.price_used ?? 0) + newPrice;
+
           replacements.push({
             removed: expensiveCard,
             added: replacement,
-            reason: `Budget optimization: replaced $${expensiveCard.price_used.toFixed(2)} card with $${newPrice.toFixed(2)} alternative`
+            reason: `Budget optimization: replaced $${(expensiveCard.price_used ?? 0).toFixed(2)} card with $${newPrice.toFixed(2)} alternative`
           });
         }
       } else {
@@ -573,7 +573,7 @@ export class BudgetOptimizer {
         const index = finalDeck.findIndex(c => c.name === expensiveCard.name);
         if (index !== -1) {
           finalDeck.splice(index, 1);
-          totalCost -= expensiveCard.price_used;
+          totalCost -= (expensiveCard.price_used ?? 0);
           warnings.push(`Removed ${expensiveCard.name} due to budget constraints - no suitable replacement found`);
         }
       }
@@ -589,7 +589,7 @@ export class BudgetOptimizer {
         .filter(card => {
           if (usedNames.has(card.name)) return false;
           const price = extractCardPrice(card, this.constraints.prefer_cheapest);
-          return price <= this.constraints.per_card_cap;
+          return price <= (this.constraints.per_card_cap ?? this.constraints.max_card_price);
         })
         .sort((a, b) => {
           const priceA = extractCardPrice(a, this.constraints.prefer_cheapest);
@@ -620,17 +620,17 @@ export class BudgetOptimizer {
         
         // Find an expensive card to replace
         const expensiveCard = finalDeck
-          .sort((a, b) => b.price_used - a.price_used)
-          .find(card => card.price_used > cheapPrice + neededBudget);
-        
+          .sort((a, b) => (b.price_used ?? 0) - (a.price_used ?? 0))
+          .find(card => (card.price_used ?? 0) > cheapPrice + neededBudget);
+
         if (expensiveCard) {
           // Replace expensive card with cheaper alternative
           const index = finalDeck.findIndex(c => c.name === expensiveCard.name);
           if (index !== -1) {
             const role = this.determineCardRole(cheapestAvailable);
             const deckCard = this.createDeckCard(cheapestAvailable, role, cheapPrice);
-            
-            totalCost = totalCost - expensiveCard.price_used + cheapPrice;
+
+            totalCost = totalCost - (expensiveCard.price_used ?? 0) + cheapPrice;
             finalDeck[index] = deckCard;
             
             replacements.push({
@@ -687,15 +687,17 @@ export class BudgetOptimizer {
     
     if (replaceableCards.length === 0) {
       // If no cards are replaceable due to role minimums, just find the most expensive
-      return deck.sort((a, b) => b.price_used - a.price_used)[0] || null;
+      return deck.sort((a, b) => (b.price_used ?? 0) - (a.price_used ?? 0))[0] || null;
     }
-    
-    return replaceableCards.sort((a, b) => b.price_used - a.price_used)[0];
+
+    return replaceableCards.sort((a, b) => (b.price_used ?? 0) - (a.price_used ?? 0))[0];
   }
 
   private createDeckCard(card: ScryfallCard, role: string, price: number): DeckCard {
     return {
       ...card,
+      quantity: 1,
+      tags: [],
       role: role as CardRole,
       synergy_notes: this.generateSynergyNotes(card, role),
       price_used: price

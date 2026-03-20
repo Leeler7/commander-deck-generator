@@ -21,6 +21,11 @@ export interface ScryfallCard {
   keywords?: string[];
   set?: string;
   set_name?: string;
+  rarity?: string;
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
+  mechanics?: CardMechanicsData;
   image_uris?: {
     small: string;
     normal: string;
@@ -111,8 +116,14 @@ export interface GenerationConstraints {
   keywords?: string[]; // User-specified keywords/themes to emphasize
   keyword_focus?: string[]; // Legacy field, use keywords instead
   card_type_weights?: CardTypeWeights; // Card type preferences (0-10 scale)
-  random_tag_count?: number; // Number of random tags to select (0-10)
+  random_tag_count?: number; // 0-10 spice level (0=safe, 10=maximum chaos)
   random_tags?: string[]; // Randomly selected tags for variety (added during generation)
+  // Gameplay constraint toggles
+  no_infinite_combos?: boolean;
+  no_land_destruction?: boolean;
+  no_extra_turns?: boolean;
+  no_stax?: boolean;
+  no_fast_mana?: boolean;
 }
 
 export interface DeckComposition {
@@ -136,6 +147,7 @@ export interface GeneratedDeck {
   generation_notes: string[];
   deck_explanation: string;
   random_tags?: string[]; // Random tags selected for this generation
+  bracketEstimate?: BracketEstimate;
 }
 
 export interface PowerLevelConfig {

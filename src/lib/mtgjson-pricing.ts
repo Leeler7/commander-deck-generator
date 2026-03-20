@@ -73,9 +73,9 @@ class MTGJSONPricingService {
       this.pricingData = data.data;
       this.lastFetchDate = today;
       
-      console.log(`✅ MTGJSON pricing data loaded (${Object.keys(this.pricingData).length} cards)`);
-      
-      return this.pricingData;
+      console.log(`✅ MTGJSON pricing data loaded (${Object.keys(this.pricingData!).length} cards)`);
+
+      return this.pricingData!;
     } catch (error) {
       console.error('❌ Failed to fetch MTGJSON pricing data:', error);
       // Return empty object so we fall back to Scryfall pricing

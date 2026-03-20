@@ -3,9 +3,9 @@ import { scryfallClient } from '@/lib/scryfall';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const cardId = params.id;
+  const { id: cardId } = await params;
 
   if (!cardId) {
     return NextResponse.json({ error: 'Card ID is required' }, { status: 400 });

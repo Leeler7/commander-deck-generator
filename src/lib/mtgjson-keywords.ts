@@ -104,8 +104,8 @@ class MTGJSONKeywordService {
       console.log(`  - ${data.data.abilityWords.length} ability words`);
       console.log(`  - ${data.data.keywordAbilities.length} keyword abilities`);
       console.log(`  - ${data.data.keywordActions.length} keyword actions`);
-      
-      return this.keywordsData;
+
+      return this.keywordsData!;
     } catch (error) {
       console.error('❌ Failed to fetch MTGJSON keywords:', error);
       console.log('🔄 Falling back to comprehensive static keyword list...');
@@ -115,7 +115,7 @@ class MTGJSONKeywordService {
         data: STATIC_KEYWORDS 
       };
       this.lastFetchDate = today;
-      return this.keywordsData;
+      return this.keywordsData!;
     } finally {
       this.isLoading = false;
     }

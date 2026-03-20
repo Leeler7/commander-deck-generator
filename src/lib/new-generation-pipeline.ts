@@ -1,13 +1,14 @@
-import { ScryfallCard, DeckCard, GeneratedDeck, GenerationConstraints, CardTypeWeights } from './types';
+import { ScryfallCard, DeckCard, GeneratedDeck, GenerationConstraints, CardTypeWeights, BracketEstimate } from './types';
 import { scryfallClient } from './scryfall';
 import {
-  isColorIdentityValid, 
+  isColorIdentityValid,
   isCardLegalInCommander,
-  validateDeckComposition 
+  validateDeckComposition
 } from './rules';
 import { extractCardPrice, extractCardPriceWithSource, extractBatchCardPrices } from './pricing';
 import { calculateEnhancedKeywordSynergy, mtgjsonKeywords } from './mtgjson-keywords';
 import { edhrecClient } from './edhrec';
+import { spellbookClient } from './combos';
 import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
 
@@ -29,6 +30,8 @@ export interface ScoredCard extends ScryfallCard {
   priceScore: number;
   isAffordable: boolean;
   assignedSlot?: string;
+  price_used?: number;
+  price_source?: string;
 }
 
 export class NewDeckGenerator {
@@ -40,10 +43,10 @@ export class NewDeckGenerator {
   private edhrecTotalDecks = 0;
   private _currentCommanderName: string | null = null;
 
-  private log(message: string): void {
+  private log(message: string, ...args: any[]): void {
     // Reduce logging in production to avoid Railway rate limits
     if (this.verbose && process.env.NODE_ENV === 'development') {
-      console.log(message);
+      console.log(message, ...args);
     }
   }
 
@@ -54,17 +57,17 @@ export class NewDeckGenerator {
     try {
       console.log('🎯 NEW PIPELINE: Starting deck generation for', commanderName);
 
-      // 🎲 FEATURE: Add randomized tags for variety (0-10 random tags)
-      await this.addRandomizedTags(constraints);
-      
       // Validate and get commander
       const commanderValidation = await this.scryfallClient.validateCommander(commanderName);
       if (!commanderValidation.isValid || !commanderValidation.card) {
         throw new Error(commanderValidation.error || 'Invalid commander');
       }
-      
+
       const commander = commanderValidation.card;
       this.log(`🎯 NEW PIPELINE: Generating deck for ${commander.name}`);
+
+      // 🎲 FEATURE: Add randomized tags for spice variety (0-10 spice level)
+      await this.addRandomizedTags(constraints, commander.name);
 
       // Pre-load EDHREC recommendations (used by step2 and step3)
       await this.loadEDHRECData(commander.name);
@@ -240,7 +243,7 @@ export class NewDeckGenerator {
             
             // Sort each type by score
             for (const typeCards of Object.values(byType)) {
-              typeCards.sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0));
+              typeCards.sort((a, b) => ((b as any).finalScore || 0) - ((a as any).finalScore || 0));
             }
             
             // Calculate how many to trim from each type proportionally
@@ -326,9 +329,67 @@ export class NewDeckGenerator {
       // Calculate role breakdown
       const roleBreakdown: Record<string, number> = {};
       finalAllCards.forEach(card => {
-        const role = typeof card.role === 'string' ? card.role : card.role.toString();
+        const role = String(card.role);
         roleBreakdown[role] = (roleBreakdown[role] || 0) + 1;
       });
+
+      // ── Commander Spellbook: combos + bracket estimation ──────────────────
+      const spiceLevel = constraints.random_tag_count ?? 0;
+      const allCardNames = finalAllCards.map(c => c.name);
+      let bracketEstimate: BracketEstimate | undefined;
+
+      // Always estimate bracket
+      try {
+        const bracket = await spellbookClient.estimateBracket(commander.name, allCardNames);
+        if (bracket) bracketEstimate = bracket;
+      } catch {
+        // Spellbook is optional — fail silently
+      }
+
+      // Inject one combo package when power level is >= 7 and combos are allowed
+      if (spiceLevel >= 7 && !constraints.no_infinite_combos) {
+        try {
+          const combos = await spellbookClient.findCombos(commander.name, allCardNames);
+          if (combos.length > 0) {
+            // Pick the first combo and inject missing pieces into the non-land section
+            const combo = combos[0];
+            const presentNames = new Set(allCardNames);
+            const missingPieces = combo.cards.filter(n => !presentNames.has(n));
+            if (missingPieces.length > 0 && missingPieces.length <= 3) {
+              // Sort nonlands by lowest synergy score to find swap targets
+              const swapTargets = [...finalNonlands]
+                .sort((a, b) => ((a as any).finalScore ?? 0) - ((b as any).finalScore ?? 0))
+                .slice(0, missingPieces.length);
+              const swapNames = new Set(swapTargets.map(c => c.name));
+              finalNonlands = finalNonlands.filter(c => !swapNames.has(c.name));
+              // Attempt to fetch the missing combo pieces from Scryfall
+              for (const pieceName of missingPieces) {
+                try {
+                  const res = await scryfallClient.searchCards(`!"${pieceName}" f:commander`, 1, 'name');
+                  if (res.data.length > 0) {
+                    const pieceCard = res.data[0];
+                    const deckPiece: DeckCard = {
+                      ...pieceCard,
+                      quantity: 1,
+                      role: 'Synergy/Wincon',
+                      tags: ['combo'],
+                      synergy_notes: `Combo piece: ${combo.results.join(', ')}`,
+                      price_used: extractCardPrice(pieceCard, constraints.prefer_cheapest),
+                      price_source: 'Scryfall',
+                    };
+                    finalNonlands.push(deckPiece);
+                  }
+                } catch {
+                  // Piece not found — skip silently
+                }
+              }
+              this.log(`🔗 Injected combo package (${combo.cards.join(', ')})`);
+            }
+          }
+        } catch {
+          // Combos are optional — fail silently
+        }
+      }
 
       return {
         commander: commanderCard,
@@ -341,10 +402,12 @@ export class NewDeckGenerator {
           `Generated ${finalNonlands.length} non-land cards and ${finalLands.length} lands`,
           `Total synergy-focused cards: ${finalNonlands.filter(c => c.role === 'synergy').length}`,
           `Average synergy score: ${(finalDeck.reduce((sum, card) => sum + card.finalScore, 0) / finalDeck.length).toFixed(1)}`,
+          ...(bracketEstimate ? [`⚡ Estimated bracket: ${bracketEstimate.bracket}`] : []),
           ...(constraints.random_tags && constraints.random_tags.length > 0 ? [`🎲 Random tags: ${constraints.random_tags.join(', ')}`] : [])
         ],
         deck_explanation: `This deck focuses on synergy with ${commander.name}, prioritizing cards that work well with the commander's abilities and strategy.`,
-        random_tags: constraints.random_tags || []
+        random_tags: constraints.random_tags || [],
+        bracketEstimate
       };
 
     } catch (error) {
@@ -1185,7 +1248,7 @@ export class NewDeckGenerator {
    * STEP 4: Narrow the card pool down to the recommended ratios based on the sliders
    * Apply proportional filtering based on card type weights
    */
-  private async step4_ApplyRatios(cards: ScoredCard[], weights: CardTypeWeights, allColorMatched?: ScoredCard[], commander?: ScryfallCard): Promise<ScoredCard[]> {
+  private async step4_ApplyRatios(cards: ScoredCard[], weights: CardTypeWeights, allColorMatched?: ScryfallCard[], commander?: ScryfallCard): Promise<ScoredCard[]> {
     // Group cards by type
     const cardsByType: Record<string, ScoredCard[]> = {
       creatures: [],
@@ -1321,10 +1384,14 @@ export class NewDeckGenerator {
         allPlaneswalkers.forEach(pw => {
           if (!pwMap.has(pw.id)) {
             // For expanded planeswalkers, give them a baseline synergy score if they have none
-            if (pw.finalScore <= 0) {
-              pw.finalScore = 2; // Baseline score for expanded planeswalkers
+            const scored = pw as unknown as ScoredCard;
+            if (!scored.finalScore || scored.finalScore <= 0) {
+              scored.finalScore = 2; // Baseline score for expanded planeswalkers
+              scored.synergyScore = 2;
+              scored.priceScore = 5;
+              scored.isAffordable = true;
             }
-            pwMap.set(pw.id, pw);
+            pwMap.set(pw.id, scored);
           }
         });
         
@@ -1408,8 +1475,10 @@ export class NewDeckGenerator {
     
     return cardPricings.map(({ card, price, source }) => {
       // Add pricing information to the card (no affordability filtering)
-      const enhancedCard = {
-        ...card,
+      // Cast back to ScoredCard since the runtime objects retain synergyScore/finalScore from step2/3
+      const scored = card as unknown as ScoredCard;
+      const enhancedCard: ScoredCard = {
+        ...scored,
         priceScore: 5, // Neutral price score since we're not filtering by budget
         isAffordable: true, // All cards are "affordable" since we removed budget filtering
         price_used: price,
@@ -1843,7 +1912,7 @@ export class NewDeckGenerator {
     }
     
     // Analyze actual color requirements from the deck
-    const colorRequirements = this.analyzeColorRequirements([...nonLandCards, commander]);
+    const colorRequirements = this.analyzeColorRequirements([...nonLandCards, commander as unknown as DeckCard]);
     const totalColorSymbols = Object.values(colorRequirements).reduce((sum, count) => sum + count, 0);
     
     this.log(`🏔️ MANA: Color requirements:`, colorRequirements, `(total: ${totalColorSymbols})`);
@@ -2158,15 +2227,16 @@ export class NewDeckGenerator {
   }
 
   /**
-   * 🎲 Add randomized tags for deck variety
-   * Selects 0-10 random themes from a curated list to add spice to generation
+   * 🎲 Spice Level: How weird do you want this deck?
+   * 0 = "Play it safe"  →  10 = "Maximum chaos"
+   * Pulls real themes from EDHREC first; falls back to curated spicy mechanics.
    */
-  private async addRandomizedTags(constraints: GenerationConstraints): Promise<void> {
-    const randomTagCount = constraints.random_tag_count || 0;
-    if (randomTagCount === 0) return;
+  private async addRandomizedTags(constraints: GenerationConstraints, commanderName?: string): Promise<void> {
+    const spiceLevel = constraints.random_tag_count ?? 0;
+    if (spiceLevel === 0) return;
 
-    // Curated list of popular Commander themes (replaces database tag lookup)
-    const RANDOM_THEMES = [
+    // Curated fallback list of spicy Commander mechanics
+    const SPICY_MECHANICS = [
       'tokens','graveyard','draw','ramp','removal','counters','+1/+1 counters',
       'tribal','artifacts','enchantments','sacrifice','lifegain','lifelink',
       'flying','trample','haste','deathtouch','vigilance','hexproof',
@@ -2176,12 +2246,33 @@ export class NewDeckGenerator {
       'flicker','blink','copy','steal','chaos','politics','group-hug',
     ];
 
-    const shuffled = [...RANDOM_THEMES].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, Math.min(randomTagCount, shuffled.length));
+    let themePool: string[] = [];
+
+    // Try EDHREC first for commander-specific themes
+    if (commanderName) {
+      try {
+        const edhrecThemes = await edhrecClient.getCommanderThemes(commanderName);
+        if (edhrecThemes.length > 0) {
+          themePool = edhrecThemes.map(t => t.name);
+          this.log(`🎲 Loaded ${themePool.length} EDHREC themes for ${commanderName}`);
+        }
+      } catch {
+        // EDHREC unavailable — fall back to curated list
+      }
+    }
+
+    // Fall back to curated spicy mechanics if EDHREC returned nothing
+    if (themePool.length === 0) {
+      themePool = SPICY_MECHANICS;
+    }
+
+    // Higher spice level → pick more themes and weight toward unusual picks
+    const shuffled = [...themePool].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, Math.min(spiceLevel, shuffled.length));
 
     constraints.random_tags = selected;
     constraints.keywords = [...(constraints.keywords || []), ...selected];
-    console.log(`🎲 Added ${selected.length} random themes: ${selected.join(', ')}`);
+    console.log(`🌶️ Spice level ${spiceLevel}/10 — added ${selected.length} themes: ${selected.join(', ')}`);
   }
 }
 
