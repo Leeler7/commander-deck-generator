@@ -1,6 +1,29 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 7)
+**Last Updated:** March 20, 2026 (session 8)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Functional Coverage Scoring + Bracket-Aware Card Selection
+
+### NEW — `src/lib/functional-roles.ts`
+- Introduces `classifyCardFunction(oracleText, typeLine)` which detects up to 7 functional roles per card: `ramp`, `card_draw`, `removal`, `board_wipe`, `protection`, `tutor`, `payoff`
+- `countFunctionalRoles(cards)` aggregates coverage across a card array into a `FunctionalCoverage` object
+- `calculateFunctionalBonus(roles, coverage, bracketTarget)` returns a score bonus for cards that fill unmet deck needs; high-power brackets (4+) raise minimums for ramp/draw/tutors, low brackets (≤2) deprioritise tutors
+
+### CHANGED — `step4_ApplyRatios` in `new-generation-pipeline.ts`
+- Signature extended to accept `constraints?: GenerationConstraints`
+- Replaced simple `sort + slice` with greedy selection: before each type-quota is filled, current functional coverage is computed from already-selected cards; each candidate receives an adjusted score = `finalScore + functionalBonus`; mana-curve preference is preserved as a small fractional nudge
+- `alreadySelected` array grows after each type batch so later batches (e.g. sorceries) benefit from knowing what creatures/artifacts already cover
+
+### CHANGED — Combo injection gating
+- Added `!(constraints.targetBracket && constraints.targetBracket <= 2)` guard to the combo injection block at spice >= 7; Exhibition/Core bracket decks no longer receive injected infinite combos even at maximum spice
+
+### CHANGED — `GeneratedDeck` type + return value
+- Added optional `functionalCoverage` field to `GeneratedDeck` in `types.ts`
+- `generateDeck()` now computes and returns `functionalCoverage: countFunctionalRoles([...finalNonlands, ...finalLands])`
+
+### CHANGED — `src/app/page.tsx`
+- Added "Deck Functions" panel in the Generation Settings sidebar section
+- Displays ramp / card draw / removal / board wipes / protection / tutors with colour-coded counts: green = meets minimum, yellow = within 70 % of minimum, red = below 70 %
 
 ## Sprint — 2026-03-20: Smarter Keyword Extraction + Color Penalty + EDHREC Priority
 
