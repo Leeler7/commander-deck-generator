@@ -124,7 +124,7 @@ export interface GenerationConstraints {
   no_extra_turns?: boolean;
   no_stax?: boolean;
   no_fast_mana?: boolean;
-  /** Target power bracket (1–4). Generator will try not to exceed this. */
+  /** Target power bracket (1–5): 1=Exhibition, 2=Core, 3=Upgraded, 4=Optimized, 5=cEDH. Generator will try not to exceed this. */
   targetBracket?: number;
 }
 
@@ -281,8 +281,14 @@ export interface ComboResult {
 }
 
 export interface BracketEstimate {
-  /** Estimated power bracket (1-4) */
+  /** Estimated power bracket (1-5): 1=Exhibition, 2=Core, 3=Upgraded, 4=Optimized, 5=cEDH */
   bracket: number;
   /** Combos found in the deck */
   combos: ComboResult[];
+  /** Game Changer cards found in the deck */
+  gameChangersFound?: string[];
+  /** Number of Game Changers found */
+  gameChangerCount?: number;
+  /** Human-readable reasons for bracket assignment */
+  reasons?: string[];
 }

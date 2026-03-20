@@ -1,6 +1,40 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026
+**Last Updated:** March 20, 2026 (session 4)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Soft Budget, Spice Filtering, Combo-Aware Scoring, Official Bracket System
+
+### FIX 1 — Budget as soft target
+- "Total Budget" renamed to "Budget Target" in UI with helper text
+- Hard cap: `max_card_price` — cards over this are always dropped (step6)
+- Soft target: `total_budget` — if deck exceeds by >50%, aggressively swap up to 20% of nonlands for cheaper alternatives; if 20-50% over, log and keep deck quality
+- Generation settings display shows "Budget Target: $X"
+
+### FIX 2 — Non-synergistic cards at spice 0
+- At spice 0, only user-typed `keyword_focus` triggers oracle text searches
+- Injected themes and random tags skip oracle searches at spice 0
+- Cards not in EDHREC recommendations are scored ≤15 (vs EDHREC cards at 20-100+), so they only fill slots EDHREC cards can't
+- `addRandomizedTags` already skips at spice 0 — verified
+
+### FIX 3 — Commander Spellbook integration
+- Step2b: combo-aware scoring boosts combo-completing cards by +25 points
+- ComboDisplay.tsx: new component showing detected combos with Scryfall links, results, prerequisites, steps
+- BracketEstimate.tsx: new component with 5-bracket display (Exhibition/Core/Upgraded/Optimized/cEDH)
+- Target Bracket: 5 options in UI; bracket ≤2 filters ALL Game Changers from card pool
+
+### BUG 1 — Duplicate non-basic lands
+- Deduplication added DURING assembly (after step8, before lands/nonlands split)
+- Basic lands (Plains/Island/Swamp/Mountain/Forest/Wastes) allowed multiples
+- All other cards must be unique — duplicates are filtered with console.warn
+
+### BUG 2 — Official 5-bracket system
+- NEW: `src/lib/brackets.ts` — exports GAME_CHANGERS list (51 cards as of Feb 2026)
+- `estimateBracketLocal()`: 0 GCs → Bracket 2; 1-3 GCs → Bracket 3; 4+ GCs → Bracket 4; combos with 0 GCs → Bracket 3
+- Removed dependency on Commander Spellbook `estimateBracket` endpoint (unreliable external API)
+- `BracketEstimate` type updated with `gameChangersFound`, `gameChangerCount`, `reasons` fields
+- `BracketEstimate.tsx`: 5-bracket display with color coding, Game Changers list with Scryfall links, reasons
+
+---
 
 ## Project Overview
 
@@ -24,7 +58,8 @@ A React/Next.js web application that generates 100-card Commander (EDH) decks fo
 
 ```
 1. Keyword oracle-text searches (FIRST — highest priority)
-   For each user keyword: o:"<keyword>" ci:<colors> f:commander -type:basic
+   Only at spice >= 1: injected keywords (constraints.keywords) and random_tags
+   At all spice levels: user-typed keyword_focus always searched
    Pages per keyword: 1 (spice 0) → 2 (spice 5) → 3 (spice 10)
    Capped at 6 keywords per generation
 
@@ -42,15 +77,18 @@ A React/Next.js web application that generates 100-card Commander (EDH) decks fo
 | pre  | `addRandomizedTags` — pull EDHREC themes for spice, add to keyword pool |
 | pre  | `loadEDHRECData` — cache EDHREC recs for this commander |
 | 1    | `step1_ColorMatchCommander` — build inverted card pool (keyword-first) |
-| 2    | `step2_ScoreSynergy` — EDHREC synergy+inclusion scores; keyword-fallback for unknown commanders |
+| 2    | `step2_ScoreSynergy` — EDHREC synergy+inclusion scores; non-EDHREC cards capped at 15 pts |
+| 2b   | `step2b_ComboAwareScoring` — Spellbook combo detection on top-30 pool; combo pieces +25 pts |
 | 3    | `step3_ApplyUserThemes` — EDHREC themed recs bonus + oracle-text +300/match |
 | 4    | `step4_ApplyRatios` — proportional slot allocation by type weights |
-| 5    | `step5_EvaluatePrices` — Scryfall + MTGJSON pricing |
-| 6    | (no-op) budget substitution removed |
+| 5    | `step5_EvaluatePrices` — Scryfall + MTGJSON pricing; marks `isAffordable = price <= max_card_price` |
+| 6    | `step6_SubstituteExpensiveCards` — hard-drops over-budget cards; no escape hatch |
 | 7    | `step7_ValidateDeckSize` — trim/pad to target counts |
-| 8    | `step8_FillWithSynergy` — fill remaining slots from scored pool |
+| 8    | `step8_FillWithSynergy` — fill remaining slots from scored pool (over-budget cards excluded) |
 | post | Mana curve analysis + basic land generation |
+| post | Soft budget enforcement — if deck >50% over `total_budget`, swap up to 20% of nonlands |
 | post | `estimateBracket()` — Commander Spellbook (always) |
+| post | Bracket targeting — if `targetBracket` set and estimate exceeds it, remove combo cards + re-estimate |
 | post | `findCombos()` — Commander Spellbook (spice ≥ 7 only); inject missing pieces |
 
 ### Spice Level (0–10)
@@ -86,7 +124,8 @@ Controls the ratio between keyword-searched pool and broad EDHREC pool, plus the
 | `CommanderInput.tsx` | Commander search autocomplete |
 | `ThemeSelector.tsx` | Clickable EDHREC theme pills per commander |
 | `BudgetPowerControls.tsx` | Spice slider + keyword input + card type weights |
-| `BracketEstimate.tsx` | 1–4 visual bracket scale (green→red) with combo list |
+| `BracketEstimate.tsx` | 1–4 visual bracket scale (green→red) with combo count |
+| `ComboDisplay.tsx` | Full combo list with Scryfall links, collapsible prerequisites + steps |
 | `DeckList.tsx` | Full card list (list + grid view, filter by role) |
 | `DeckAnalysis.tsx` | Mana curve, type distribution, stats |
 | `RoleBreakdown.tsx` | Role distribution chart |
@@ -139,6 +178,118 @@ npm run test:e2e     # Playwright e2e tests
 | `a79aad9` | `docs: update devlog for keyword input refactor` |
 | `994b866` | `docs: update dev log and env example for v2` |
 | `4712f64` | `fix: EDHREC synergy scoring + theme parsing + restore budget controls` |
+| `ddb8214` | `fix: enforce budget constraints + display budget + clean up theme pills` |
+| `671acc4` | `fix: soft budget + spice filtering + combo-aware selection + bracket targeting` |
+
+---
+
+## Sprint: Soft Budget, Spice Filtering & Spellbook Integration (March 2026)
+
+### Overview
+Three playtesting issues addressed: budget was too aggressive and sacrificed deck quality,
+non-synergistic cards leaked in at spice 0, and the Commander Spellbook integration was
+shallow (only injecting combos post-assembly rather than selecting combo-synergistic cards
+during scoring). Also added bracket targeting as an actionable control.
+
+### FIX 1 — Budget soft target
+
+**Change:** `total_budget` is now a soft target, not a hard cap.
+- UI label renamed "Budget Target ($)" with helper text explaining the tolerance behaviour
+- Pipeline: if assembled deck exceeds `total_budget` by >50%, up to 20% of nonlands are
+  swapped out for cheaper alternatives from the scored pool; if 20–50% over, it's logged
+  as a note and deck quality is preserved
+- `max_card_price` remains a hard cap (unchanged)
+- Results page "Generation Settings" panel updated to show "Budget Target: $X"
+
+### FIX 2 — Non-synergistic cards at spice 0
+
+**Root cause:** At spice 0, `constraints.keywords` (injected themes) were included in
+oracle-text searches alongside user-typed `keyword_focus`. Cards like Hangarback Walker
+match "token" oracle text but have zero EDHREC synergy with Krenko, yet were entering the
+pool and scoring neutrally.
+
+**Fixes:**
+- `step1_ColorMatchCommander`: at spice=0, only `keyword_focus` (user-typed + theme
+  selector choices) triggers oracle searches; `constraints.keywords` and `random_tags`
+  are excluded from pool building at spice 0
+- `step2_ScoreSynergy`: non-EDHREC cards now capped at score 15 (previously uncapped
+  keyword score). They only fill slots that genuinely EDHREC-recommended cards cannot.
+  Synergy notes updated to "Keyword match (no EDHREC data): …" for transparency
+
+### FIX 3a — Combo-aware card selection (step2b)
+
+**New pipeline step** inserted between step2 and step3:
+- Calls `spellbookClient.findCombos()` with the top-30 highest-scored cards
+- For any combo where pieces exist in the broader pool but scored low, boosts those
+  cards by +25 points
+- Adds `synergy_notes: "Completes combo: X + Y → result"` to boosted cards
+- Combos emerge naturally from scoring rather than being force-injected post-assembly
+
+### FIX 3b — ComboDisplay.tsx
+
+**New component** (`src/components/ComboDisplay.tsx`):
+- Shows all detected combos with card names as Scryfall links
+- Collapsible per-combo view of prerequisites, step-by-step instructions, and result
+- Amber/lightning-bolt styling; only renders when combos are present
+- Wired into `page.tsx` below the BracketEstimate component
+- Data source: `generatedDeck.bracketEstimate.combos`
+
+### FIX 3c — Bracket targeting
+
+**New field:** `targetBracket?: number` added to `GenerationConstraints` (1–4).
+
+**UI:** Any / 1-Exhibition / 2-Core / 3-Upgraded / 4-cEDH button row in
+`BudgetPowerControls.tsx`, passed through API route.
+
+**Pipeline logic** (post-assembly):
+1. `estimateBracket()` runs as before
+2. If `targetBracket` is set and estimated bracket exceeds it:
+   - All card names flagged in detected combos are removed from nonlands
+   - Replaced with next-best non-combo cards from the scored pool
+   - `estimateBracket()` runs once more on the adjusted deck
+3. Target bracket shown in Generation Settings panel on results page
+
+---
+
+## Sprint: Budget Enforcement & UX Polish (March 2026)
+
+### Overview
+Follow-up fixes after the EDHREC integration sprint. Three issues resolved: budget
+constraints were silently ignored by the pipeline, budget settings weren't visible on
+the results page, and the theme selector became unusable with 100+ pills for popular
+commanders.
+
+### BUG 1 — Budget constraints not enforced
+
+**Root cause:** Two separate failures in the pipeline:
+1. `step5_EvaluatePrices` was marking every card `isAffordable: true` regardless of price
+2. `step6_SubstituteExpensiveCards` had an escape hatch (`finalScore >= 15`) that kept expensive
+   high-synergy cards even when no affordable substitute was found
+3. `step8_FillWithSynergy` was refilling emptied slots from the unfiltered `allScoredCards` pool,
+   re-introducing over-budget cards
+
+**Fixes:**
+- `step5`: `isAffordable` now correctly set to `price <= max_card_price`
+- `step6`: removed the high-synergy escape hatch — over-budget cards with no substitute are
+  dropped unconditionally; step8 fills the slot from the affordable pool
+- `step8`: added `extractCardPrice` check before pushing any card into `availableByType`;
+  cards exceeding `max_card_price` are skipped entirely
+
+### BUG 2 — Budget not shown in Generation Settings
+
+**Fix:** Added a "Budget" row to the Generation Settings panel on the results page (`src/app/page.tsx`),
+displaying `Total Budget: $X` and `Max Card Price: $X` (or "No limit" if unset). Row only renders
+when at least one budget value is present.
+
+### UX FIX — Theme selector showing 100+ pills
+
+**Fix (`ThemeSelector.tsx`):**
+- Themes sorted by deck count descending so the highest-traffic themes appear first
+- Only top 12 shown by default
+- Dashed "Show all (N more)" / "Show less" toggle button appears when there are more than 12 themes
+
+**Verified:** Krenko shows Goblins (337) → Equipment (89) → Voltron (76) … Auras (5), then
+"Show all (26 more)" — exactly 12 pills before the toggle.
 
 ---
 

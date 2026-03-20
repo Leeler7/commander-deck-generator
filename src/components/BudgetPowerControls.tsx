@@ -143,13 +143,14 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         <p className="text-xs text-gray-500 mb-3">
           Keep the deck at or below this power level. Combo cards that push over the target will be removed.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {[
             { value: undefined, label: 'Any', sub: 'No limit' },
             { value: 1, label: '1', sub: 'Exhibition' },
             { value: 2, label: '2', sub: 'Core' },
             { value: 3, label: '3', sub: 'Upgraded' },
-            { value: 4, label: '4', sub: 'cEDH' },
+            { value: 4, label: '4', sub: 'Optimized' },
+            { value: 5, label: '5', sub: 'cEDH' },
           ].map(({ value, label, sub }) => (
             <button
               key={label}

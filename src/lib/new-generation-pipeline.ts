@@ -11,6 +11,7 @@ import { edhrecClient } from './edhrec';
 import { spellbookClient } from './combos';
 import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
+import { estimateBracketLocal, GAME_CHANGERS } from './brackets';
 
 /**
  * New Generation Pipeline following user's 8-step specification:
@@ -99,11 +100,21 @@ export class NewDeckGenerator {
       const themeEnhanced = await this.step3_ApplyUserThemes(comboScored, constraints);
       this.log(`✅ Applied theme bonuses to ${themeEnhanced.length} cards`);
 
+      // Post-step3: filter Game Changers if targeting bracket ≤2
+      const gcFilteredPool = (constraints.targetBracket && constraints.targetBracket <= 2)
+        ? (() => {
+            const gcLower = new Set(GAME_CHANGERS.map(g => g.toLowerCase()));
+            const filtered = themeEnhanced.filter(c => !gcLower.has(c.name.toLowerCase()));
+            console.log(`🎯 BRACKET: Filtered ${themeEnhanced.length - filtered.length} Game Changers from pool for bracket ≤2 target`);
+            return filtered;
+          })()
+        : themeEnhanced;
+
       // STEP 4: Narrow card pool to recommended ratios based on sliders
       this.log('⚖️ STEP 4: Applying ratio constraints');
-      const ratioFiltered = await this.step4_ApplyRatios(themeEnhanced, constraints.card_type_weights || {
+      const ratioFiltered = await this.step4_ApplyRatios(gcFilteredPool, constraints.card_type_weights || {
         creatures: 5,
-        artifacts: 5, 
+        artifacts: 5,
         enchantments: 5,
         instants: 5,
         sorceries: 5,
@@ -127,7 +138,7 @@ export class NewDeckGenerator {
 
       // STEP 8: Fill empty slots with synergy cards
       this.log('🎯 STEP 8: Filling gaps with synergy cards');
-      const finalDeck = await this.step8_FillWithSynergy(deckSizeValidated, commander, themeEnhanced, constraints);
+      const finalDeck = await this.step8_FillWithSynergy(deckSizeValidated, commander, gcFilteredPool, constraints);
       this.log(`✅ Final deck: ${finalDeck.length} cards + commander = ${finalDeck.length + 1} total`);
 
       // Safety check: Ensure we have cards to work with
@@ -136,11 +147,24 @@ export class NewDeckGenerator {
         throw new Error(`Failed to generate deck for ${commander.name}. No cards passed through the generation pipeline. Please check your filters and try again.`);
       }
 
+      // Deduplicate: basic lands are allowed multiples, everything else must be unique
+      const BASIC_LAND_NAMES = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes']);
+      const seenCardNames = new Set<string>();
+      const deduplicatedDeck = finalDeck.filter(card => {
+        if (BASIC_LAND_NAMES.has(card.name)) return true; // basics always allowed
+        if (seenCardNames.has(card.name)) {
+          console.warn(`⚠️ DEDUP: Removing duplicate card: ${card.name}`);
+          return false;
+        }
+        seenCardNames.add(card.name);
+        return true;
+      });
+
       // Separate lands from non-lands
       const nonlandCards: DeckCard[] = [];
       const landCards: DeckCard[] = [];
-      
-      for (const card of finalDeck) {
+
+      for (const card of deduplicatedDeck) {
         // Determine role based on card type
         let role = 'synergy';
         const type = (card.type_line || '').toLowerCase();
@@ -386,12 +410,19 @@ export class NewDeckGenerator {
       const allCardNames = finalAllCards.map(c => c.name);
       let bracketEstimate: BracketEstimate | undefined;
 
-      // Always estimate bracket
+      // Always estimate bracket using local official rules
       try {
-        const bracket = await spellbookClient.estimateBracket(commander.name, allCardNames);
-        if (bracket) bracketEstimate = bracket;
+        const combos = await spellbookClient.findCombos(commander.name, allCardNames);
+        const localBracket = estimateBracketLocal(allCardNames, commander.name, combos);
+        bracketEstimate = {
+          bracket: localBracket.bracket,
+          combos: localBracket.combos ?? [],
+          gameChangersFound: localBracket.gameChangersFound,
+          gameChangerCount: localBracket.gameChangerCount,
+          reasons: localBracket.reasons,
+        };
       } catch {
-        // Spellbook is optional — fail silently
+        // fail silently
       }
 
       // ── Bracket targeting: remove combo cards if deck exceeds targetBracket ─
@@ -414,16 +445,44 @@ export class NewDeckGenerator {
           finalNonlands.push({ ...r, quantity: 1, role: 'synergy', tags: [], price_used: extractCardPrice(r, constraints.prefer_cheapest), price_source: 'Scryfall' } as DeckCard);
         }
         console.log(`🎯 BRACKET: Removed ${removed.length} combo cards (${removed.join(', ')}), added ${Math.min(removed.length, replacements.length)} replacements`);
-        // Re-estimate bracket once after removal
+        // Re-estimate bracket once after removal using local rules
         try {
           const updatedNames = [...finalNonlands, ...finalLands].map(c => c.name);
-          const reBracket = await spellbookClient.estimateBracket(commander.name, updatedNames);
-          if (reBracket) {
-            bracketEstimate = reBracket;
-            console.log(`🎯 BRACKET: Re-estimated bracket after removal: ${reBracket.bracket}`);
-          }
+          const reCombos = bracketEstimate?.combos ?? [];
+          const reLocal = estimateBracketLocal(updatedNames, commander.name, reCombos);
+          bracketEstimate = {
+            bracket: reLocal.bracket,
+            combos: reLocal.combos ?? [],
+            gameChangersFound: reLocal.gameChangersFound,
+            gameChangerCount: reLocal.gameChangerCount,
+            reasons: reLocal.reasons,
+          };
+          console.log(`🎯 BRACKET: Re-estimated bracket after removal: ${reLocal.bracket}`);
         } catch {
           // fail silently
+        }
+      }
+
+      // When targeting bracket 1 or 2, exclude ALL Game Changers from the deck
+      if (constraints.targetBracket && constraints.targetBracket <= 2) {
+        const gcLower = new Set(GAME_CHANGERS.map(g => g.toLowerCase()));
+        const gcRemoved: string[] = [];
+        finalNonlands = finalNonlands.filter(c => {
+          if (gcLower.has(c.name.toLowerCase())) { gcRemoved.push(c.name); return false; }
+          return true;
+        });
+        if (gcRemoved.length > 0) {
+          console.log(`🎯 BRACKET: Removed ${gcRemoved.length} Game Changers for bracket ≤2 target: ${gcRemoved.join(', ')}`);
+          // Fill the gaps
+          const usedNames2 = new Set(finalNonlands.map(c => c.name));
+          const fillers = themeEnhanced
+            .filter(c => !usedNames2.has(c.name) && !gcLower.has(c.name.toLowerCase()) &&
+              extractCardPrice(c, constraints.prefer_cheapest) <= (constraints.max_card_price ?? 50))
+            .sort((a, b) => b.finalScore - a.finalScore)
+            .slice(0, gcRemoved.length);
+          for (const f of fillers) {
+            finalNonlands.push({ ...f, quantity: 1, role: 'synergy', tags: [], price_used: extractCardPrice(f, constraints.prefer_cheapest), price_source: 'Scryfall' } as DeckCard);
+          }
         }
       }
 
