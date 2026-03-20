@@ -1,6 +1,20 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 5)
+**Last Updated:** March 20, 2026 (session 6)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Supplemental Type-Specific Pool Searches
+
+### FEAT — step1b_SupplementalTypeSearches (new pipeline step)
+- **Problem:** Broad Scryfall pagination (875 cards by EDHREC rank) gives hundreds of creatures but only 8-12 planeswalkers — all generically popular, none commander-specific.
+- **New step `1b`** runs after step1 pool assembly, before step2 scoring.
+- For each card type with a non-zero slider weight, counts how many cards of that type are in the pool.
+- If pool count < 3× quota (e.g. 5 planeswalkers but quota is 2 → threshold is 6), runs two lightweight supplemental searches (1 page / ~175 cards each):
+  1. **Broad type search:** `t:{type} id:{colors} f:commander` sorted by EDHREC rank — finds the most popular cards of that type in color
+  2. **Strategy search:** `t:{type} id:{colors} f:commander o:"{keyword}"` — top oracle-text keyword extracted from commander's text (e.g. Krenko → "goblin") — finds mechanically relevant cards that pagination was skipping
+- Strategy keywords extracted by word frequency from commander oracle text, filtered against a stopword list, top 3 words selected.
+- Results merged with existing `seenIds`/`seenNames` dedup — no duplicates introduced.
+- Rate-limited: 110ms delay between supplemental API calls; at most 2 calls per thin type (types with full pools skip entirely).
+- Logged per-type: `STEP1b: planeswalker pool=5 < threshold=6 (quota=2) — running supplemental searches`
 
 ## Sprint — 2026-03-20: Singleton Enforcement Deep Fix
 

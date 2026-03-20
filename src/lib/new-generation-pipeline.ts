@@ -85,9 +85,16 @@ export class NewDeckGenerator {
         throw new Error(`Unable to find cards matching ${commander.name}'s color identity. Please try again.`);
       }
 
+      // STEP 1b: Supplemental type-specific searches for thin pool types
+      this.log('🔍 STEP 1b: Checking for thin type pools and running supplemental searches');
+      const supplementedPool = await this.step1b_SupplementalTypeSearches(
+        colorMatchedCards, commander, constraints
+      );
+      this.log(`✅ Supplemented pool: ${supplementedPool.length} cards (was ${colorMatchedCards.length})`);
+
       // STEP 2: Determine synergy score based on the commander
       this.log('🔍 STEP 2: Calculating synergy scores');
-      const synergyScored = await this.step2_ScoreSynergy(colorMatchedCards, commander);
+      const synergyScored = await this.step2_ScoreSynergy(supplementedPool, commander);
       this.log(`✅ Scored ${synergyScored.length} cards for synergy`);
 
       // STEP 2b: Boost combo-completing cards discovered in the scored pool
@@ -744,6 +751,146 @@ export class NewDeckGenerator {
     } catch (err) {
       console.error('[EDHREC] loadEDHRECData failed:', err);
     }
+  }
+
+  /**
+   * STEP 1b: Run supplemental type-specific Scryfall searches for card types that
+   * have a non-zero quota but thin representation in the pool (< 3× the quota).
+   *
+   * For each thin type we run up to two lightweight searches (1 page each):
+   *   1. Broad type+color search sorted by EDHREC rank
+   *   2. Strategy-flavored search: type + color + oracle keyword from commander text
+   *
+   * Results are merged into the existing pool with the same seenNames dedup.
+   */
+  private async step1b_SupplementalTypeSearches(
+    pool: ScryfallCard[],
+    commander: ScryfallCard,
+    constraints?: GenerationConstraints
+  ): Promise<ScryfallCard[]> {
+    const weights = constraints?.card_type_weights ?? {
+      creatures: 8, artifacts: 2, enchantments: 2,
+      instants: 3, sorceries: 3, planeswalkers: 1
+    };
+
+    // Map each weight key → Scryfall type filter token
+    const TYPE_MAP: Record<string, string> = {
+      creatures:    'creature',
+      artifacts:    'artifact',
+      enchantments: 'enchantment',
+      instants:     'instant',
+      sorceries:    'sorcery',
+      planeswalkers:'planeswalker',
+    };
+
+    // Estimate quotas proportional to weights (targeting ~64 non-land cards)
+    const totalWeight = Object.values(weights).reduce((s, w) => s + (w || 0), 0) || 1;
+    const TARGET_NON_LANDS = 64;
+
+    // Count how many cards of each type are already in the pool
+    const poolCountByType: Record<string, number> = {};
+    for (const card of pool) {
+      const tl = (card.type_line || '').toLowerCase();
+      for (const [key, scryfallType] of Object.entries(TYPE_MAP)) {
+        if (tl.includes(scryfallType)) { poolCountByType[key] = (poolCountByType[key] || 0) + 1; break; }
+      }
+    }
+
+    // Color query for Scryfall
+    const colorQuery = commander.color_identity.length > 0
+      ? `id<=${commander.color_identity.sort().join('')}`
+      : 'id:c';
+
+    // Extract ~3 meaningful strategy words from commander oracle text
+    const STOP_WORDS = new Set([
+      'a','an','the','and','or','of','to','in','is','are','at','on','for',
+      'that','this','it','its','each','other','another','any','all','your',
+      'you','they','them','their','with','when','whenever','as','if','may',
+      'than','more','less','target','choose','one','two','three','card','cards',
+      'player','players','put','gets','gains','deals','damage','have','has',
+      'from','into','until','end','turn','step','phase','combat','permanent',
+      'permanents','spell','spells','ability','abilities',
+    ]);
+    const oracleWords = (commander.oracle_text || '')
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 4 && !STOP_WORDS.has(w));
+    // Take the 3 most frequent words
+    const wordFreq: Record<string, number> = {};
+    for (const w of oracleWords) wordFreq[w] = (wordFreq[w] || 0) + 1;
+    const strategyKeywords = Object.entries(wordFreq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([w]) => w);
+    this.log(`🔍 STEP1b: Strategy keywords from ${commander.name}: [${strategyKeywords.join(', ')}]`);
+
+    // Dedup sets — start from existing pool
+    const seenIds = new Set(pool.map(c => c.id));
+    const seenNames = new Set(pool.map(c => c.name.toLowerCase()));
+    const augmented: ScryfallCard[] = [...pool];
+
+    const addCards = (cards: ScryfallCard[]) => {
+      for (const card of cards) {
+        const nameLower = card.name.toLowerCase();
+        if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+        if (!isColorIdentityValid(card, commander.color_identity)) continue;
+        if (!isCardLegalInCommander(card)) continue;
+        seenIds.add(card.id);
+        seenNames.add(nameLower);
+        augmented.push(card);
+      }
+    };
+
+    // Rate-limit helper: 100 ms between requests
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+    for (const [typeKey, scryfallType] of Object.entries(TYPE_MAP)) {
+      const weight = (weights as unknown as Record<string, number>)[typeKey] ?? 0;
+      if (weight === 0) continue; // type disabled by sliders
+
+      const quota = Math.round((weight / totalWeight) * TARGET_NON_LANDS);
+      if (quota === 0) continue;
+
+      const poolCount = poolCountByType[typeKey] ?? 0;
+      const threshold = quota * 3;
+
+      if (poolCount >= threshold) {
+        this.log(`🔍 STEP1b: ${typeKey} pool=${poolCount} ≥ threshold=${threshold} — skipping`);
+        continue;
+      }
+
+      this.log(`🔍 STEP1b: ${typeKey} pool=${poolCount} < threshold=${threshold} (quota=${quota}) — running supplemental searches`);
+
+      // Search 1: Broad type + color, EDHREC rank
+      const broadTypeQuery = `t:${scryfallType} ${colorQuery} f:commander -type:basic`;
+      try {
+        await delay(110);
+        const res = await this.scryfallClient.searchCards(broadTypeQuery, 1, 'edhrec');
+        const before = augmented.length;
+        addCards(res.data);
+        this.log(`🔍 STEP1b: ${typeKey} broad search added ${augmented.length - before} cards`);
+      } catch {
+        this.log(`⚠️ STEP1b: ${typeKey} broad search failed — skipping`);
+      }
+
+      // Search 2: Type + color + top strategy keyword (oracle text match)
+      if (strategyKeywords.length > 0) {
+        const kw = strategyKeywords[0];
+        const stratQuery = `t:${scryfallType} ${colorQuery} f:commander o:"${kw}" -type:basic`;
+        try {
+          await delay(110);
+          const res = await this.scryfallClient.searchCards(stratQuery, 1, 'edhrec');
+          const before = augmented.length;
+          addCards(res.data);
+          this.log(`🔍 STEP1b: ${typeKey} strategy search (o:"${kw}") added ${augmented.length - before} cards`);
+        } catch {
+          this.log(`⚠️ STEP1b: ${typeKey} strategy search failed — skipping`);
+        }
+      }
+    }
+
+    return augmented;
   }
 
   /**
