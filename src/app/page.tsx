@@ -27,6 +27,8 @@ const getCardImageUrl = (card: any): string | null => {
 };
 import CommanderInput from '@/components/CommanderInput';
 import BudgetPowerControls from '@/components/BudgetPowerControls';
+import ThemeSelector from '@/components/ThemeSelector';
+import BracketEstimate from '@/components/BracketEstimate';
 import DeckList from '@/components/DeckList';
 import RoleBreakdown from '@/components/RoleBreakdown';
 import PriceBar from '@/components/PriceBar';
@@ -337,6 +339,17 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* EDHREC Theme Selector */}
+                {selectedCommander && (
+                  <div className="mb-6">
+                    <ThemeSelector
+                      commanderName={selectedCommander.name}
+                      constraints={constraints}
+                      onChange={setConstraints}
+                    />
+                  </div>
+                )}
+
                 {/* Budget and Power Controls */}
                 <BudgetPowerControls
                   constraints={constraints}
@@ -635,13 +648,20 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Bracket Estimate */}
+            {generatedDeck.bracketEstimate && (
+              <div className="max-w-md">
+                <BracketEstimate bracketEstimate={generatedDeck.bracketEstimate} />
+              </div>
+            )}
+
             {/* Overview Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RoleBreakdown 
+              <RoleBreakdown
                 roleBreakdown={generatedDeck.role_breakdown}
                 totalCards={allCards.length}
               />
-              <PriceBar 
+              <PriceBar
                 cards={allCards}
                 totalPrice={generatedDeck.total_price}
                 budgetLimit={constraints.total_budget}

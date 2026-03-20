@@ -72,9 +72,9 @@ export class NewDeckGenerator {
       // Pre-load EDHREC recommendations (used by step2 and step3)
       await this.loadEDHRECData(commander.name);
 
-      // STEP 1: Color match the commander
-      this.log('📋 STEP 1: Color matching cards to commander');
-      const colorMatchedCards = await this.step1_ColorMatchCommander(commander);
+      // STEP 1: Color match the commander (inverted pool: keyword-first, then EDHREC broad, then fallback)
+      this.log('📋 STEP 1: Building card pool (keyword-first, inverted logic)');
+      const colorMatchedCards = await this.step1_ColorMatchCommander(commander, constraints);
       this.log(`✅ Found ${colorMatchedCards.length} color-matched cards`);
 
       // Critical check: If no cards found, throw an error to prevent land-only decks
@@ -417,28 +417,80 @@ export class NewDeckGenerator {
   }
 
   /**
-   * STEP 1: Color match the commander
-   * Get all cards that match the commander's color identity and are legal
+   * STEP 1: Build card pool using inverted logic
+   *
+   * Priority order:
+   *   1. Targeted Scryfall oracle-text searches for user keywords/themes (highest priority)
+   *   2. Broad EDHREC-sorted Scryfall color-identity search (fallback)
+   *
+   * Spice level (0-10) controls the ratio:
+   *   - 0 → pure broad (5 pages broad, keyword searches only if manually entered)
+   *   - 5 → balanced (3 pages broad, 2 pages per keyword)
+   *   - 10 → keyword-dominant (2 pages broad, 3 pages per keyword)
    */
-  private async step1_ColorMatchCommander(commander: ScryfallCard): Promise<ScryfallCard[]> {
-    // Fetch commander-legal cards in this color identity from Scryfall (up to 5 pages = ~875 cards)
+  private async step1_ColorMatchCommander(commander: ScryfallCard, constraints?: GenerationConstraints): Promise<ScryfallCard[]> {
     const colorQuery = commander.color_identity.length > 0
       ? `id<=${commander.color_identity.sort().join('')}`
       : 'id:c';
-    const query = `${colorQuery} f:commander -type:basic`;
+    const broadQuery = `${colorQuery} f:commander -type:basic`;
 
+    const spiceLevel = constraints?.random_tag_count ?? 0;
+    const userKeywords = [
+      ...(constraints?.keyword_focus || []),
+      ...(constraints?.keywords || []),
+      ...(constraints?.random_tags || [])
+    ];
+
+    const seenIds = new Set<string>();
     const allCards: ScryfallCard[] = [];
-    const MAX_PAGES = 5;
-    for (let page = 1; page <= MAX_PAGES; page++) {
+
+    // ── FIRST: Targeted keyword oracle-text searches ─────────────────────────
+    // Manual keywords always trigger 1 page minimum; spice level adds more pages
+    const pagesPerKeyword = 1 + Math.floor(spiceLevel / 5); // 1→1, 5→2, 10→3
+    const keywordSearchKeywords = userKeywords.slice(0, 6); // cap at 6 to limit API calls
+
+    if (keywordSearchKeywords.length > 0) {
+      for (const keyword of keywordSearchKeywords) {
+        // Use oracle-text search with color identity constraint
+        const kwQuery = `o:"${keyword}" ${colorQuery} f:commander -type:basic`;
+        for (let page = 1; page <= pagesPerKeyword; page++) {
+          try {
+            const res = await this.scryfallClient.searchCards(kwQuery, page, 'edhrec');
+            for (const card of res.data) {
+              if (!seenIds.has(card.id)) {
+                seenIds.add(card.id);
+                allCards.push(card);
+              }
+            }
+            if (!res.has_more) break;
+          } catch {
+            break;
+          }
+        }
+      }
+      this.log(`🔍 STEP1: keyword pool = ${allCards.length} cards from ${keywordSearchKeywords.length} keyword searches (${pagesPerKeyword} pages each)`);
+    }
+
+    // ── FOURTH: Broad EDHREC-sorted fallback ─────────────────────────────────
+    // More spice → fewer broad pages (keyword pool dominates)
+    const broadPages = Math.max(2, 5 - Math.floor(spiceLevel / 3)); // spice 0→5, spice 6→3, spice 9→2
+    const broadStart = allCards.length;
+    for (let page = 1; page <= broadPages; page++) {
       try {
-        const response = await this.scryfallClient.searchCards(query, page, 'edhrec');
-        allCards.push(...response.data);
+        const response = await this.scryfallClient.searchCards(broadQuery, page, 'edhrec');
+        for (const card of response.data) {
+          if (!seenIds.has(card.id)) {
+            seenIds.add(card.id);
+            allCards.push(card);
+          }
+        }
         if (!response.has_more) break;
       } catch {
         break;
       }
     }
-    this.log(`📋 STEP1: fetched ${allCards.length} candidates from Scryfall`);
+    this.log(`📋 STEP1: broad pool added ${allCards.length - broadStart} new cards (${broadPages} pages)`);
+    this.log(`📋 STEP1: total pool = ${allCards.length} candidates`);
 
     return allCards.filter(card => {
       // Color identity check

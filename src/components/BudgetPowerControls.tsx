@@ -180,13 +180,13 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
   return (
     <div className="space-y-6">
 
-      {/* Random Tags Slider */}
+      {/* Spice Level Slider */}
       <div>
         <label htmlFor="random-tag-count" className="block text-sm font-medium text-gray-700 mb-2">
-          🎲 Random Tags: {constraints.random_tag_count || 0}
+          🌶️ Spice Level: How weird do you want this deck? — {constraints.random_tag_count || 0}/10
         </label>
         <p className="text-xs text-gray-500 mb-3">
-          Add 0-10 random themes for variety. Higher numbers create more experimental decks.
+          Low spice = EDHREC-proven cards. High spice = rare/niche keyword searches dominate the pool.
         </p>
         <input
           id="random-tag-count"
@@ -199,9 +199,9 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
         />
         <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span>0 (None)</span>
-          <span>5 (Balanced)</span>
-          <span>10 (Chaos)</span>
+          <span>0 — Play it safe</span>
+          <span>5 — Balanced</span>
+          <span>10 — Maximum chaos</span>
         </div>
       </div>
 
