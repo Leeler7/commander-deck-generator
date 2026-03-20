@@ -159,15 +159,15 @@ export default function DeckList({ deck }: DeckListProps) {
           viewMode === 'list' ? (
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
-                {sortedCards.map((card) => (
-                  <CardListItem key={card.id} card={card} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                {sortedCards.map((card, index) => (
+                  <CardListItem key={`${card.name}-${index}`} card={card} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
                 ))}
               </ul>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {sortedCards.map((card) => (
-                <CardGridItem key={card.id} card={card} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+              {sortedCards.map((card, index) => (
+                <CardGridItem key={`${card.name}-${index}`} card={card} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
               ))}
             </div>
           )

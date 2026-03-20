@@ -148,17 +148,34 @@ export class NewDeckGenerator {
       }
 
       // Deduplicate: basic lands are allowed multiples, everything else must be unique
-      const BASIC_LAND_NAMES = new Set(['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes']);
-      const seenCardNames = new Set<string>();
+      const BASIC_LAND_NAMES = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes']);
+      const finalSeenNames = new Set<string>();
+      let dupCount = 0;
       const deduplicatedDeck = finalDeck.filter(card => {
-        if (BASIC_LAND_NAMES.has(card.name)) return true; // basics always allowed
-        if (seenCardNames.has(card.name)) {
-          console.warn(`⚠️ DEDUP: Removing duplicate card: ${card.name}`);
+        const nameLower = card.name.toLowerCase();
+        if (BASIC_LAND_NAMES.has(nameLower)) return true; // basics always allowed
+        if (finalSeenNames.has(nameLower)) {
+          console.warn(`⚠️ SINGLETON VIOLATION: Removing duplicate "${card.name}" from final deck`);
+          dupCount++;
           return false;
         }
-        seenCardNames.add(card.name);
+        finalSeenNames.add(nameLower);
         return true;
       });
+      if (dupCount > 0) {
+        console.warn(`⚠️ Removed ${dupCount} duplicate cards. Filling slots from pool...`);
+        // Fill gaps with highest-scored unused cards from themeEnhanced
+        const usedInDeck = new Set(deduplicatedDeck.map(c => c.name.toLowerCase()));
+        const fillers = themeEnhanced
+          .filter(c => {
+            const nl = c.name.toLowerCase();
+            return !usedInDeck.has(nl) && !BASIC_LAND_NAMES.has(nl) &&
+              extractCardPrice(c, constraints?.prefer_cheapest ?? false) <= (constraints?.max_card_price ?? 50);
+          })
+          .sort((a, b) => b.finalScore - a.finalScore)
+          .slice(0, dupCount);
+        deduplicatedDeck.push(...fillers);
+      }
 
       // Separate lands from non-lands
       const nonlandCards: DeckCard[] = [];
@@ -586,6 +603,7 @@ export class NewDeckGenerator {
         ];
 
     const seenIds = new Set<string>();
+    const seenNames = new Set<string>();
     const allCards: ScryfallCard[] = [];
 
     // ── FIRST: Targeted keyword oracle-text searches ─────────────────────────
@@ -601,10 +619,11 @@ export class NewDeckGenerator {
           try {
             const res = await this.scryfallClient.searchCards(kwQuery, page, 'edhrec');
             for (const card of res.data) {
-              if (!seenIds.has(card.id)) {
-                seenIds.add(card.id);
-                allCards.push(card);
-              }
+              const nameLower = card.name.toLowerCase();
+              if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+              seenIds.add(card.id);
+              seenNames.add(nameLower);
+              allCards.push(card);
             }
             if (!res.has_more) break;
           } catch {
@@ -623,10 +642,11 @@ export class NewDeckGenerator {
       try {
         const response = await this.scryfallClient.searchCards(broadQuery, page, 'edhrec');
         for (const card of response.data) {
-          if (!seenIds.has(card.id)) {
-            seenIds.add(card.id);
-            allCards.push(card);
-          }
+          const nameLower = card.name.toLowerCase();
+          if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+          seenIds.add(card.id);
+          seenNames.add(nameLower);
+          allCards.push(card);
         }
         if (!response.has_more) break;
       } catch {
@@ -1732,8 +1752,21 @@ export class NewDeckGenerator {
     }
     
     filtered.push(...cardsByType.other); // Always include other types
-    
-    return filtered;
+
+    // Final dedup by name within step4 output
+    const BASIC_LANDS_STEP4 = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes']);
+    const step4SeenNames = new Set<string>();
+    const step4Deduped = filtered.filter(card => {
+      const nameLower = card.name.toLowerCase();
+      if (BASIC_LANDS_STEP4.has(nameLower)) return true;
+      if (step4SeenNames.has(nameLower)) {
+        this.log(`⚠️ STEP4 DEDUP: Removing duplicate ${card.name}`);
+        return false;
+      }
+      step4SeenNames.add(nameLower);
+      return true;
+    });
+    return step4Deduped;
   }
 
   /**
@@ -2048,26 +2081,40 @@ export class NewDeckGenerator {
     }
     
     // Add cards according to needed proportions
+    const BASIC_LANDS_STEP8 = new Set(['plains', 'island', 'swamp', 'mountain', 'forest', 'wastes']);
     const toAdd: ScoredCard[] = [];
-    
+    const toAddNames = new Set<string>();
+
     for (const [typeName, needCount] of Object.entries(neededByType)) {
       if (needCount > 0) {
         const available = availableByType[typeName];
         const cardsToAdd = available.slice(0, needCount);
-        toAdd.push(...cardsToAdd);
+        for (const card of cardsToAdd) {
+          const nameLower = card.name.toLowerCase();
+          if (!BASIC_LANDS_STEP8.has(nameLower) && toAddNames.has(nameLower)) continue;
+          toAddNames.add(nameLower);
+          toAdd.push(card);
+        }
         this.log(`🎯 Adding ${cardsToAdd.length} ${typeName}s (needed ${needCount})`);
       }
     }
-    
+
     // If we still need more cards after filling proportional needs, add highest synergy cards
     if (toAdd.length < needed) {
       const remainingNeeded = needed - toAdd.length;
+      const toAddLengthBefore = toAdd.length;
       const allAvailable = Object.values(availableByType).flat()
         .filter(card => !toAdd.includes(card))
         .sort((a, b) => b.finalScore - a.finalScore);
-      
-      const additionalCards = allAvailable.slice(0, remainingNeeded);
-      toAdd.push(...additionalCards);
+
+      for (const card of allAvailable) {
+        if (toAdd.length - toAddLengthBefore >= remainingNeeded) break;
+        const nameLower = card.name.toLowerCase();
+        if (!BASIC_LANDS_STEP8.has(nameLower) && toAddNames.has(nameLower)) continue;
+        toAddNames.add(nameLower);
+        toAdd.push(card);
+      }
+      const additionalCards = toAdd.slice(toAddLengthBefore);
       
       if (additionalCards.length > 0) {
         this.log(`🎯 Adding ${additionalCards.length} additional high-synergy cards`);
