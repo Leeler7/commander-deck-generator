@@ -801,22 +801,42 @@ export class NewDeckGenerator {
       ? `id<=${commander.color_identity.sort().join('')}`
       : 'id:c';
 
-    // Extract ~3 meaningful strategy words from commander oracle text
+    // Extract meaningful strategy keywords from commander oracle text.
+    // We want creature types (goblin, zombie) and named mechanics (token, counter, haste).
+    // We deliberately exclude generic verbs and game-zone terms — these are too broad
+    // and will match thousands of irrelevant cards.
     const STOP_WORDS = new Set([
+      // articles / conjunctions / prepositions
       'a','an','the','and','or','of','to','in','is','are','at','on','for',
       'that','this','it','its','each','other','another','any','all','your',
       'you','they','them','their','with','when','whenever','as','if','may',
-      'than','more','less','target','choose','one','two','three','card','cards',
-      'player','players','put','gets','gains','deals','damage','have','has',
-      'from','into','until','end','turn','step','phase','combat','permanent',
-      'permanents','spell','spells','ability','abilities',
+      'than','more','less','from','into','until','only','also','even',
+      // generic action verbs (too broad — match everything)
+      'create','created','tap','taps','tapped','untap','draw','draws','drawn',
+      'sacrifice','sacrificed','destroy','destroyed','return','returns','returned',
+      'search','exile','exiled','discard','discarded','reveal','revealed',
+      'look','choose','chosen','target','targets','targeted','put','puts',
+      'add','adds','deals','deal','gains','gain','gets','give','given',
+      'have','has','had','make','made','become','becomes','becomes','take',
+      'move','moves','moved','lose','loses','lost','pay','pays','paid',
+      // generic game zones / objects
+      'creature','creatures','land','lands','battlefield','graveyard','library',
+      'hand','stack','zone','permanent','permanents','spell','spells',
+      'ability','abilities','effect','effects','cost','costs','mana','color',
+      'white','black','blue','red','green','colorless','multicolor',
+      // generic number/meta words
+      'one','two','three','four','five','number','many','once','twice',
+      'player','players','card','cards','turn','turns','step','phase',
+      'combat','named','name','type','types','copy','copies','control',
+      'controller','opponent','opponents','count','where','total','least',
+      'most','equal','times','instead','additional','extra','except',
     ]);
     const oracleWords = (commander.oracle_text || '')
       .toLowerCase()
       .replace(/[^a-z\s]/g, ' ')
       .split(/\s+/)
       .filter(w => w.length >= 4 && !STOP_WORDS.has(w));
-    // Take the 3 most frequent words
+    // Take the 3 most frequent words — these are the strategy-defining terms
     const wordFreq: Record<string, number> = {};
     for (const w of oracleWords) wordFreq[w] = (wordFreq[w] || 0) + 1;
     const strategyKeywords = Object.entries(wordFreq)
@@ -862,8 +882,14 @@ export class NewDeckGenerator {
 
       this.log(`🔍 STEP1b: ${typeKey} pool=${poolCount} < threshold=${threshold} (quota=${quota}) — running supplemental searches`);
 
+      // For non-artifact types in a colored commander, append -c:c to exclude purely
+      // colorless cards (Ugin, Karn, etc.) that fit by color identity but lack color relevance.
+      // Artifacts are intentionally exempt — colorless artifacts are perfectly normal.
+      const isArtifactType = scryfallType === 'artifact';
+      const colorlessExclusion = (commander.color_identity.length > 0 && !isArtifactType) ? ' -c:c' : '';
+
       // Search 1: Broad type + color, EDHREC rank
-      const broadTypeQuery = `t:${scryfallType} ${colorQuery} f:commander -type:basic`;
+      const broadTypeQuery = `t:${scryfallType} ${colorQuery} f:commander -type:basic${colorlessExclusion}`;
       try {
         await delay(110);
         const res = await this.scryfallClient.searchCards(broadTypeQuery, 1, 'edhrec');
@@ -877,7 +903,7 @@ export class NewDeckGenerator {
       // Search 2: Type + color + top strategy keyword (oracle text match)
       if (strategyKeywords.length > 0) {
         const kw = strategyKeywords[0];
-        const stratQuery = `t:${scryfallType} ${colorQuery} f:commander o:"${kw}" -type:basic`;
+        const stratQuery = `t:${scryfallType} ${colorQuery} f:commander o:"${kw}" -type:basic${colorlessExclusion}`;
         try {
           await delay(110);
           const res = await this.scryfallClient.searchCards(stratQuery, 1, 'edhrec');
@@ -916,9 +942,10 @@ export class NewDeckGenerator {
         // Synergy dominates so commander-specific cards beat generic goodstuff:
         //   inclusion contributes max 20 pts (card in 100% of decks)
         //   synergy  contributes max 80 pts (synergy = 1.0, very rare)
+        // Floor of 20 guarantees ANY EDHREC-listed card beats keyword-only matches (capped at 15).
         const inclusionScore = edhrecEntry.inclusion * 20;
         const synergyBonus = edhrecEntry.synergy * 80;
-        synergyScore = Math.max(0, inclusionScore + synergyBonus);
+        synergyScore = Math.max(20, inclusionScore + synergyBonus);
 
         const pct = Math.round(edhrecEntry.inclusion * 100);
         const syn = (edhrecEntry.synergy >= 0 ? '+' : '') + (edhrecEntry.synergy * 100).toFixed(0) + '%';
@@ -933,6 +960,17 @@ export class NewDeckGenerator {
         const kw = await calculateEnhancedKeywordSynergy(commander.oracle_text || '', card.oracle_text || '');
         synergyScore = Math.min(15, Math.max(2, kw.score));
         synergy_notes = kw.score > 0 ? `Keyword match (no EDHREC data): ${kw.analysis}` : undefined;
+
+        // Colorless penalty: colorless non-artifacts filling slots for a colored commander
+        // are generically playable but mechanically irrelevant — push them below all EDHREC cards.
+        if (
+          commander.color_identity.length > 0 &&
+          card.color_identity.length === 0 &&
+          !(card.type_line || '').toLowerCase().includes('artifact')
+        ) {
+          synergyScore = Math.max(0, synergyScore - 15);
+          synergy_notes = (synergy_notes ? synergy_notes + ' ' : '') + '[colorless -15]';
+        }
       } else {
         // EDHREC data insufficient — full fallback
         const basicScore = this.calculateCommanderSynergy(card, commander);

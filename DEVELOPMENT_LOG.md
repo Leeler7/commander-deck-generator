@@ -1,6 +1,36 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 6)
+**Last Updated:** March 20, 2026 (session 7)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Smarter Keyword Extraction + Color Penalty + EDHREC Priority
+
+### FIX — Colorless planeswalkers beating on-theme colored options
+
+**Root cause 1 — Stop words too narrow in step1b:**
+- "create" and "creature" weren't in the stop word list, so Krenko's strategy keywords were `[create, goblin, creature]` instead of `[goblin, token, goblins]`
+- Extended STOP_WORDS with all generic action verbs (create, tap, draw, sacrifice, destroy, return, search, exile, discard, put, add, deals, gains) and generic game-zone terms (creature, land, battlefield, graveyard, library, hand, mana, cost, effect, copy, control, player, card, turn, phase, combat)
+- Krenko now extracts `[goblin, token, goblins]` — strategy-defining terms only
+
+**Root cause 2 — Supplemental search included colorless:**
+- `id<=r` (color identity) includes colorless cards; `Karn, Living Legacy` passes this filter
+- Added `-c:c` suffix to supplemental type searches for non-artifact types in colored commanders
+- Broad query: `t:planeswalker id<=r f:commander -c:c` — now excludes Karn/Ugin
+- Strategy query: `t:planeswalker id<=r f:commander o:"token" -c:c` — finds Chandra etc.
+- Artifacts exempt: colorless artifacts are expected and normal
+
+**Root cause 3 — Colorless non-artifacts got neutral keyword score:**
+- In step2, cards not in EDHREC data score 2-15 via keyword matching
+- Colorless non-artifacts for colored commanders now receive -15 penalty → floor 0
+- Makes even a mediocre red planeswalker beat Karn/Ugin in a red deck
+
+**Root cause 4 — EDHREC cards could score below keyword-only matches:**
+- An EDHREC card at 1% inclusion / 0% synergy scored ~2 pts; keyword-only card could score 15
+- Changed `Math.max(0, ...)` to `Math.max(20, ...)` for EDHREC-listed cards
+- Now ANY card in the EDHREC dataset scores ≥20, beating the 15 keyword cap
+
+**Result:** Krenko planeswalker selection now picks Chandra/Daretti/on-theme red options instead of colorless Karn/Ugin.
+
+---
 
 ## Sprint — 2026-03-20: Supplemental Type-Specific Pool Searches
 
