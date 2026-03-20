@@ -83,42 +83,55 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         </div>
       </div>
 
-      {/* Budget Controls - DISABLED: Budget filtering has been removed */}
-      {/* 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="total-budget" className="block text-sm font-medium text-gray-700 mb-2">
-            Total Budget ($)
-          </label>
-          <input
-            id="total-budget"
-            type="number"
-            min="10"
-            max="10000"
-            step="10"
-            value={constraints.total_budget}
-            onChange={(e) => updateConstraint('total_budget', parseFloat(e.target.value) || 50)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+      {/* Budget Controls */}
+      <div>
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Budget (Optional)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="total-budget" className="block text-xs text-gray-600 mb-1">
+              Total Budget ($)
+            </label>
+            <input
+              id="total-budget"
+              type="number"
+              min="10"
+              max="10000"
+              step="10"
+              value={constraints.total_budget ?? ''}
+              placeholder="e.g. 100"
+              onChange={(e) => updateConstraint('total_budget', parseFloat(e.target.value) || 100)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="max-card-price" className="block text-xs text-gray-600 mb-1">
+              Max Price Per Card ($)
+            </label>
+            <input
+              id="max-card-price"
+              type="number"
+              min="1"
+              max="1000"
+              step="1"
+              value={constraints.max_card_price ?? ''}
+              placeholder="e.g. 20"
+              onChange={(e) => updateConstraint('max_card_price', parseFloat(e.target.value) || 20)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="per-card-cap" className="block text-sm font-medium text-gray-700 mb-2">
-            Per Card Cap ($)
-          </label>
+        <label className="flex items-center mt-3 cursor-pointer">
           <input
-            id="per-card-cap"
-            type="number"
-            min="1"
-            max="1000"
-            step="1"
-            value={constraints.per_card_cap}
-            onChange={(e) => updateConstraint('per_card_cap', parseFloat(e.target.value) || 20)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            type="checkbox"
+            checked={constraints.prefer_cheapest ?? false}
+            onChange={(e) => updateConstraint('prefer_cheapest', e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500"
           />
-        </div>
+          <span className="ml-2 text-sm text-gray-700">Prefer cheapest printing</span>
+        </label>
       </div>
-      */}
 
 
       {/* Add Keywords */}
@@ -175,30 +188,6 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         />
       </div>
 
-      {/* Budget Summary - DISABLED: Budget filtering has been removed */}
-      {/*
-      <div className="mt-6 p-4 bg-gray-50 rounded-md">
-        <h4 className="text-sm font-medium text-gray-700 mb-2">Budget Summary</h4>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-600">Total Budget:</span>
-            <span className="ml-2 font-medium">${constraints.total_budget}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Per Card:</span>
-            <span className="ml-2 font-medium">${constraints.per_card_cap}</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Est. Cards:</span>
-            <span className="ml-2 font-medium">99 + Commander</span>
-          </div>
-          <div>
-            <span className="text-gray-600">Avg. Per Card:</span>
-            <span className="ml-2 font-medium">${(constraints.total_budget / 100).toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-      */}
     </div>
   );
 }

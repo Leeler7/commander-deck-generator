@@ -600,10 +600,12 @@ export class NewDeckGenerator {
       const edhrecEntry = this.edhrecRecs.get(card.name.toLowerCase());
 
       if (useEDHREC && edhrecEntry) {
-        // EDHREC synergy is -1 to 1; scale to a 0–100 range centred on inclusion
-        // Formula: base from inclusion (0-40) + synergy bonus (-20 to +60)
-        const inclusionScore = edhrecEntry.inclusion * 40;
-        const synergyBonus = edhrecEntry.synergy * 60;
+        // inclusion is now 0-1 (num_decks/potential_decks).
+        // Synergy dominates so commander-specific cards beat generic goodstuff:
+        //   inclusion contributes max 20 pts (card in 100% of decks)
+        //   synergy  contributes max 80 pts (synergy = 1.0, very rare)
+        const inclusionScore = edhrecEntry.inclusion * 20;
+        const synergyBonus = edhrecEntry.synergy * 80;
         synergyScore = Math.max(0, inclusionScore + synergyBonus);
 
         const pct = Math.round(edhrecEntry.inclusion * 100);
@@ -639,6 +641,18 @@ export class NewDeckGenerator {
 
     const withScore = scoredCards.filter(c => c.synergyScore > 0).length;
     this.log(`📊 SYNERGY SUMMARY: ${withScore}/${scoredCards.length} cards with positive synergy`);
+
+    // Debug: print top 20 by synergy score so we can verify EDHREC data quality
+    const top20 = [...scoredCards]
+      .sort((a, b) => b.synergyScore - a.synergyScore)
+      .slice(0, 20);
+    console.log(`\n🏆 STEP2 TOP 20 by synergy score for ${commander.name}:`);
+    top20.forEach((c, i) => {
+      const entry = this.edhrecRecs.get(c.name.toLowerCase());
+      const syn = entry ? `synergy=${entry.synergy.toFixed(2)} inclusion=${(entry.inclusion * 100).toFixed(0)}%` : 'no EDHREC data';
+      console.log(`  ${String(i + 1).padStart(2)}. ${c.name.padEnd(40)} score=${c.synergyScore.toFixed(1).padStart(6)}  [${syn}]`);
+    });
+    console.log();
 
     return scoredCards;
   }

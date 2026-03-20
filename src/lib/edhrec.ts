@@ -102,24 +102,23 @@ class EDHRECClient {
 
   /**
    * Extract available themes for a commander.
+   * EDHREC stores these under panels.taglinks[].{slug, value, count}.
    * Returns an empty array if no themes exist or commander isn't found.
    */
   async getCommanderThemes(commanderName: string): Promise<EDHRECTheme[]> {
     const page = await this.getCommanderPage(commanderName) as any;
     if (!page) return [];
 
-    // EDHREC pages nest themes under "panels" or "related_info" → "themes"
-    const rawThemes: any[] =
-      page?.panels?.tribelinks?.cardlists ??
-      page?.related_info?.themes ??
-      page?.container?.json_dict?.relatedinfo?.themes ??
-      [];
+    // Themes live in panels.taglinks as [{slug, value, count}]
+    const rawThemes: any[] = page?.panels?.taglinks ?? [];
 
-    return rawThemes.map((t: any) => ({
-      name: t.header ?? t.name ?? '',
-      slug: t.href?.split('/').pop() ?? commanderToSlug(t.header ?? t.name ?? ''),
-      count: t.num_decks ?? t.count ?? 0,
-    })).filter(t => t.name);
+    return rawThemes
+      .map((t: any) => ({
+        name: t.value ?? '',
+        slug: t.slug ?? '',
+        count: t.count ?? 0,
+      }))
+      .filter(t => t.name && t.slug);
   }
 
   /**
@@ -137,7 +136,8 @@ class EDHRECClient {
 
     let url: string;
     if (theme) {
-      url = `${EDHREC_JSON_BASE}/pages/commanders/${slug}/${theme}.json`;
+      // Themed pages live at /pages/tags/{tag-slug}/{commander-slug}.json
+      url = `${EDHREC_JSON_BASE}/pages/tags/${theme}/${slug}.json`;
     } else {
       url = `${EDHREC_JSON_BASE}/pages/commanders/${slug}.json`;
     }
@@ -186,12 +186,17 @@ class EDHRECClient {
         const name: string = card?.name ?? card?.card_digest?.name ?? '';
         if (!name) continue;
 
+        const numDecks: number = card?.num_decks ?? 0;
+        const potentialDecks: number = card?.potential_decks ?? 0;
+        // inclusion is stored as raw count in the API — normalise to 0-1 fraction
+        const inclusion = potentialDecks > 0 ? numDecks / potentialDecks : 0;
+
         recs.push({
           name,
           synergy: card?.synergy ?? 0,
-          inclusion: card?.inclusion ?? 0,
-          numDecks: card?.num_decks ?? 0,
-          potentialDecks: card?.potential_decks ?? 0,
+          inclusion,
+          numDecks,
+          potentialDecks,
         });
       }
     }
