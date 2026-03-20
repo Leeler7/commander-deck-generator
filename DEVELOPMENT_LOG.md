@@ -1,223 +1,151 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** August 16, 2025  
-**Status:** Active Development  
-**Current Version:** In Development  
+**Last Updated:** March 20, 2026
+**Status:** Active Development
 
 ## Project Overview
-A React/Next.js web application that generates Commander (EDH) Magic: The Gathering decks with sophisticated synergy detection and card tagging systems.
 
-## Architecture Overview
+A React/Next.js web application that generates 100-card Commander (EDH) decks for Magic: The Gathering. It uses an inverted card pool strategy — keyword/theme oracle-text searches run first, EDHREC popularity data is used for scoring and gap-filling, and a broad Scryfall fallback handles the rest. No local database; all card data is fetched live from external APIs.
+
+---
+
+## Current Architecture
 
 ### Core Technologies
-- **Frontend:** React + Next.js 15.4.6 with TypeScript
-- **Backend:** Next.js API routes
-- **Database:** Local JSON-based card database (35,589 cards)
-- **Card Data:** Scryfall API integration
-- **Pricing:** TCGPlayer integration
-- **Development:** Turbopack, running on port 3010
+- **Frontend:** React + Next.js 15.4.6 (App Router), TypeScript strict mode
+- **Backend:** Next.js API routes (serverless)
+- **Card Data:** Scryfall API (live search, no local DB)
+- **Synergy/Popularity:** EDHREC JSON API (`json.edhrec.com`) — 24 h in-memory cache, 1 req/sec rate limit
+- **Combo Detection:** Commander Spellbook backend API
+- **Pricing:** Scryfall prices + MTGJSON bulk pricing data (in-memory)
+- **Email (contact form):** Resend API (optional)
+- **Dev server:** Turbopack (`npm run dev`)
 
-### Key Components
+### Card Pool Assembly — Inverted Logic
 
-#### 1. Card Mechanics Tagging System (`src/lib/card-mechanics-tagger.ts`)
-- **200+ mechanic tags** organized by categories
-- **Pattern-based detection** using regex and text analysis
-- **ETB (Enter the Battlefield) detection** with subcategories:
-  - `etb_damage` - ETB creatures that deal damage
-  - `etb_draw` - ETB creatures that draw cards
-  - `etb_destroy` - ETB creatures that destroy permanents
-  - `etb_token_creation` - ETB creatures that create tokens
-- **Recent fixes:** Case-sensitive detection, expanded ETB patterns
+```
+1. Keyword oracle-text searches (FIRST — highest priority)
+   For each user keyword: o:"<keyword>" ci:<colors> f:commander -type:basic
+   Pages per keyword: 1 (spice 0) → 2 (spice 5) → 3 (spice 10)
+   Capped at 6 keywords per generation
 
-#### 2. Tag-Based Synergy System (`src/lib/tag-based-synergy.ts`)
-- **Comprehensive synergy rules** between commander tags and card tags
-- **Tribal scoring system** with massive bonuses:
-  - Base tribal bonus: +120 points
-  - Double tribal bonus: +50 points  
-  - **Total: +170 points** for tribal creatures
-- **Commander profiles** auto-detected from card text
-- **Recent enhancement:** Dramatically increased tribal bonuses for better tribal representation
+2. Broad EDHREC-sorted fallback
+   id:<colors> f:commander -type:basic, sorted by edhrec rank
+   Pages: 5 (spice 0) → 3 (spice 6) → 2 (spice 10)
 
-#### 3. Generation Pipeline (`src/lib/new-generation-pipeline.ts`)
-- **8-step generation process:**
-  1. Color match the commander
-  2. Determine synergy score based on commander
-  3. Consider additional keywords and increase synergy
-  4. Apply card type ratios based on sliders
-  5. Check card prices
-  6. Substitute expensive cards
-  7. Ensure 100-card deck
-  8. Fill empty slots with synergy cards
+3. Dedup + merge: keyword cards placed first in pool
+```
 
-- **Recent critical fix:** Raised high-synergy preservation threshold from 8 → 50 points to properly preserve tribal creatures during ratio filtering
+### Generation Pipeline (`src/lib/new-generation-pipeline.ts`)
 
-#### 4. Card Type Weight System (`src/components/CardTypeWeights.tsx`)
-- **Slider-based preferences:** 0=None, 5=Default, 10=Strongly Favored
-- **Planeswalkers:** Exact count (not ratio-based)
-- **Issue identified:** Instants generating fewer cards than other types at equal weights
+| Step | Description |
+|------|-------------|
+| pre  | `addRandomizedTags` — pull EDHREC themes for spice, add to keyword pool |
+| pre  | `loadEDHRECData` — cache EDHREC recs for this commander |
+| 1    | `step1_ColorMatchCommander` — build inverted card pool (keyword-first) |
+| 2    | `step2_ScoreSynergy` — EDHREC synergy+inclusion scores; keyword-fallback for unknown commanders |
+| 3    | `step3_ApplyUserThemes` — EDHREC themed recs bonus + oracle-text +300/match |
+| 4    | `step4_ApplyRatios` — proportional slot allocation by type weights |
+| 5    | `step5_EvaluatePrices` — Scryfall + MTGJSON pricing |
+| 6    | (no-op) budget substitution removed |
+| 7    | `step7_ValidateDeckSize` — trim/pad to target counts |
+| 8    | `step8_FillWithSynergy` — fill remaining slots from scored pool |
+| post | Mana curve analysis + basic land generation |
+| post | `estimateBracket()` — Commander Spellbook (always) |
+| post | `findCombos()` — Commander Spellbook (spice ≥ 7 only); inject missing pieces |
 
-## Recent Development Sessions
+### Spice Level (0–10)
 
-### Session 1: ETB Detection Enhancement
-**Problem:** Missing ETB effects like "another creature you control enters" and "creature enters the battlefield"
+Controls the ratio between keyword-searched pool and broad EDHREC pool, plus the number of randomised EDHREC themes added to `constraints.keywords`.
 
-**Solution:** 
-- Fixed case-sensitive detection bugs
-- Expanded ETB pattern matching
-- Created ETB subcategory system (etb_damage, etb_draw, etc.)
-- Added high-priority synergy rules for ETB interactions
+- **0** — "Play it safe" — pure EDHREC-driven, no random themes
+- **5** — "Balanced" — equal mix
+- **10** — "Maximum chaos" — keyword searches dominate, random EDHREC themes injected
 
-### Session 2: Display Cleanup  
-**Problem:** Deck results showing full type lines instead of just subtypes
-
-**Solution:**
-- Updated `DeckAnalysis.tsx` to show only subtypes in "Cards by Type" section
-- Applied to all card types (creatures, artifacts, instants, etc.)
-- Maintained grouping by main types while displaying subtypes only
-
-### Session 3: Card Type Ratio Bug
-**Problem:** Instants generating 8 cards while other types generated 14 at same weight (5)
-
-**Investigation:** Found issue was using inclusion rates vs proportional distribution
-**Status:** Reverted attempted fix as it broke tribal inclusion
-
-### Session 4: Critical Tribal Fix
-**Problem:** Voja decks only generating 2-4 elves/wolves despite high synergy scores (94-198 points)
-
-**Root Cause:** Ratio filtering used threshold of `finalScore >= 8` to preserve "high synergy" cards, but tribal creatures scored 80-200+ points, so they were being filtered out
-
-**Solution:**
-1. Raised high-synergy threshold from 8 → 50 points
-2. Increased tribal bonuses from +80 → +170 total points
-3. Enhanced tribal detection logging
+---
 
 ## Current File Structure
 
-### Core Libraries
-- `src/lib/card-mechanics-tagger.ts` - 200+ mechanic detection
-- `src/lib/tag-based-synergy.ts` - Synergy scoring and tribal bonuses  
-- `src/lib/new-generation-pipeline.ts` - Main deck generation logic
-- `src/lib/types.ts` - TypeScript interfaces
-- `src/lib/scryfall.ts` - Card API integration
-- `src/lib/pricing.ts` - TCGPlayer pricing
+### Core Libraries (`src/lib/`)
+| File | Purpose |
+|------|---------|
+| `new-generation-pipeline.ts` | Main deck generation (8-step + post-assembly) |
+| `edhrec.ts` | EDHREC JSON API client + 24 h cache |
+| `scryfall.ts` | Scryfall API client (search, validate commander) |
+| `combos.ts` | Commander Spellbook client (findCombos, estimateBracket) |
+| `pricing.ts` | Scryfall price extraction |
+| `mtgjson-pricing.ts` | MTGJSON bulk pricing (in-memory) |
+| `mtgjson-keywords.ts` | MTGJSON keyword data for fallback synergy |
+| `mana-curve-optimizer.ts` | Mana curve analysis + archetype detection |
+| `budget-optimizer.ts` | Budget constraint helpers |
+| `rules.ts` | Commander legality + color-identity validation |
+| `types.ts` | All TypeScript interfaces |
 
-### Components
-- `src/components/DeckAnalysis.tsx` - Deck statistics and card display
-- `src/components/DeckList.tsx` - Detailed card listings
-- `src/components/CardTypeWeights.tsx` - User preference sliders
-- `src/components/ManaCost.tsx` - Mana symbol rendering
+### Components (`src/components/`)
+| File | Purpose |
+|------|---------|
+| `CommanderInput.tsx` | Commander search autocomplete |
+| `ThemeSelector.tsx` | Clickable EDHREC theme pills per commander |
+| `BudgetPowerControls.tsx` | Spice slider + keyword input + card type weights |
+| `BracketEstimate.tsx` | 1–4 visual bracket scale (green→red) with combo list |
+| `DeckList.tsx` | Full card list (list + grid view, filter by role) |
+| `DeckAnalysis.tsx` | Mana curve, type distribution, stats |
+| `RoleBreakdown.tsx` | Role distribution chart |
+| `PriceBar.tsx` | Price breakdown bar |
+| `ManaCost.tsx` | Mana symbol renderer |
+| `ExportOptions.tsx` | Export deck (text, MTGO, etc.) |
+| `BuyDeck.tsx` | TCGPlayer buy links |
+| `Warnings.tsx` | Generation warnings + notes |
+| `CardTypeWeights.tsx` | Type weight sliders |
 
-### API Routes
-- `src/app/api/cards/list` - Card database access
-- `src/app/api/debug/card-analysis` - Admin card analysis
+### API Routes (`src/app/api/`)
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/generate` | POST | Main deck generation endpoint |
+| `/api/commanders/search` | GET | Scryfall commander search |
+| `/api/commanders/random` | GET | Random legal commander |
+| `/api/themes` | GET | EDHREC themes for a commander |
+| `/api/cards/[id]` | GET | Single card lookup |
+| `/api/prices` | GET | Card pricing data |
+| `/api/contact` | POST | Contact form (Resend) |
 
-### Admin Tools
-- `src/app/admin/page.tsx` - Card database explorer and tag analyzer
+### Environment Variables
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `RESEND_API_KEY` | Optional | Contact form email sending |
 
-## Known Issues & Future Work
-
-### High Priority
-1. **Instant ratio bug** - Equal weights not producing equal distributions
-2. **Budget optimization** - Cards over price threshold substitution
-3. **Mana curve optimization** - Better CMC distribution
-
-### Medium Priority  
-1. **Color fixing optimization** - Better manabase generation
-2. **Synergy rule expansion** - More commander-specific rules
-3. **Performance optimization** - Faster generation times
-
-### Low Priority
-1. **UI/UX improvements** - Better mobile responsiveness
-2. **Export features** - Deck export to various formats
-3. **Deck validation** - Legal format checking
-
-## Testing Notes
-
-### Tribal Commanders Tested
-- **Voja, Jaws of the Conclave** - Elf/Wolf tribal (primary test case)
-- **Gargos, Vicious Watcher** - Hydra tribal (confirmed need for higher bonuses)
-
-### Expected Behavior
-- Tribal commanders should heavily favor their creature types
-- High-synergy tribal creatures (120-200+ points) should always be included
-- Tribal representation should be significant portion of creature base
+---
 
 ## Development Commands
 
 ```bash
-# Start development server
-npm run dev
-
-# Kill port if needed
-npx kill-port 3010
-
-# Check card tagging
-# Visit: http://localhost:3010/admin
+npm run dev          # Start dev server (Turbopack)
+npm run build        # Production build
+npm run typecheck    # tsc --noEmit (zero-error target)
+npm run test         # Vitest unit tests
+npm run test:e2e     # Playwright e2e tests
 ```
 
-## Database Information
-- **Total cards:** 35,589
-- **Format:** JSON-based local database
-- **Source:** Scryfall API
-- **Update frequency:** Manual
+---
 
-## Synergy Scoring Examples
+## Commit History (local, not pushed)
 
-### Tribal Bonuses (Post-Enhancement)
-- **Base tribal:** +120 points
-- **Double tribal:** +50 points  
-- **Total tribal:** +170 points
+| Hash | Message |
+|------|---------|
+| `0f0ac8c` | `chore: repo cleanup and audit` |
+| `fbeb485` | `feat: remove Supabase and all dead-code; rewire to EDHREC + Scryfall` |
+| `0c00767` | `feat: wire combos + bracket estimation + spice slider + fix type errors` |
+| `3719c52` | `feat: inverted card pool + theme selector + bracket display + spice labels` |
+| `8924c0b` | `refactor: replace tag browser with simple keyword input` |
+| `a79aad9` | `docs: update devlog for keyword input refactor` |
 
-### Example Scores for Voja
-- **Elvish Piper:** ~264 points (94 base + 170 tribal)
-- **Trostani's Summoner:** ~368 points (198 base + 170 tribal)
-- **Regular creatures:** ~20-50 points
+---
 
-## Recent Configuration Changes
+## Session History (archived)
 
-### High-Synergy Threshold
-```typescript
-// OLD: Cards with score >= 8 preserved
-const highSynergyCards = typeCards.filter(card => card.finalScore >= 8);
-
-// NEW: Cards with score >= 50 preserved  
-const highSynergyCards = typeCards.filter(card => card.finalScore >= 50);
-```
-
-### Tribal Bonus Multipliers
-```typescript
-// OLD: +60 base, +20 double = +80 total
-const tribalBonus = 60;
-const extraBonus = 20;
-
-// NEW: +120 base, +50 double = +170 total
-const tribalBonus = 120; 
-const extraBonus = 50;
-```
-
-## Session 5: Card Type Distribution Fix (August 16, 2025)
-**Problem:** Instant cards generating fewer cards (8) than other types (14) at same weight (5)
-
-**Root Cause:** The ratio filtering was using inclusion rates (percentage of available pool) rather than proportional distribution:
-- Old logic: `weight * 0.1` = inclusion rate (5 = 50% of available cards)
-- Issue: Different pool sizes meant different final counts
-
-**Solution Implemented:**
-- Changed from inclusion rate to proportional distribution
-- All types now share a target of ~65 non-land cards proportionally
-- Formula: `(weight / totalWeight) * targetNonLandCards`
-- Example: If all weights are 5, each type gets ~13 cards (65/5)
-
-**Code Changes:** Updated `step4_ApplyRatios` in `new-generation-pipeline.ts`:
-- Calculates total weight sum
-- Uses proportional targets instead of inclusion rates
-- Preserves high-synergy cards (score >= 50) regardless of targets
-
-## Next Session Priorities
-1. ✅ Test tribal improvements with multiple commanders
-2. ✅ Investigate and fix instant ratio distribution bug
-3. Test the new proportional distribution system
-4. Consider implementing dynamic tribal thresholds based on tribe size
-5. Optimize mana curve distribution
+> The entries below document older sessions from the pre-refactor codebase
+> (tag-based synergy engine, local JSON database, Supabase). They are kept
+> for historical reference only — none of the files or systems they describe
+> still exist in the codebase.
 
 ---
 
