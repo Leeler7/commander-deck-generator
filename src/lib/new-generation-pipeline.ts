@@ -13,6 +13,7 @@ import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
 import { estimateBracketLocal, GAME_CHANGERS } from './brackets';
 import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, FunctionalRole } from './functional-roles';
+import { extractCommanderEngine, scoreEngineInteraction, CommanderEngineTraits } from './engine-interaction';
 
 /**
  * New Generation Pipeline following user's 8-step specification:
@@ -933,6 +934,16 @@ export class NewDeckGenerator {
     // Pre-load MTGJSON keywords for fallback scoring
     await mtgjsonKeywords.getKeywordCategories();
 
+    // ── Commander engine analysis (done once, used for every candidate) ──────
+    const engineTraits: CommanderEngineTraits = extractCommanderEngine(
+      commander.oracle_text || '',
+      commander.type_line || '',
+    );
+    this.log(`🔧 COMMANDER ENGINE for ${commander.name}:`);
+    const activeTraits = (Object.keys(engineTraits) as Array<keyof CommanderEngineTraits>)
+      .filter(k => engineTraits[k]);
+    this.log(`   Traits: ${activeTraits.join(', ') || 'none detected'}`);
+
     const scoredCards = await Promise.all(cards.map(async card => {
       let synergyScore: number;
       let synergy_notes: string | undefined;
@@ -981,6 +992,21 @@ export class NewDeckGenerator {
         synergy_notes = kw.score > 0 ? `Keyword: ${kw.analysis}` : undefined;
       }
 
+      // ── Engine interaction adjustment ─────────────────────────────────────
+      // Applied on top of EDHREC score. Keeps EDHREC authority intact while
+      // surfacing cards that mechanically plug into the commander's engine AND
+      // down-ranking cards referencing mechanics the commander never uses.
+      const engineResult = scoreEngineInteraction(
+        engineTraits,
+        card.oracle_text || '',
+        card.type_line || '',
+      );
+      if (engineResult.bonus !== 0) {
+        synergyScore = Math.max(0, synergyScore + engineResult.bonus);
+        const engineNote = engineResult.reasons.join('; ');
+        synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Engine: ${engineNote}`;
+      }
+
       return {
         ...card,
         synergyScore,
@@ -1005,6 +1031,27 @@ export class NewDeckGenerator {
       console.log(`  ${String(i + 1).padStart(2)}. ${c.name.padEnd(40)} score=${c.synergyScore.toFixed(1).padStart(6)}  [${syn}]`);
     });
     console.log();
+
+    // Debug: print top 5 penalized cards for diagnostics
+    const penalized = [...scoredCards]
+      .filter(c => {
+        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '');
+        return r.bonus < 0;
+      })
+      .sort((a, b) => {
+        const ra = scoreEngineInteraction(engineTraits, a.oracle_text || '', a.type_line || '');
+        const rb = scoreEngineInteraction(engineTraits, b.oracle_text || '', b.type_line || '');
+        return ra.bonus - rb.bonus; // most penalized first
+      })
+      .slice(0, 5);
+    if (penalized.length > 0) {
+      console.log(`\n⚠️  TOP 5 ENGINE-PENALIZED CARDS for ${commander.name}:`);
+      penalized.forEach((c, i) => {
+        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '');
+        console.log(`  ${i + 1}. ${c.name.padEnd(40)} penalty=${r.bonus}  (${r.reasons.join('; ')})`);
+      });
+      console.log();
+    }
 
     return scoredCards;
   }
