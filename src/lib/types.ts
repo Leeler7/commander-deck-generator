@@ -150,6 +150,15 @@ export interface GeneratedDeck {
   deck_explanation: string;
   random_tags?: string[]; // Random tags selected for this generation
   bracketEstimate?: BracketEstimate;
+  functionalCoverage?: {
+    ramp: number;
+    card_draw: number;
+    removal: number;
+    board_wipe: number;
+    protection: number;
+    tutor: number;
+    payoff: number;
+  };
 }
 
 export interface PowerLevelConfig {

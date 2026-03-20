@@ -12,6 +12,7 @@ import { spellbookClient } from './combos';
 import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
 import { estimateBracketLocal, GAME_CHANGERS } from './brackets';
+import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, FunctionalRole } from './functional-roles';
 
 /**
  * New Generation Pipeline following user's 8-step specification:
@@ -126,7 +127,7 @@ export class NewDeckGenerator {
         instants: 5,
         sorceries: 5,
         planeswalkers: 1
-      }, colorMatchedCards, commander);
+      }, colorMatchedCards, commander, constraints);
       this.log(`✅ Filtered to ${ratioFiltered.length} cards based on ratios`);
 
       // STEP 5: Check price of cards
@@ -512,7 +513,7 @@ export class NewDeckGenerator {
       }
 
       // Inject one combo package when power level is >= 7 and combos are allowed
-      if (spiceLevel >= 7 && !constraints.no_infinite_combos) {
+      if (spiceLevel >= 7 && !constraints.no_infinite_combos && !(constraints.targetBracket && constraints.targetBracket <= 2)) {
         try {
           const combos = await spellbookClient.findCombos(commander.name, allCardNames);
           if (combos.length > 0) {
@@ -572,7 +573,8 @@ export class NewDeckGenerator {
         ],
         deck_explanation: `This deck focuses on synergy with ${commander.name}, prioritizing cards that work well with the commander's abilities and strategy.`,
         random_tags: constraints.random_tags || [],
-        bracketEstimate
+        bracketEstimate,
+        functionalCoverage: countFunctionalRoles([...finalNonlands, ...finalLands])
       };
 
     } catch (error) {
@@ -1726,7 +1728,7 @@ export class NewDeckGenerator {
    * STEP 4: Narrow the card pool down to the recommended ratios based on the sliders
    * Apply proportional filtering based on card type weights
    */
-  private async step4_ApplyRatios(cards: ScoredCard[], weights: CardTypeWeights, allColorMatched?: ScryfallCard[], commander?: ScryfallCard): Promise<ScoredCard[]> {
+  private async step4_ApplyRatios(cards: ScoredCard[], weights: CardTypeWeights, allColorMatched?: ScryfallCard[], commander?: ScryfallCard, constraints?: GenerationConstraints): Promise<ScoredCard[]> {
     // Group cards by type
     const cardsByType: Record<string, ScoredCard[]> = {
       creatures: [],
@@ -1763,65 +1765,68 @@ export class NewDeckGenerator {
     
     // Calculate proportional distribution based on weights
     const filtered: ScoredCard[] = [];
-    
+
+    // Track cards selected so far across all types for functional coverage scoring
+    const alreadySelected: ScoredCard[] = [];
+
     // Calculate total weight (excluding planeswalkers which are exact count)
-    const totalWeight = weights.creatures + weights.artifacts + weights.enchantments + 
+    const totalWeight = weights.creatures + weights.artifacts + weights.enchantments +
                         weights.instants + weights.sorceries;
-    
+
     // Target approximately 65 non-land cards (rest will be lands)
     const targetNonLandCards = 65;
-    
+
     // Determine target mana curve for this commander (fallback to midrange if no commander)
     const archetype = commander ? determineArchetype(commander) : 'midrange';
     const targetCurve = CURVE_ARCHETYPES[archetype];
     this.log(`🎯 Commander archetype: ${archetype}`);
-    
+
     const applyProportionalFilter = (typeCards: ScoredCard[], weight: number, typeName: string): ScoredCard[] => {
       if (weight === 0) {
         this.log(`🚫 Excluding all ${typeName}s (weight = 0)`);
         return [];
       }
-      
+
       // Calculate target cards for this type based on proportional weight
       const proportionalTarget = Math.round((weight / totalWeight) * targetNonLandCards);
-      
-      // Sort cards with mana curve considerations
-      const sortedCards = typeCards.sort((a, b) => {
-        // Primary: Sort by synergy score
-        if (Math.abs(b.finalScore - a.finalScore) > 0.1) {
-          return b.finalScore - a.finalScore;
+
+      // Greedy selection with functional coverage tracking
+      const coverage = countFunctionalRoles(alreadySelected);
+      const scored = typeCards.map(card => {
+        const roles = classifyCardFunction(card.oracle_text || '', card.type_line || '');
+        const { bonus } = calculateFunctionalBonus(roles, coverage, constraints?.targetBracket);
+
+        // Apply mana curve tiebreaker bonus to adjusted score
+        const aCmc = Math.min(6, Math.floor(card.cmc || 0));
+        const curveBonus = (targetCurve[aCmc as keyof typeof targetCurve] || 0) * 0.01; // small nudge, doesn't override synergy
+
+        return { card, adjustedScore: card.finalScore + bonus + curveBonus };
+      });
+      scored.sort((a, b) => {
+        if (Math.abs(b.adjustedScore - a.adjustedScore) > 0.1) {
+          return b.adjustedScore - a.adjustedScore;
         }
-        
-        // Tiebreaker 1: Prefer cards that fit our target curve
-        const aCmc = Math.min(6, Math.floor(a.cmc || 0));
-        const bCmc = Math.min(6, Math.floor(b.cmc || 0));
-        const aCurveBonus = targetCurve[aCmc as keyof typeof targetCurve] || 0;
-        const bCurveBonus = targetCurve[bCmc as keyof typeof targetCurve] || 0;
-        if (aCurveBonus !== bCurveBonus) {
-          return bCurveBonus - aCurveBonus; // Higher curve target = better
-        }
-        
-        // Tiebreaker 2: Power level from comprehensive mechanics
-        const aPower = (a as any).comprehensiveMechanics?.powerLevel || 5;
-        const bPower = (b as any).comprehensiveMechanics?.powerLevel || 5;
-        if (aPower !== bPower) {
-          return bPower - aPower;
-        }
-        
-        // Tiebreaker 3: EDHREC rank (lower is better)
-        const aRank = a.edhrec_rank || 99999;
-        const bRank = b.edhrec_rank || 99999;
+        // Tiebreaker: Power level from comprehensive mechanics
+        const aPower = (a.card as any).comprehensiveMechanics?.powerLevel || 5;
+        const bPower = (b.card as any).comprehensiveMechanics?.powerLevel || 5;
+        if (aPower !== bPower) return bPower - aPower;
+        // Tiebreaker: EDHREC rank (lower is better)
+        const aRank = a.card.edhrec_rank || 99999;
+        const bRank = b.card.edhrec_rank || 99999;
         return aRank - bRank;
       });
-      
-      // Take exactly the target number of cards (best synergy first)
-      const result = sortedCards.slice(0, proportionalTarget);
-      
+      const result = scored.slice(0, proportionalTarget).map(s => s.card);
+
+      // Update running coverage with newly selected cards
+      for (const card of result) {
+        alreadySelected.push(card);
+      }
+
       // Count how many high-synergy cards we're including
       const highSynergyIncluded = result.filter(card => card.finalScore >= 50).length;
-      
+
       this.log(`📊 Including ${result.length}/${typeCards.length} ${typeName}s (weight=${weight}, target=${proportionalTarget}, high-synergy included=${highSynergyIncluded})`);
-      
+
       // Special logging for tribal creatures and high-value types
       if (typeName === 'creature' && highSynergyIncluded > 0) {
         const tribalCards = result.filter(card => card.finalScore >= 80);
@@ -1829,10 +1834,10 @@ export class NewDeckGenerator {
           this.log(`  🎯 Tribal/high-value ${typeName}s:`, tribalCards.slice(0, 5).map(c => `${c.name} (${c.finalScore})`));
         }
       }
-      
+
       return result;
     };
-    
+
     filtered.push(...applyProportionalFilter(cardsByType.creatures, weights.creatures, 'creature'));
     filtered.push(...applyProportionalFilter(cardsByType.artifacts, weights.artifacts, 'artifact'));
     filtered.push(...applyProportionalFilter(cardsByType.enchantments, weights.enchantments, 'enchantment'));

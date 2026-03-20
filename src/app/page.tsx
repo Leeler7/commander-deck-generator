@@ -607,6 +607,32 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* Deck Functions */}
+                  {generatedDeck.functionalCoverage && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Deck Functions</h4>
+                      <div className="space-y-1">
+                        {[
+                          { label: 'Ramp', key: 'ramp', min: 10 },
+                          { label: 'Card Draw', key: 'card_draw', min: 8 },
+                          { label: 'Removal', key: 'removal', min: 7 },
+                          { label: 'Board Wipes', key: 'board_wipe', min: 2 },
+                          { label: 'Protection', key: 'protection', min: 3 },
+                          { label: 'Tutors', key: 'tutor', min: 0 },
+                        ].map(({ label, key, min }) => {
+                          const count = generatedDeck.functionalCoverage![key as keyof typeof generatedDeck.functionalCoverage];
+                          const color = min === 0 ? 'text-gray-600' : count >= min ? 'text-green-600' : count >= Math.ceil(min * 0.7) ? 'text-yellow-600' : 'text-red-600';
+                          return (
+                            <div key={key} className="flex justify-between text-xs">
+                              <span className="text-gray-600">{label}:</span>
+                              <span className={`font-medium ${color}`}>{count}{min > 0 ? `/${min}` : ''}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Selected Keywords & Theme Tags */}
                   {((constraints.keyword_focus && constraints.keyword_focus.length > 0) ||
                     (constraints.keywords && constraints.keywords.length > 0)) && (
