@@ -56,6 +56,7 @@ export class NewDeckGenerator {
   ): Promise<GeneratedDeck> {
     try {
       console.log('🎯 NEW PIPELINE: Starting deck generation for', commanderName);
+      console.log(`💰 Budget constraints: total=$${constraints.total_budget ?? 'none'}, max_card=$${constraints.max_card_price ?? 'none'}, prefer_cheapest=${constraints.prefer_cheapest}`);
 
       // Validate and get commander
       const commanderValidation = await this.scryfallClient.validateCommander(commanderName);
@@ -110,9 +111,9 @@ export class NewDeckGenerator {
       const priceEvaluated = await this.step5_EvaluatePrices(ratioFiltered, constraints);
       this.log(`✅ Evaluated prices for ${priceEvaluated.length} cards`);
 
-      // STEP 6: No budget substitution (removed budget filtering)
-      this.log('✅ STEP 6: Skipping budget filtering - all cards eligible based on synergy');
-      const budgetOptimized = priceEvaluated; // No substitution needed
+      // STEP 6: Hard-filter cards over the per-card price cap
+      this.log('💸 STEP 6: Enforcing per-card price cap');
+      const budgetOptimized = await this.step6_SubstituteExpensiveCards(priceEvaluated, constraints);
 
       // STEP 7: Check if deck is 100 cards (99 + commander)
       this.log('📊 STEP 7: Validating deck size');
@@ -1532,31 +1533,33 @@ export class NewDeckGenerator {
 
   /**
    * STEP 5: Check the price of the cards
-   * Evaluate price information for display (no filtering by budget)
+   * Evaluate price information and mark cards that exceed the per-card cap.
    */
   private async step5_EvaluatePrices(cards: ScoredCard[], constraints: GenerationConstraints): Promise<ScoredCard[]> {
-    // Use batch pricing for better performance and accuracy
-    this.log('💰 Getting enhanced pricing data for display purposes...');
+    const maxPrice = constraints.max_card_price ?? 50;
+    this.log(`💰 Getting enhanced pricing data (max_card_price=$${maxPrice})...`);
     const cardPricings = await extractBatchCardPrices(cards, constraints.prefer_cheapest, 'tcgplayer');
-    
-    return cardPricings.map(({ card, price, source }) => {
-      // Add pricing information to the card (no affordability filtering)
-      // Cast back to ScoredCard since the runtime objects retain synergyScore/finalScore from step2/3
+
+    let overCapCount = 0;
+    const result = cardPricings.map(({ card, price, source }) => {
       const scored = card as unknown as ScoredCard;
+      const affordable = price <= maxPrice;
+      if (!affordable) overCapCount++;
       const enhancedCard: ScoredCard = {
         ...scored,
-        priceScore: 5, // Neutral price score since we're not filtering by budget
-        isAffordable: true, // All cards are "affordable" since we removed budget filtering
+        priceScore: affordable ? Math.max(1, 10 - (price / maxPrice) * 9) : 0,
+        isAffordable: affordable,
         price_used: price,
         price_source: source
       };
-      
       if (source.startsWith('MTGJSON')) {
         this.log(`💎 Enhanced pricing: ${card.name} = $${price.toFixed(2)} (${source})`);
       }
-      
       return enhancedCard;
     });
+
+    console.log(`💰 Step5 pricing: ${overCapCount} cards over $${maxPrice} cap (will be substituted in step6)`);
+    return result;
   }
 
   /**
@@ -1592,11 +1595,8 @@ export class NewDeckGenerator {
         substituted.push(bestAlt);
         this.log(`🔄 Substituted ${expensive.name} ($${expensive.price_used?.toFixed(2) || 'N/A'}) with ${bestAlt.name} ($${bestAlt.price_used?.toFixed(2) || 'N/A'})`);
       } else {
-        // If no substitute found and the card has very high synergy, keep it anyway
-        if (expensive.finalScore >= 15) {
-          substituted.push(expensive);
-          this.log(`⭐ Keeping high-synergy expensive card: ${expensive.name}`);
-        }
+        // No affordable substitute found — drop the card; step8 will fill the slot from affordable pool
+        this.log(`🗑️ Dropped over-budget card (no substitute): ${expensive.name} ($${expensive.price_used?.toFixed(2) || 'N/A'})`);
       }
     }
     
@@ -1821,9 +1821,13 @@ export class NewDeckGenerator {
       planeswalkers: []
     };
     
+    const maxPrice = constraints.max_card_price ?? 50;
     for (const card of allScoredCards) {
       if (usedCardNames.has(card.name)) continue;
-      
+      // Skip cards that are already known to be over budget
+      const cardPrice = extractCardPrice(card, constraints.prefer_cheapest ?? false);
+      if (cardPrice > maxPrice) continue;
+
       const type = (card.type_line || '').toLowerCase();
       if (type.includes('creature')) availableByType.creatures.push(card);
       else if (type.includes('artifact')) availableByType.artifacts.push(card);

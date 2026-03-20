@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { EDHRECTheme, GenerationConstraints } from '@/lib/types';
 
+const VISIBLE_COUNT = 12;
+
 interface ThemeSelectorProps {
   commanderName: string | null;
   constraints: GenerationConstraints;
@@ -13,11 +15,13 @@ export default function ThemeSelector({ commanderName, constraints, onChange }: 
   const [themes, setThemes] = useState<EDHRECTheme[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (!commanderName) {
       setThemes([]);
       setSelectedTheme(null);
+      setShowAll(false);
       return;
     }
 
@@ -25,7 +29,11 @@ export default function ThemeSelector({ commanderName, constraints, onChange }: 
     fetch(`/api/themes?commander=${encodeURIComponent(commanderName)}`)
       .then(r => r.json())
       .then(data => {
-        setThemes(data.themes ?? []);
+        // Sort by deck count descending so top themes appear first
+        const sorted: EDHRECTheme[] = (data.themes ?? []).sort(
+          (a: EDHRECTheme, b: EDHRECTheme) => b.count - a.count
+        );
+        setThemes(sorted);
       })
       .catch(() => setThemes([]))
       .finally(() => setLoading(false));
@@ -56,6 +64,9 @@ export default function ThemeSelector({ commanderName, constraints, onChange }: 
   // Nothing to show until a commander is chosen
   if (!commanderName) return null;
 
+  const visibleThemes = showAll ? themes : themes.slice(0, VISIBLE_COUNT);
+  const hiddenCount = themes.length - VISIBLE_COUNT;
+
   return (
     <div>
       <h3 className="text-sm font-medium text-gray-700 mb-2">EDHREC Themes</h3>
@@ -78,7 +89,7 @@ export default function ThemeSelector({ commanderName, constraints, onChange }: 
             No theme (goodstuff)
           </button>
 
-          {themes.map(theme => (
+          {visibleThemes.map(theme => (
             <button
               key={theme.slug}
               type="button"
@@ -94,6 +105,17 @@ export default function ThemeSelector({ commanderName, constraints, onChange }: 
               <span className="ml-1 text-xs opacity-70">({theme.count.toLocaleString()})</span>
             </button>
           ))}
+
+          {/* Expand / collapse toggle */}
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(v => !v)}
+              className="px-3 py-1 rounded-full text-sm border border-dashed border-gray-400 text-gray-500 hover:border-gray-600 hover:text-gray-700 transition-colors"
+            >
+              {showAll ? 'Show less' : `Show all (${hiddenCount} more)`}
+            </button>
+          )}
         </div>
       )}
     </div>

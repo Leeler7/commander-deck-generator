@@ -578,8 +578,25 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* Budget Settings */}
+                  {(constraints.total_budget || constraints.max_card_price) && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Budget</h4>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Total Budget:</span>
+                          <span className="font-medium">{constraints.total_budget ? `$${constraints.total_budget}` : 'No limit'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Max Card Price:</span>
+                          <span className="font-medium">{constraints.max_card_price ? `$${constraints.max_card_price}` : 'No limit'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Selected Keywords & Theme Tags */}
-                  {((constraints.keyword_focus && constraints.keyword_focus.length > 0) || 
+                  {((constraints.keyword_focus && constraints.keyword_focus.length > 0) ||
                     (constraints.keywords && constraints.keywords.length > 0)) && (
                     <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border-2 border-green-200">
                       <div className="flex items-center mb-3">
