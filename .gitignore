@@ -74,3 +74,9 @@ pids
 .idea/
 *.swp
 *.swo
+
+# Cleanup: binary/temp artifacts
+*.zip
+*.PNG
+*.sql
+*.bat
