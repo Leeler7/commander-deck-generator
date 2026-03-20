@@ -220,4 +220,241 @@ const extraBonus = 50;
 5. Optimize mana curve distribution
 
 ---
+
+## Sprint: Repo Cleanup, EDHREC Integration & Supabase Removal (March 2026)
+
+### Overview
+Complete architectural overhaul across multiple Claude Code sessions. The custom card
+tagging/synergy engine and Supabase database were fully removed. All card data now
+comes from Scryfall + EDHREC APIs with in-memory caching. 112 files changed,
+31,799 lines deleted.
+
+---
+
+### Phase 1 — Repo Cleanup
+
+**Files deleted from root:**
+- `commander-spellbook-backend-master.zip`, `mtgjson-fetcher-master.zip`,
+  `mtgjson3-master.zip`, `jor_kadeen_debug.json`, `Railway Log.txt`,
+  `Results 3.html`, `temp_check.sql`, `tap.PNG`, `count-cards.js`,
+  `start-clean.bat`, `dev log.txt`, `DEVELOPMENT_LOG.txt`
+
+**`.gitignore` additions:** `*.zip`, `*.PNG`, `*.sql` (temp), `*.bat`, `*.log`
+
+**Commit:** `chore: repo cleanup and audit`
+
+---
+
+### Phase 2 — Audit
+
+`AUDIT.md` created at repo root documenting:
+- Every file in `src/lib/` with purpose
+- Every API route with HTTP method and request/response shape
+- Every component with props interface
+- Full Supabase schema analysis
+- All environment variables
+- All external API calls
+- Kill List / Keep List for the rebuild
+
+---
+
+### Phase 3 — Dead Code Removal (custom synergy engine)
+
+**Deleted `src/lib/`:**
+- `card-mechanics-tagger.ts` — 200+ regex-based mechanic tagger
+- `tag-based-synergy.ts` — synergy scoring using tags
+- `synergy-graph.ts` — graph-based synergy calculations
+- `mechanical-recommendation.ts` — recommendation engine
+- `strategy-detection.ts` — commander strategy detector
+- `commander-profiler.ts` — commander profiling
+- `tribal-analysis.ts` — tribal detection
+- `generation.ts` — legacy 210KB generation file
+- `enhanced-deck-generation.ts`, `candidate-pools.ts`, `policy-selection.ts`
+- `mtgjson-comprehensive.ts`, `mtgjson-local.ts`
+- `supabase.ts` (older duplicate)
+
+**Deleted components:** `SynergyAnalysis.tsx`, `MTGJSONDataManager.tsx`
+
+**Deleted admin routes (~25):** All tag-management routes under
+`src/app/api/admin/` (analyze-tags, auto-tag-cards, cleanup-mechanic-tags, etc.)
+
+**Deleted admin UI pages:** `tag-manager/`, `tag-builder/`, `tag-cleanup/`,
+`tags/`, `synergy/`
+
+**Deleted migrations:** `001_create_normalized_tags.sql` through
+`add_tag_ids_to_cards.sql`, all `*.js` migration runners
+
+---
+
+### Phase 4 — Security Fix
+
+**`src/lib/supabase-updated.ts`:**
+- Removed ALL hardcoded fallback credential values
+- Added strict env var checks: `if (!url) throw new Error('Missing ...')`
+- Applies to `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_KEY`
+
+---
+
+### Phase 5 — EDHREC Data Layer
+
+**New: `src/lib/edhrec.ts`**
+- `commanderToSlug(name)` — converts commander name to EDHREC URL slug
+  (e.g. `"Atraxa, Praetors' Voice"` → `"atraxa-praetors-voice"`)
+- `EDHRECClient` singleton with 24-hour in-memory cache and 1 req/sec rate limit
+- `getCommanderPage(commanderName)` — fetches full EDHREC JSON page
+- `getCommanderThemes(commanderName)` — extracts available themes/slugs
+- `getThemedRecommendations(commanderName, theme?)` — returns cards with
+  synergy scores and inclusion percentages; falls back to main page if no theme
+- `getAverageDeck(commanderName)` — fetches complete average decklist
+- All methods return `null` on 404 (commander not found / insufficient data)
+
+**New: `src/lib/combos.ts`**
+- `CommanderSpellbookClient` singleton with 24-hour cache
+- `findCombos(cardNames)` — POST to Commander Spellbook find-my-combos endpoint
+- `estimateBracket(cardNames)` — POST to Commander Spellbook estimate-bracket
+
+**Updated: `src/lib/types.ts`**
+- Added `EDHRECCardRecommendation { name, synergy, inclusion, numDecks, potentialDecks }`
+- Added `EDHRECTheme { name, slug, count }`
+- Added `ComboResult { cards, prerequisites, steps, results }`
+- Added `BracketEstimate { bracket, combos }`
+
+---
+
+### Phase 6 — Generation Pipeline Rewire
+
+**`src/lib/new-generation-pipeline.ts`** — major changes:
+
+**Step 1 (Color Match):** Was: `localDatabase.searchByFilters(...)` hitting Supabase.
+Now: paginates Scryfall `searchCards(colorQuery + " f:commander", page, "edhrec")`
+up to 5 pages (~875 cards), ordered by EDHREC rank.
+
+**EDHREC pre-load:** `loadEDHRECData(commanderName)` called before step1. Populates
+`edhrecRecs` Map and `edhrecTotalDecks` counter.
+
+**Step 2 (Synergy Scoring):** Replaced custom tag scoring with EDHREC data:
+- If `edhrecTotalDecks >= 50`: uses EDHREC synergy (-1 to 1) and inclusion (0-1)
+  - Formula: `(inclusion * 40) + (synergy * 60)` → 0-100 score
+  - Reason field: `"EDHREC: +X% synergy, in Y% of decks"`
+- If EDHREC has < 50 decks: falls back to `calculateEnhancedKeywordSynergy`
+  (text-based analysis of oracle text)
+
+**Step 3 (User Themes):** Now matches user keywords to EDHREC theme slugs via
+`getCommanderThemes()`. If a keyword matches a theme (e.g. "tokens" → EDHREC
+tokens page), fetches themed recommendations and boosts matching cards.
+
+**`addRandomizedTags`:** Was: `localDatabase.getAvailableTags()`. Now: uses a
+hardcoded list of 45 popular Commander themes (tokens, graveyard, tribal, etc.)
+to provide random variety without a database.
+
+---
+
+### Phase 7 — Supabase & Database Full Removal
+
+**Decision:** Supabase database paused/archived. Removing entirely.
+
+**Deleted `src/lib/`:**
+- `supabase-updated.ts`, `database-factory.ts`, `server-card-database.ts`,
+  `card-database.ts`, `scheduled-sync.ts`
+
+**Deleted components:** `DatabaseSync.tsx`
+
+**Deleted:** `supabase-schema.sql`, entire `migrations/` directory,
+`scripts/manage-database.js`, `scripts/download-external-db.js`,
+`scripts/migrate-to-supabase.js`, `scripts/update-database-imports.js`
+
+**Deleted admin routes (database/sync):** ~20 routes including
+`check-activity`, `check-duplicates`, `check-schema`, `database-commit`,
+`database-download`, `database-export`, `database-health`, `debug-db`,
+`debug-sync`, `deduplicate-cards`, `fix-sync-status`, `insert-sync-record`,
+`reload-database`, `set-initial-sync`, `supabase-status`, `switch-database`,
+`sync-incremental`, `sync-report`, `sync-status`, `trigger-sync`
+
+**Deleted:** `src/app/api/database/` (reanalyze, search, status, sync routes),
+`src/app/api/force-sync/`, `src/app/api/test-sync/`,
+`src/app/api/debug/database-source/`, `src/app/api/admin/system-stats/`
+
+**`npm uninstall @supabase/supabase-js`** — removed 13 packages
+
+**Rewrote card API routes** to proxy Scryfall directly (no database):
+- `GET /api/cards?search=X` — Scryfall text search
+- `GET /api/cards/[id]` — Scryfall lookup by ID
+- `GET /api/cards/details?name=X` — Scryfall exact name lookup
+- `GET /api/cards/list?q=X` — Scryfall search returning simplified fields
+
+---
+
+### Build & Typecheck Results
+
+**`npm run build`:** ✅ Clean — 23 routes compiled, no errors.
+Static pages generated successfully. No Supabase env vars needed at build time
+(lazy initialization fixed the module-load-time throw).
+
+**`npm run typecheck`:** Pre-existing errors only (not introduced by this sprint):
+- `src/lib/pricing.ts` — `possibly undefined` strictness errors
+- `src/lib/rules.ts` — missing properties on `GenerationConstraints`
+  (`no_infinite_combos`, `no_land_destruction`, etc.)
+- `src/lib/budget-optimizer.ts` — `mechanics` not on `ScryfallCard` type
+- `src/middleware.ts` — `ip` not on `NextRequest` (Next.js 15 breaking change)
+- `src/test/setup.ts`, `vitest.config.ts` — missing test dependencies
+- `src/lib/new-generation-pipeline.ts` — `ScoredCard` / `DeckCard` type
+  mismatches (pre-existing from pipeline rewire)
+
+None of these are in files touched during this sprint. No new type errors introduced.
+
+---
+
+### Environment Variables (post-cleanup)
+
+Required in production (Railway):
+- `NEXT_PUBLIC_SUPABASE_URL` — **no longer needed, can be removed**
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — **no longer needed, can be removed**
+- `SUPABASE_SERVICE_KEY` — **no longer needed, can be removed**
+- `DATABASE_TYPE` — **no longer needed, can be removed**
+
+Still needed:
+- None required for core functionality (Scryfall and EDHREC are public APIs)
+- `RESEND_API_KEY` — contact form email sending (if in use)
+
+---
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| `0f0ac8c` | `chore: repo cleanup and audit` |
+| `fbeb485` | `feat: remove Supabase and all dead-code; rewire to EDHREC + Scryfall` |
+
+Both commits are local only — not pushed to origin.
+
+---
+
+### Current Architecture (post-sprint)
+
+```
+Card data flow:
+  User request → /api/generate
+    → new-generation-pipeline.ts
+      → step1: Scryfall color-identity search (5 pages, EDHREC-ranked)
+      → step2: EDHREC synergy scores (or keyword fallback)
+      → step3: EDHREC theme matching for user keywords
+      → step4-8: ratio filtering, pricing, curve optimization
+    → Returns 100-card deck JSON
+
+Commander search:
+  → /api/commanders/search → Scryfall API
+  → /api/commanders/random → Scryfall API
+
+Card lookup:
+  → /api/cards/* → Scryfall API (no local DB)
+
+Combo detection (available, not yet wired to generate):
+  → combos.ts → Commander Spellbook API
+
+EDHREC data:
+  → edhrec.ts → json.edhrec.com (24h in-memory cache, 1 req/sec)
+```
+
+---
 *This log should be updated after each development session to maintain project continuity.*
