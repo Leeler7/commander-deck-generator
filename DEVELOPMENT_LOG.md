@@ -137,6 +137,8 @@ npm run test:e2e     # Playwright e2e tests
 | `3719c52` | `feat: inverted card pool + theme selector + bracket display + spice labels` |
 | `8924c0b` | `refactor: replace tag browser with simple keyword input` |
 | `a79aad9` | `docs: update devlog for keyword input refactor` |
+| `994b866` | `docs: update dev log and env example for v2` |
+| `4712f64` | `fix: EDHREC synergy scoring + theme parsing + restore budget controls` |
 
 ---
 
@@ -645,6 +647,45 @@ EDHREC data:
 - Replaced with plain **"Add Keywords (Optional)"** section: text input + Add button + removable pills
 - Enter key or clicking Add appends to `keyword_focus`; `constraints.keywords` (old tag array) no longer populated from this component
 - Net: −264 lines
+
+---
+
+## Bug Fixes: EDHREC Scoring + Themes + Budget Controls (2026-03-20)
+
+### BUG 1 — EDHREC synergy scoring too weak (`edhrec.ts`, `new-generation-pipeline.ts`)
+
+**Root cause:** The `inclusion` field in EDHREC's JSON API is a raw deck count (e.g. `32596`), not a 0–1 fraction. The scoring formula was:
+```
+inclusionScore = inclusion * 40  →  32596 * 40 = 1,303,840
+synergyBonus  = synergy  * 60  →  0.72 * 60  = 43
+```
+Inclusion was ~30,000× larger than synergy, so every card ranked by raw popularity count alone — goblin-specific cards and generic Sol Ring equivalents scored similarly.
+
+**Fixes:**
+- `extractCardRecommendations`: `inclusion = numDecks / potentialDecks` (now 0–1 fraction)
+- Scoring formula changed to `(inclusion * 20) + (synergy * 80)` — synergy dominates
+- Result: Goblin Warchief for Krenko scores ~75 vs a generic goodstuff card scoring ~21 (3.5× gap)
+- Added `console.log` top-20 synergy scores after step2 for ongoing debugging
+
+### BUG 2 — EDHREC themes returning empty for all commanders (`edhrec.ts`)
+
+**Root cause:** `getCommanderThemes` looked in `panels.tribelinks`, `related_info.themes`, and `container.json_dict.relatedinfo.themes` — none of these paths exist in the actual API response. Themes live at `panels.taglinks[]{slug, value, count}`.
+
+Additionally, themed card page URLs were wrong: `/pages/commanders/{cmd}/{theme}.json` → fixed to `/pages/tags/{theme}/{cmd}.json`.
+
+**Fixes:**
+- `getCommanderThemes`: reads `page.panels.taglinks` and maps `{value→name, slug, count}`
+- `getThemedRecommendations`: URL changed from `/pages/commanders/${slug}/${theme}.json` to `/pages/tags/${theme}/${slug}.json`
+- Krenko now returns: Goblins (8678 decks), Tokens (2113), Aggro (1580), Combo (659), Burn (472)…
+
+### BUG 3 — Budget controls missing from UI (`BudgetPowerControls.tsx`)
+
+**Root cause:** Total Budget, Max Price Per Card, and Prefer Cheapest Printing inputs were left inside a `{/* ... */}` comment block from a previous refactor that removed 264 lines.
+
+**Fixes:**
+- Uncommented and restored all three budget controls
+- Corrected field name from `per_card_cap` to `max_card_price` (the primary field per `types.ts`)
+- Removed dead commented-out budget summary block
 
 ---
 *This log should be updated after each development session to maintain project continuity.*
