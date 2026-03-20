@@ -449,11 +449,260 @@ Commander search:
 Card lookup:
   → /api/cards/* → Scryfall API (no local DB)
 
-Combo detection (available, not yet wired to generate):
+Combo detection (wired to generate):
   → combos.ts → Commander Spellbook API
+  → findCombos() called when spice >= 7 + no_infinite_combos=false
+  → estimateBracket() called on every generation
 
 EDHREC data:
   → edhrec.ts → json.edhrec.com (24h in-memory cache, 1 req/sec)
+  → getCommanderThemes() used by spice slider
+```
+
+---
+
+## Sprint: Combos, Bracket Estimation, Spice Slider & Type Fixes
+
+**Date:** 2026-03-20
+**Status:** Complete — committed as `0c00767`, not pushed
+
+### Goals
+
+1. Remove dead `db:*` scripts from package.json
+2. Wire `combos.ts` into the generation pipeline
+3. Fix all pre-existing TypeScript type errors (zero-error target)
+4. Upgrade the random-theme slider to use real EDHREC themes
+
+---
+
+### Changes Made
+
+#### 1. package.json — dead scripts removed
+
+Removed four scripts that referenced deleted database files:
+- `db:export` → `node scripts/manage-database.js export`
+- `db:import` → `node scripts/manage-database.js import`
+- `db:download` → `node scripts/download-external-db.js`
+- `db:help` → `node scripts/manage-database.js`
+
+Also fixed a trailing comma introduced during the edit (JSON is strict).
+
+---
+
+#### 2. Combos + Bracket Estimation wired into pipeline
+
+`src/lib/new-generation-pipeline.ts` now imports `spellbookClient` from `combos.ts` and calls it at the end of every `generateDeck()` run.
+
+**Bracket estimation (always runs):**
+```
+spellbookClient.estimateBracket(commander.name, allCardNames)
+  → stored in bracketEstimate, included in GeneratedDeck response
+  → added to generation_notes as "⚡ Estimated bracket: N"
+```
+
+**Combo injection (conditional):**
+- Triggers when `random_tag_count >= 7` (spice level) AND `!constraints.no_infinite_combos`
+- Calls `spellbookClient.findCombos()` with the final card list
+- Takes the first combo returned; identifies cards not already in the deck
+- If ≤ 3 missing pieces: fetches them from Scryfall, swaps out the lowest-synergy non-lands
+- Logs: `🔗 Injected combo package (Card A, Card B, Card C)`
+- Both calls are wrapped in try/catch — Spellbook is optional, failures are silent
+
+**Type changes:**
+- `GeneratedDeck` — added `bracketEstimate?: BracketEstimate`
+- `BracketEstimate` and `ComboResult` were already defined in `types.ts`
+
+---
+
+#### 3. Spice Slider upgraded (`addRandomizedTags`)
+
+The method was moved to run **after** commander validation (so the name is available) and now accepts a `commanderName` parameter.
+
+**New behaviour:**
+1. Calls `edhrecClient.getCommanderThemes(commanderName)` to get real themes for this specific commander
+2. If EDHREC returns themes, uses that pool (e.g. "Aristocrats", "Tokens", "Reanimator")
+3. Falls back to the curated 43-entry spicy mechanics list if EDHREC returns nothing or fails
+4. Shuffles the pool and picks `spiceLevel` entries (same count as before)
+5. Log format changed: `🌶️ Spice level N/10 — added M themes: …`
+
+The slider values now have semantic meaning:
+- **0** = "Play it safe" — no random themes added
+- **1–6** = increasingly unusual themes mixed in
+- **7–10** = "Maximum chaos" — also triggers combo injection
+
+---
+
+#### 4. Type errors fixed — zero errors remaining
+
+`npm run typecheck` and `npm run build` both pass clean.
+
+**`src/lib/types.ts`**
+- `ScryfallCard` — added `rarity?`, `power?`, `toughness?`, `loyalty?`, `mechanics?: CardMechanicsData`
+  - Fixes errors in `pricing.ts`, `mana-curve-optimizer.ts`, `budget-optimizer.ts`, `page.tsx`, `mtgjson-pricing.ts`
+- `GenerationConstraints` — added `no_infinite_combos?`, `no_land_destruction?`, `no_extra_turns?`, `no_stax?`, `no_fast_mana?`
+  - Fixes 5 errors in `rules.ts`
+- `GeneratedDeck` — added `bracketEstimate?: BracketEstimate`
+
+**`src/lib/new-generation-pipeline.ts`**
+- `ScoredCard` interface — added `price_used?`, `price_source?`
+- `log()` — changed to `log(message: string, ...args: any[])` to fix 8 multi-arg call sites
+- `step4_ApplyRatios` — `allColorMatched` parameter widened to `ScryfallCard[]`; internal `finalScore` access uses cast
+- Line 243 (`DeckCard.finalScore`) — cast to `(card as any).finalScore`
+- Line 329 (`role.toString()` on `never`) — replaced with `String(card.role)`
+- `step5_EvaluatePrices` — cast `card` back to `ScoredCard` before spread to preserve synergy scores
+- `analyzeColorRequirements` call — cast `commander` to `DeckCard` to satisfy array type
+
+**`src/lib/budget-optimizer.ts`**
+- All `this.constraints.per_card_cap` → `(this.constraints.per_card_cap ?? this.constraints.max_card_price)` (8 occurrences)
+- All `price_used` arithmetic — guarded with `?? 0` (10 occurrences)
+- `createDeckCard` — added `quantity: 1, tags: []` (required by `DeckCard`)
+
+**`src/lib/pricing.ts`**
+- `per_card_cap` comparisons guarded with `?? constraints.max_card_price ?? 50`
+- `calculatePriceTrends` — all `price_used` and array accesses guarded with `?? 0`
+
+**`src/lib/mtgjson-pricing.ts` / `mtgjson-keywords.ts`**
+- Added `!` non-null assertions after guaranteed assignments (`this.pricingData!`, `this.keywordsData!`)
+
+**`src/middleware.ts`**
+- `request.ip` → `(request as any).ip` (Next.js 15 removed this property from the type)
+
+**`src/app/api/cards/[id]/route.ts`**
+- Updated to Next.js 15 async params: `{ params: Promise<{ id: string }> }` + `await params`
+
+**`src/components/DeckList.tsx`**
+- `roleColors` typed as `Record<string, string>` instead of `Record<CardRole, string>` in all three locations (definition + 2 component prop interfaces)
+
+**`src/app/admin/database/page.tsx`**
+- Deleted (dead code — database was removed in previous sprint; 8 errors eliminated)
+
+**`tsconfig.json`**
+- Added `playwright.config.ts`, `vitest.config.ts`, `src/test/**` to `exclude` (packages not installed)
+
+**`.next/types/app/admin/database/page.ts`**
+- Deleted stale Next.js-generated type file for the removed admin page
+
+---
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| `0f0ac8c` | `chore: repo cleanup and audit` |
+| `fbeb485` | `feat: remove Supabase and all dead-code; rewire to EDHREC + Scryfall` |
+| `0c00767` | `feat: wire combos + bracket estimation + spice slider + fix type errors` |
+| `3719c52` | `feat: inverted card pool + theme selector + bracket display + spice labels` |
+
+All commits are local only — not pushed to origin.
+
+---
+
+## Sprint: Inverted Card Pool + Theme Selector + Bracket Display (2026-03-20)
+
+### Goals
+- Invert the card pool logic so keyword/theme searches dominate over popularity-capped EDHREC results
+- Add EDHREC theme selector in the UI (clickable pills per commander)
+- Display bracket estimate visually after deck generation
+- Re-label spice slider with clearer language
+
+### Changes
+
+**`src/lib/new-generation-pipeline.ts`**
+- `step1_ColorMatchCommander` now accepts `constraints?: GenerationConstraints`
+- **Inverted pool logic:**
+  - **FIRST:** For each user keyword (`keyword_focus`, `keywords`, `random_tags`), runs a targeted Scryfall oracle-text query: `o:"<keyword>" ci:<colors> f:commander -type:basic`
+  - Pages per keyword: 1 at spice 0, 2 at spice 5, 3 at spice 10 (`1 + floor(spice/5)`)
+  - Capped at 6 keywords to limit API call volume
+  - **FALLBACK:** Broad EDHREC-sorted color-identity search (existing behaviour), but page count reduces as spice rises: 5 at spice 0 → 2 at spice 9+ (`max(2, 5 - floor(spice/3))`)
+  - Keyword-searched cards placed first in pool (deduplicated); broad cards fill remainder
+  - Step3's +300 text-match bonus then naturally selects keyword cards at high spice
+- Call site updated: `step1_ColorMatchCommander(commander, constraints)`
+
+**`src/app/api/themes/route.ts`** *(new)*
+- `GET /api/themes?commander={name}` → calls `edhrecClient.getCommanderThemes()` → `{ themes: EDHRECTheme[] }`
+- Returns empty `{ themes: [] }` on error (graceful degradation)
+
+**`src/components/ThemeSelector.tsx`** *(new)*
+- Renders clickable pill buttons for each EDHREC theme (fetched from `/api/themes` when commander changes)
+- "No theme (goodstuff)" default pill always shown first
+- Selecting a theme injects its name into `constraints.keyword_focus`; deselecting removes it
+- Hidden if no commander is selected; shows "Loading…" during fetch
+
+**`src/components/BracketEstimate.tsx`** *(new)*
+- Displays a 1–4 horizontal bar scale with colour coding: green (1), yellow (2), orange (3), red (4)
+- Each bracket labelled: Exhibition/Precon, Core, Upgraded, cEDH
+- Active bracket highlighted; tooltip description per bracket
+- Lists up to 2 detected combos (cards + first result line); shows "+N more" if >2
+
+**`src/components/BudgetPowerControls.tsx`**
+- Spice slider label changed to: "🌶️ Spice Level: How weird do you want this deck? — N/10"
+- Description updated to explain low spice = EDHREC-proven, high spice = keyword searches dominate pool
+- Scale endpoints: `0 — Play it safe` / `5 — Balanced` / `10 — Maximum chaos`
+
+**`src/app/page.tsx`**
+- Imported `ThemeSelector` and `BracketEstimate`
+- `ThemeSelector` rendered below commander selection (only visible when a commander is selected)
+- `BracketEstimate` rendered above the RoleBreakdown/PriceBar grid when `generatedDeck.bracketEstimate` is present
+
+### Architecture (updated)
+
+```
+Card pool assembly (step1, inverted):
+  User keywords exist?
+    YES → Scryfall oracle-text search per keyword (o:"kw" ci:X f:commander)
+          1-3 pages each depending on spice level
+    THEN → Broad EDHREC-sorted fallback (2-5 pages, inversely proportional to spice)
+    Pool deduped; keyword cards placed first
+
+  Spice 0  → 1 page/keyword (manual only), 5 broad pages → pure EDHREC
+  Spice 5  → 2 pages/keyword, 3 broad pages → 50/50
+  Spice 10 → 3 pages/keyword, 2 broad pages → keyword-dominant
+
+Theme flow:
+  Commander selected → GET /api/themes?commander=X → EDHRECTheme[] pills in UI
+  User clicks theme → theme name added to keyword_focus
+  keyword_focus feeds step1 keyword searches AND step3 EDHREC theme bonus
+
+Bracket display:
+  bracketEstimate present in GeneratedDeck → BracketEstimate component shown
+  1=green / 2=yellow / 3=orange / 4=red bar scale with combo list
+```
+
+---
+
+### Updated Architecture (post-sprint)
+
+```
+Card data flow:
+  User request → /api/generate
+    → new-generation-pipeline.ts
+      → step1: keyword oracle-text searches (priority) + broad EDHREC fallback
+      → step2: EDHREC synergy scores (or keyword fallback)
+      → step3: EDHREC theme matching for user keywords
+      → addRandomizedTags: EDHREC commander themes → spicy fallback
+      → step4-8: ratio filtering, pricing, curve optimization
+      → post-assembly: Spellbook estimateBracket() (always)
+      → post-assembly: Spellbook findCombos() (when spice >= 7)
+    → Returns 100-card GeneratedDeck JSON with bracketEstimate
+
+Commander search:
+  → /api/commanders/search → Scryfall API
+  → /api/commanders/random → Scryfall API
+
+Theme lookup:
+  → /api/themes?commander=X → EDHREC via edhrec.ts
+
+Card lookup:
+  → /api/cards/* → Scryfall API (no local DB)
+
+Combo detection:
+  → combos.ts → Commander Spellbook backend API
+  → estimateBracket: POST /estimate-bracket (every generation)
+  → findCombos: POST /find-my-combos (spice >= 7 only)
+
+EDHREC data:
+  → edhrec.ts → json.edhrec.com (24h in-memory cache, 1 req/sec)
+  → getCommanderThemes() feeds ThemeSelector UI + spice slider pool
 ```
 
 ---
