@@ -361,9 +361,10 @@ export class NewDeckGenerator {
         const overFraction = (currentCost - constraints.total_budget) / constraints.total_budget;
         if (overFraction > 0.5) {
           console.log(`💰 BUDGET: $${currentCost.toFixed(2)} vs target $${constraints.total_budget} (${(overFraction * 100).toFixed(0)}% over) — swapping aggressively`);
-          const usedNames = new Set(finalNonlands.map(c => c.name));
+          // Include BOTH nonlands and lands so budget swap can't re-add a card already in lands
+          const usedNames = new Set([...finalNonlands, ...finalLands].map(c => c.name));
           const perCardBudget = constraints.total_budget / finalNonlands.length;
-          // Cheap candidates not already in deck, sorted by score desc
+          // Cheap candidates not already in deck (nonlands OR lands), sorted by score desc
           const cheapCandidates = themeEnhanced
             .filter(c => !usedNames.has(c.name) &&
               extractCardPrice(c, constraints.prefer_cheapest) <= perCardBudget * 1.2 &&
@@ -448,7 +449,7 @@ export class NewDeckGenerator {
         // Collect all card names involved in any detected combo
         const comboCardNames = new Set(bracketEstimate.combos.flatMap(c => c.cards));
         // Remove combo cards from nonlands, replace with next-best non-combo cards from themeEnhanced
-        const usedNames = new Set(finalNonlands.map(c => c.name));
+        const usedNames = new Set([...finalNonlands, ...finalLands].map(c => c.name));
         const replacements = themeEnhanced
           .filter(c => !usedNames.has(c.name) && !comboCardNames.has(c.name) &&
             extractCardPrice(c, constraints.prefer_cheapest) <= (constraints.max_card_price ?? 50))
@@ -491,7 +492,7 @@ export class NewDeckGenerator {
         if (gcRemoved.length > 0) {
           console.log(`🎯 BRACKET: Removed ${gcRemoved.length} Game Changers for bracket ≤2 target: ${gcRemoved.join(', ')}`);
           // Fill the gaps
-          const usedNames2 = new Set(finalNonlands.map(c => c.name));
+          const usedNames2 = new Set([...finalNonlands, ...finalLands].map(c => c.name));
           const fillers = themeEnhanced
             .filter(c => !usedNames2.has(c.name) && !gcLower.has(c.name.toLowerCase()) &&
               extractCardPrice(c, constraints.prefer_cheapest) <= (constraints.max_card_price ?? 50))
