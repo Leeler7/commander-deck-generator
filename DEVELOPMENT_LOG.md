@@ -1,6 +1,56 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 8)
+**Last Updated:** March 20, 2026 (session 9)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Commander Engine Interaction Scoring
+
+### NEW — `src/lib/engine-interaction.ts`
+Adds generalizable engine-awareness to card scoring — works for any legendary creature without hard-coded card names.
+
+**`extractCommanderEngine(oracleText, typeLine) → CommanderEngineTraits`**
+Reads the commander's oracle text and derives 20 boolean trait flags:
+- *Production*: `produces_tokens`, `produces_token_subtype` (e.g. "goblin"), `produces_counters`, `produces_treasure`, `produces_clues`, `produces_food`, `produces_energy`
+- *Needs / Costs*: `needs_tap`, `needs_sacrifice`, `needs_spells_cast`, `needs_attack`, `needs_discard`, `needs_life_payment`
+- *Damage profile*: `deals_noncombat_damage`, `deals_combat_damage`
+- *Other*: `mills`, `loots`, `reanimates`, `blinks`, `gains_life`, `fills_graveyard`
+
+**`scoreEngineInteraction(traits, candidateOracle, candidateTypes) → {bonus, reasons}`**
+Scores each candidate against the extracted traits:
+| Scenario | Bonus |
+|---|---|
+| Token anthem / creature-ETB trigger (tokens producer) | +18–22 |
+| Creature subtype tribal synergy (e.g. goblin lord for Krenko) | +20 |
+| Sac outlet consuming tokens | +15 |
+| Go-wide payoffs (creature count matters) | +15 |
+| Counter synergy / proliferate (counter producer) | +18 |
+| Untap enabler (tap-cost commander) | +15 |
+| Dies-trigger (sacrifice commander) | +15 |
+| Attack enabler (attack-trigger commander) | +12 |
+| Spell-cast trigger (magecraft/storm) | +15 |
+| Damage amplifier (noncombat damage commander) | +22 |
+| Discard/madness synergy (loot commander) | +15 |
+| Graveyard payoffs (graveyard-filler) | +15 |
+| Life-gain synergy (lifelink commander) | +12 |
+| Reanimate synergy (reanimator) | +15 |
+| Life-gain trigger on non-life-gain commander | −10 |
+| Noncombat damage amplifier on non-pinging commander | −10 |
+| Combat-damage trigger on non-attacking commander | −8 |
+| Graveyard synergy (delirium/threshold) on non-GY commander | −5 |
+
+### CHANGED — `step2_ScoreSynergy` in `new-generation-pipeline.ts`
+- Commander engine extracted **once** at the top of the scoring step (zero per-card overhead)
+- Each candidate's `synergyScore` adjusted by engine interaction delta on top of the EDHREC/keyword score
+- Active engine traits logged at generation time for transparency
+- Top 5 most-penalized cards printed to console per generation (debugging aid)
+
+**Example — Krenko, Mob Boss:**
+Traits detected: `produces_tokens`, `produces_token_subtype: goblin`, `needs_tap`
+→ Goblin lords receive +20 tribal bonus, ETB triggers +18, Purphoros/Impact Tremors +22 damage amplifier (commander produces creatures that trigger them), sac outlets +15
+→ Life-gain triggers −10, noncombat damage amplifiers for non-pinging commanders −10
+
+**Commit:** `688edd3 feat: commander engine interaction scoring`
+
+---
 
 ## Sprint — 2026-03-20: Functional Coverage Scoring + Bracket-Aware Card Selection
 
