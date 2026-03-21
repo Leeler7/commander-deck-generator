@@ -1,6 +1,48 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 10)
+**Last Updated:** March 20, 2026 (session 11)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Bracket Selection as Full Pipeline Mode Switch
+
+### Problem
+Selecting Bracket 4 or 5 still generated a Bracket 2 deck because the pipeline only used bracket targeting to filter Game Changers post-assembly. The bracket selection needed to be a MODE SWITCH that changes how the entire pipeline operates.
+
+### NEW — `bracket-strategy.ts`
+- `BracketStrategy` interface with 25+ config fields covering combos, scoring, mana, lands, and searches
+- `BRACKET_STRATEGIES` map with complete configs for brackets 1-5
+- `getBracketStrategy()` returns the config (null if no bracket selected — backward compatible)
+- `FAST_MANA_CARDS` list and `isFastMana()` helper for fast mana detection
+- Each bracket defines: comboMode, gameChangersAllowed, tutorAdjustment, edhrecSynergyWeight, themeBonus, functionalMinimums, preferCurve, penalizeHighCMC, fastManaAllowed/Bonus, extraTurnsAllowed, massLandDenialAllowed, landCount, searchFastMana, searchCedhStaples
+
+### Pipeline Integration (every step reads from BracketStrategy)
+- **Init**: Auto-sets constraint flags (no_extra_turns, no_fast_mana, no_land_destruction, no_infinite_combos) based on bracket
+- **Step 1**: Supplemental fast mana search (B4-5) fetches Sol Ring, Mana Crypt, etc. by name; cEDH staples search (B5) fetches free counterspells and cheap removal
+- **Step 2**: EDHREC synergy weight multiplier (0.5x for B1, 2.0x for B5); tutor adjustment (-30 to +35); fast mana bonus (0 to +40); high CMC penalty (-10 to -15 per point above threshold for B4-5, exempting win conditions)
+- **Step 2b**: comboMode gates all combo processing (none/late_game/aggressive/maximum); combo bonuses scaled 1.0x-1.7x
+- **Step 3**: Theme bonus multiplier (2.0x for B1 Exhibition, 0.0x for B5 cEDH)
+- **Step 4**: Land count from strategy (38 for B1 → 31 for B5); functional minimums override passed to calculateFunctionalBonus
+- **Post-assembly**: Combo completeness mode (skip/best_effort/force); force mode allows 2 missing pieces with relaxed price cap; Game Changer cap (0/3/unlimited) with score-ordered pruning
+
+### UI Updates
+- **BracketEstimate.tsx**: New `targetBracket` prop; shows green/yellow/red comparison message ("Deck matches target" / "Below target" / "Exceeds target"); target bracket pill marked with blue "T" indicator
+- **BudgetPowerControls.tsx**: Each bracket now shows a description when selected explaining what it changes (combos, Game Changers, fast mana, mana curve)
+- **functional-roles.ts**: `calculateFunctionalBonus()` now accepts optional `minimumsOverride` from BracketStrategy, replacing ad-hoc bracket checks
+
+### Bracket Summary
+| | B1 Exhibition | B2 Core | B3 Upgraded | B4 Optimized | B5 cEDH |
+|---|---|---|---|---|---|
+| Combos | none | none | late_game | aggressive | maximum |
+| Game Changers | 0 | 0 | 3 | unlimited | unlimited |
+| Tutor adj | -30 | -15 | 0 | +20 | +35 |
+| Fast mana | banned | banned | allowed | +25 bonus | +40 bonus |
+| Theme mult | 2.0x | 1.5x | 1.0x | 0.5x | 0.0x |
+| EDHREC weight | 0.5x | 1.0x | 1.2x | 1.5x | 2.0x |
+| Lands | 38 | 37 | 36 | 34 | 31 |
+| CMC penalty | none | none | none | -10/pt >5 | -15/pt >4 |
+
+**Commit:** `9f032e3 feat: bracket selection as full pipeline mode switch`
+
+---
 
 ## Sprint — 2026-03-20: Structured Commander Parser + Mechanical Synergy Evaluator
 
