@@ -2,6 +2,37 @@
 **Last Updated:** March 20, 2026 (session 9)
 **Status:** Active Development
 
+## Sprint — 2026-03-20: Negative Synergy Penalty + Functional Fallback
+
+### Root cause
+16 of 59 non-land cards (27%) had negative EDHREC synergy in a Krenko deck. The floor of `Math.max(20, ...)` gave every EDHREC card at least 20 points regardless of synergy. Functional bonuses (+15 ramp/draw/removal) then boosted negative-synergy cards to 35+, making them competitive with genuinely good cards.
+
+### FIX — Step 2: Negative synergy penalty scaling
+- **Positive synergy**: unchanged — `Math.max(20, inclusion*20 + synergy*80)`
+- **Negative synergy**: 2x penalty weight, NO floor:
+  `Math.max(0, inclusion*20 + synergy*200)`
+  - -5% synergy → -10pts, -10% → -20pts, -18% → -36pts
+- **Low inclusion (<15%) + negative synergy**: additional -20 hard reject
+  - Kills: Urza's Saga (-6%/6%), Demand Answers (-14%/9%), Tibalt's Trickery (-10%/12%)
+  - Preserves: Chaos Warp (-11%/51%) — high inclusion means players need it despite low synergy
+- Added negative-synergy diagnostic log (worst 10 cards by score)
+
+### FIX — Step 4: Functional bonus cap
+- Functional bonus (+15 ramp, +15 draw, etc.) now only applies to cards with `finalScore >= 15`
+- Cards below 15 (negative EDHREC synergy after penalty) get NO functional bonus during greedy selection
+- Prevents functional needs from "rescuing" bad cards into the deck
+
+### NEW — `step_FunctionalFallback()` (post-assembly)
+- After deck assembly, checks functional minimums (ramp, card_draw, removal, board_wipe, protection)
+- If a minimum is unmet, finds the best available card from the pool that fills that role
+- Swaps it in for the weakest non-functional card in the deck
+- Logs every rescue with EDHREC synergy data: `"Included X despite -10% synergy: only option for removal quota"`
+- This is the **only path** negative-synergy cards can enter the deck — auditable and intentional
+
+**Commit:** `b752d83 fix: penalize negative synergy cards, prevent functional bonuses from rescuing bad picks`
+
+---
+
 ## Sprint — 2026-03-20: Self-Reference Fix + Combo-First Selection
 
 ### FIX 1 — Self-referential ability false positives (`engine-interaction.ts`)
