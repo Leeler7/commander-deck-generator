@@ -39,6 +39,7 @@ export interface ScoredCard extends ScryfallCard {
   assignedSlot?: string;
   price_used?: number;
   price_source?: string;
+  synergy_notes?: string;
 }
 
 /** A combo line with the non-commander card names pre-extracted for the completeness check */
@@ -876,11 +877,16 @@ export class NewDeckGenerator {
 
           // Fetch missing combo pieces via batched OR queries
           const missingPieces = [...comboCardNames].filter(n => !seenNames.has(n.toLowerCase()));
+          console.log(`[Layer2] Missing combo pieces to fetch: ${missingPieces.length} (${missingPieces.slice(0, 10).join(', ')}${missingPieces.length > 10 ? '...' : ''})`);
           for (let i = 0; i < missingPieces.length; i += 10) {
             const batch = missingPieces.slice(i, i + 10);
             const orQuery = batch.map(n => `!"${n}"`).join(' OR ');
+            const fullQuery = `(${orQuery}) f:commander`;
             try {
-              const res = await this.scryfallClient.searchCards(`(${orQuery}) f:commander`, 1, 'name');
+              // Rate limit: 100ms between Scryfall requests
+              if (i > 0) await new Promise(r => setTimeout(r, 100));
+              const res = await this.scryfallClient.searchCards(fullQuery, 1, 'name');
+              let batchAdded = 0;
               for (const card of res.data) {
                 const nameLower = card.name.toLowerCase();
                 if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
@@ -890,8 +896,13 @@ export class NewDeckGenerator {
                 seenIds.add(card.id);
                 seenNames.add(nameLower);
                 allCards.push(card);
+                batchAdded++;
               }
-            } catch { /* skip batch */ }
+              console.log(`[Layer2] Batch ${Math.floor(i/10)+1}: fetched ${res.data.length}, added ${batchAdded} (${batch.slice(0,3).join(', ')}...)`);
+            } catch (err) {
+              console.log(`[Layer2] Batch fetch FAILED: ${err instanceof Error ? err.message : err}`);
+              console.log(`[Layer2] Query was: ${fullQuery.slice(0, 200)}`);
+            }
           }
         }
       } catch (err) {
@@ -904,13 +915,16 @@ export class NewDeckGenerator {
     if (this.bracketStrategy?.searchCedhStaples && constraints?.targetBracket && constraints.targetBracket >= 4) {
       const funcStart = allCards.length;
       const hasBlue = commander.color_identity.some((c: string) => c.toUpperCase() === 'U');
+      const hasRed = commander.color_identity.some((c: string) => c.toUpperCase() === 'R');
 
       const functionalQueries: { label: string; query: string }[] = [
-        { label: 'Fast mana', query: `t:artifact cmc<=1 o:"add" -t:equipment f:commander ${colorQuery}` },
+        { label: 'Fast mana artifacts', query: `t:artifact cmc<=1 o:"add {" -t:equipment f:commander ${colorQuery}` },
+        { label: 'Mana dorks', query: `t:creature cmc<=2 o:"add {" f:commander ${colorQuery}` },
         { label: 'Free interaction', query: `o:"without paying" t:instant f:commander ${colorQuery}` },
-        { label: 'Cheap removal', query: `(o:"destroy target" OR o:"exile target") cmc<=2 f:commander ${colorQuery}` },
-        { label: 'Tutors', query: `o:"search your library" -o:"basic land" f:commander ${colorQuery}` },
-        { label: 'Sacrifice outlets', query: `o:"sacrifice a creature:" f:commander ${colorQuery}` },
+        { label: 'Cheap removal', query: `o:"destroy target" cmc<=2 f:commander ${colorQuery}` },
+        { label: 'Cheap exile', query: `o:"exile target" cmc<=2 f:commander ${colorQuery}` },
+        { label: 'Tutors', query: `o:"search your library" -o:"basic land" -t:land f:commander ${colorQuery}` },
+        { label: 'Sacrifice outlets', query: `o:"sacrifice a creature" o:":" f:commander ${colorQuery}` },
         { label: 'Haste enablers', query: `o:"creatures you control have haste" f:commander ${colorQuery}` },
         { label: 'Untap effects', query: `o:"untap target" f:commander ${colorQuery}` },
       ];
@@ -920,27 +934,42 @@ export class NewDeckGenerator {
           { label: 'Cheap counters', query: `o:"counter target" cmc<=2 t:instant f:commander ${colorQuery}` }
         );
       }
+      if (hasRed) {
+        functionalQueries.push(
+          { label: 'Red interaction', query: `(o:"damage to any target" OR o:"destroy target artifact") cmc<=2 f:commander ${colorQuery}` }
+        );
+      }
 
+      let searchIndex = 0;
       for (const { label, query } of functionalQueries) {
         const catStart = allCards.length;
+        console.log(`[B${constraints.targetBracket}] Functional search [${label}]: "${query}"`);
+        // Rate limit: 100ms between Scryfall requests
+        if (searchIndex > 0) await new Promise(r => setTimeout(r, 100));
+        searchIndex++;
         // Take top 1-2 pages sorted by EDHREC rank
         for (let page = 1; page <= 2; page++) {
           try {
+            if (page > 1) await new Promise(r => setTimeout(r, 100));
             const res = await this.scryfallClient.searchCards(query, page, 'edhrec');
-            for (const card of res.data) {
+            const newCards = res.data.filter(card => {
               const nameLower = card.name.toLowerCase();
-              if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+              if (seenIds.has(card.id) || seenNames.has(nameLower)) return false;
+              return true;
+            });
+            for (const card of newCards) {
               seenIds.add(card.id);
-              seenNames.add(nameLower);
+              seenNames.add(card.name.toLowerCase());
               allCards.push(card);
             }
             if (!res.has_more) break;
-          } catch { break; }
+          } catch (err) {
+            console.log(`[B${constraints.targetBracket}] Functional search [${label}] page ${page} FAILED:`, err instanceof Error ? err.message : err);
+            break;
+          }
         }
         const added = allCards.length - catStart;
-        if (added > 0) {
-          console.log(`[Layer3] ${label}: +${added} cards`);
-        }
+        console.log(`[B${constraints.targetBracket}] [${label}]: +${added} cards (pool now ${allCards.length})`);
       }
       console.log(`[Layer3] Functional searches added ${allCards.length - funcStart} total cards`);
     }
@@ -1395,9 +1424,10 @@ export class NewDeckGenerator {
         }
 
         // ── Bracket 4-5: Override scores for key card categories ──────────
-        // Combo pieces, fast mana, tutors, and interaction get minimum scores
+        // Combo pieces, fast mana, and interaction get minimum scores
         // so they can't be outcompeted by casual synergy cards.
-        if (bs.comboOverrideScore > 0 || bs.fastManaOverrideScore > 0 || bs.tutorOverrideScore > 0 || bs.interactionOverrideScore > 0) {
+        // Tutors use conditional bonus (above) instead of overrides.
+        if (bs.comboOverrideScore > 0 || bs.fastManaOverrideScore > 0 || bs.interactionOverrideScore > 0) {
           // Fast mana override
           if (bs.fastManaOverrideScore > 0 && isFastMana(card.name)) {
             const prev = synergyScore;
@@ -1407,25 +1437,45 @@ export class NewDeckGenerator {
             }
           }
 
-          // Tutor override (with Urza's Saga fix: restricted tutors get halved/zeroed)
-          if (bs.tutorOverrideScore > 0 && cardRoles.includes('tutor')) {
-            let tutorOverride = bs.tutorOverrideScore;
-            // Restricted tutor check: if oracle text mentions specific constraints
+          // Conditional tutor bonus — scaled by how many valid targets exist in the pool.
+          // Replaces the old blanket override that forced Urza's Saga/Conduit of Ruin etc. into decks.
+          if (cardRoles.includes('tutor') && bs.tutorAdjustment > 0) {
             const oText = (card.oracle_text || '').toLowerCase();
-            const isRestricted = oText.includes('mana value 0 or 1') ||
-              oText.includes('mana value 1 or less') ||
-              oText.includes('converted mana cost 0 or 1') ||
-              /search your library for an? (?:aura|equipment|vehicle)/.test(oText);
-            if (isRestricted) {
-              // TODO: Could count valid targets in pool, but we don't have pool context here
-              // Use a conservative halving for restricted tutors
-              tutorOverride = Math.floor(tutorOverride / 2);
-              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Restricted tutor (halved)`;
+            // Parse tutor restriction from oracle text
+            let tutorTargetCount = cards.length; // default: unrestricted
+            if (oText.includes('mana value 0 or 1') || oText.includes('mana value 1 or less') || oText.includes('converted mana cost 0 or 1')) {
+              tutorTargetCount = cards.filter(c => (c.cmc || 0) <= 1 && (c.type_line || '').toLowerCase().includes('artifact')).length;
+            } else if (/search your library for (?:a |an )?colorless creature/i.test(oText)) {
+              tutorTargetCount = cards.filter(c => (c.color_identity?.length ?? 0) === 0 && (c.type_line || '').toLowerCase().includes('creature')).length;
+            } else if (/search your library for (?:a |an )?goblin/i.test(oText)) {
+              tutorTargetCount = cards.filter(c => (c.type_line || '').toLowerCase().includes('goblin')).length;
+            } else if (/search your library for (?:a |an )?(?:aura|equipment|vehicle)/i.test(oText)) {
+              const typeMatch = oText.match(/search your library for (?:a |an )?(aura|equipment|vehicle)/i);
+              const restrictedType = typeMatch ? typeMatch[1] : '';
+              tutorTargetCount = cards.filter(c => (c.type_line || '').toLowerCase().includes(restrictedType)).length;
+            } else if (/search your library for a creature card/i.test(oText)) {
+              tutorTargetCount = cards.filter(c => (c.type_line || '').toLowerCase().includes('creature')).length;
+            } else if (/search your library for an? (?:instant|sorcery)/i.test(oText)) {
+              tutorTargetCount = cards.filter(c => {
+                const t = (c.type_line || '').toLowerCase();
+                return t.includes('instant') || t.includes('sorcery');
+              }).length;
             }
-            const prev = synergyScore;
-            synergyScore = Math.max(synergyScore, tutorOverride);
-            if (synergyScore > prev) {
-              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Tutor override=${tutorOverride}`;
+            // else: "search your library for a card" = unrestricted
+
+            // Scale bonus by target count
+            let tutorBonus = 0;
+            if (tutorTargetCount >= 10) tutorBonus = 25;
+            else if (tutorTargetCount >= 5) tutorBonus = 20;
+            else if (tutorTargetCount >= 3) tutorBonus = 15;
+            else if (tutorTargetCount >= 1) tutorBonus = 5;
+            // else: 0 targets = 0 bonus
+
+            if (tutorBonus > 0) {
+              synergyScore += tutorBonus;
+              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Tutor +${tutorBonus} (${tutorTargetCount} targets)`;
+            } else if (tutorTargetCount === 0) {
+              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Tutor 0 targets — no bonus`;
             }
           }
 
@@ -1486,11 +1536,12 @@ export class NewDeckGenerator {
     const top20 = [...scoredCards]
       .sort((a, b) => b.synergyScore - a.synergyScore)
       .slice(0, 20);
-    console.log(`\n🏆 STEP2 TOP 20 by synergy score for ${commander.name}:`);
+    console.log(`\n🏆 STEP2 TOP 20 by synergy score for ${commander.name} (bracket ${this.bracketStrategy?.name || 'default'}):`);
     top20.forEach((c, i) => {
       const entry = this.edhrecRecs.get(c.name.toLowerCase());
       const syn = entry ? `synergy=${entry.synergy.toFixed(2)} inclusion=${(entry.inclusion * 100).toFixed(0)}%` : 'no EDHREC data';
-      console.log(`  ${String(i + 1).padStart(2)}. ${c.name.padEnd(40)} score=${c.synergyScore.toFixed(1).padStart(6)}  [${syn}]`);
+      const notes = (c as ScoredCard).synergy_notes || '';
+      console.log(`  ${String(i + 1).padStart(2)}. ${c.name.padEnd(40)} score=${c.synergyScore.toFixed(1).padStart(6)}  [${syn}] ${notes}`);
     });
     console.log();
 

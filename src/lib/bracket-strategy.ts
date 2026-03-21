@@ -102,8 +102,6 @@ export interface BracketStrategy {
   comboOverrideScore: number;
   /** Minimum override score for fast mana cards */
   fastManaOverrideScore: number;
-  /** Minimum override score for tutor cards */
-  tutorOverrideScore: number;
   /** Minimum override score for instant-speed interaction */
   interactionOverrideScore: number;
 }
@@ -181,7 +179,7 @@ const BRACKET_1_EXHIBITION: BracketStrategy = {
   bypassTypeRatios: false,
   comboOverrideScore: 0,
   fastManaOverrideScore: 0,
-  tutorOverrideScore: 0,
+
   interactionOverrideScore: 0,
 };
 
@@ -224,7 +222,7 @@ const BRACKET_2_CORE: BracketStrategy = {
   bypassTypeRatios: false,
   comboOverrideScore: 0,
   fastManaOverrideScore: 0,
-  tutorOverrideScore: 0,
+
   interactionOverrideScore: 0,
 };
 
@@ -267,7 +265,7 @@ const BRACKET_3_UPGRADED: BracketStrategy = {
   bypassTypeRatios: false,
   comboOverrideScore: 0,
   fastManaOverrideScore: 0,
-  tutorOverrideScore: 0,
+
   interactionOverrideScore: 0,
 };
 
@@ -301,7 +299,7 @@ const BRACKET_4_OPTIMIZED: BracketStrategy = {
   massLandDenialAllowed: true,
   landCount: 34,
   searchFastMana: true,
-  searchCedhStaples: false,
+  searchCedhStaples: true,
   searchGameChangers: true,
   tribalFillerPenalty: 10,
   interactionBonus: 15,
@@ -310,7 +308,6 @@ const BRACKET_4_OPTIMIZED: BracketStrategy = {
   bypassTypeRatios: true,
   comboOverrideScore: 160,
   fastManaOverrideScore: 140,
-  tutorOverrideScore: 120,
   interactionOverrideScore: 0,
 };
 
@@ -339,22 +336,21 @@ const BRACKET_5_CEDH: BracketStrategy = {
   highCMCPenaltyPerPoint: 15,
   highCMCThreshold: 4,
   fastManaAllowed: true,
-  fastManaBonus: 40,
+  fastManaBonus: 50,
   extraTurnsAllowed: true,
   massLandDenialAllowed: true,
-  landCount: 31,
+  landCount: 29,
   searchFastMana: true,
   searchCedhStaples: true,
   searchGameChangers: true,
   tribalFillerPenalty: 30,
-  interactionBonus: 25,
+  interactionBonus: 30,
   hyperOptimizedPenalty: 0,
-  cedhStapleBonus: 30,
+  cedhStapleBonus: 40,
   bypassTypeRatios: true,
   comboOverrideScore: 200,
   fastManaOverrideScore: 180,
-  tutorOverrideScore: 160,
-  interactionOverrideScore: 140,
+  interactionOverrideScore: 150,
 };
 
 export const BRACKET_STRATEGIES: Record<number, BracketStrategy> = {
