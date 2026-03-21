@@ -16,13 +16,62 @@ interface Props {
 }
 
 export default function BracketEstimate({ bracketEstimate, targetBracket }: Props) {
-  const { bracket, gameChangersFound = [], reasons = [], combos = [] } = bracketEstimate;
+  const { bracket, gameChangersFound = [], reasons = [], combos = [], diagnostics } = bracketEstimate;
 
   // Target vs generated comparison
   const hasTarget = targetBracket !== undefined && targetBracket !== null;
   const matchesTarget = hasTarget && bracket === targetBracket;
   const belowTarget = hasTarget && bracket < targetBracket!;
   const aboveTarget = hasTarget && bracket > targetBracket!;
+
+  // Build detailed mismatch info for below-target
+  const buildMismatchDetails = (): string[] => {
+    if (!belowTarget || !diagnostics) return [];
+    const details: string[] = [];
+    const target = targetBracket!;
+
+    if (target >= 4) {
+      // Expected: 4+ Game Changers
+      if (diagnostics.gameChangerCount < 4) {
+        details.push(`Game Changers: have ${diagnostics.gameChangerCount}, need 4+`);
+      }
+      // Expected: fast mana density
+      if (diagnostics.fastManaCount < 4) {
+        details.push(`Fast mana: have ${diagnostics.fastManaCount}, need 4+`);
+      }
+      // Expected: tutors
+      if (diagnostics.tutorCount < 2) {
+        details.push(`Tutors: have ${diagnostics.tutorCount}, need 2+`);
+      }
+    }
+
+    if (target >= 5) {
+      // Expected: 6+ Game Changers
+      if (diagnostics.gameChangerCount < 6) {
+        details.push(`Game Changers: have ${diagnostics.gameChangerCount}, need 6+`);
+      }
+      // Expected: avg CMC < 2.5
+      if (diagnostics.averageCMC >= 2.5) {
+        details.push(`Avg CMC: ${diagnostics.averageCMC.toFixed(2)}, need < 2.5`);
+      }
+      // Expected: 8+ fast mana
+      if (diagnostics.fastManaCount < 8) {
+        details.push(`Fast mana: have ${diagnostics.fastManaCount}, need 8+`);
+      }
+      // Expected: multiple combo lines
+      if (diagnostics.infiniteComboCount < 2) {
+        details.push(`Combo lines: have ${diagnostics.infiniteComboCount}, need 2+`);
+      }
+      // Expected: 5+ tutors
+      if (diagnostics.tutorCount < 5) {
+        details.push(`Tutors: have ${diagnostics.tutorCount}, need 5+`);
+      }
+    }
+
+    return details;
+  };
+
+  const mismatchDetails = buildMismatchDetails();
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -66,7 +115,18 @@ export default function BracketEstimate({ bracketEstimate, targetBracket }: Prop
             <span>&#10003; Deck matches target Bracket {targetBracket}</span>
           )}
           {belowTarget && (
-            <span>&#9888; Deck generated at Bracket {bracket} — budget or card pool may be limiting higher-power options (target: {targetBracket})</span>
+            <div>
+              <span>&#9888; Target: Bracket {targetBracket} | Generated: Bracket {bracket}</span>
+              {mismatchDetails.length > 0 && (
+                <div className="mt-1 text-xs">
+                  <span className="font-medium">Missing:</span>{' '}
+                  {mismatchDetails.join(' | ')}
+                </div>
+              )}
+              {mismatchDetails.length === 0 && (
+                <span className="block mt-1 text-xs">Budget or card pool may be limiting higher-power options</span>
+              )}
+            </div>
           )}
           {aboveTarget && (
             <span>&#9888; Deck exceeds target Bracket {targetBracket} (estimated: {bracket})</span>
@@ -74,10 +134,36 @@ export default function BracketEstimate({ bracketEstimate, targetBracket }: Prop
         </div>
       )}
 
+      {/* Diagnostics summary */}
+      {diagnostics && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+          <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
+            <div className="font-medium text-gray-500">Avg CMC</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.averageCMC.toFixed(2)}</div>
+          </div>
+          <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
+            <div className="font-medium text-gray-500">Fast Mana</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.fastManaCount}</div>
+          </div>
+          <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
+            <div className="font-medium text-gray-500">Tutors</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.tutorCount}</div>
+          </div>
+          <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
+            <div className="font-medium text-gray-500">Game Ch.</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.gameChangerCount}</div>
+          </div>
+          <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
+            <div className="font-medium text-gray-500">Inf. Combos</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.infiniteComboCount}</div>
+          </div>
+        </div>
+      )}
+
       {/* Reasons */}
       {reasons.length > 0 && (
         <ul className="text-sm text-gray-600 space-y-1 mb-3">
-          {reasons.map((r, i) => <li key={i}>• {r}</li>)}
+          {reasons.map((r, i) => <li key={i}>&bull; {r}</li>)}
         </ul>
       )}
 

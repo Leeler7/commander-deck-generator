@@ -11,11 +11,12 @@ import { edhrecClient } from './edhrec';
 import { spellbookClient } from './combos';
 import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
-import { estimateBracketLocal, GAME_CHANGERS } from './brackets';
+import { estimateBracketLocal, GAME_CHANGERS, BracketDiagnostics } from './brackets';
 import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, FunctionalRole, FUNCTIONAL_MINIMUMS } from './functional-roles';
 import { parseCommanderMechanics, summarizeProfile, CommanderProfile } from './commander-parser';
 import { evaluateSynergy } from './synergy-evaluator';
-import { getBracketStrategy, BracketStrategy, isFastMana, FAST_MANA_CARDS } from './bracket-strategy';
+import { getBracketStrategy, BracketStrategy, isFastMana, isTribalFiller, FAST_MANA_CARDS } from './bracket-strategy';
+import { getCedhStapleNames } from './cedh-staples';
 
 /**
  * New Generation Pipeline following user's 8-step specification:
@@ -492,16 +493,27 @@ export class NewDeckGenerator {
       const allCardNames = finalAllCards.map(c => c.name);
       let bracketEstimate: BracketEstimate | undefined;
 
+      // Build diagnostic maps for improved bracket estimation
+      const oracleTexts = new Map<string, string>();
+      const cardCMCs = new Map<string, number>();
+      const cardTypesMap = new Map<string, string>();
+      for (const card of finalAllCards) {
+        oracleTexts.set(card.name, card.oracle_text || '');
+        cardCMCs.set(card.name, card.cmc || 0);
+        cardTypesMap.set(card.name, card.type_line || '');
+      }
+
       // Always estimate bracket using local official rules
       try {
         const combos = await spellbookClient.findCombos(commander.name, allCardNames);
-        const localBracket = estimateBracketLocal(allCardNames, commander.name, combos);
+        const localBracket = estimateBracketLocal(allCardNames, commander.name, combos, oracleTexts, cardCMCs, cardTypesMap);
         bracketEstimate = {
           bracket: localBracket.bracket,
           combos: localBracket.combos ?? [],
           gameChangersFound: localBracket.gameChangersFound,
           gameChangerCount: localBracket.gameChangerCount,
           reasons: localBracket.reasons,
+          diagnostics: localBracket.diagnostics,
         };
       } catch {
         // fail silently
@@ -531,13 +543,23 @@ export class NewDeckGenerator {
         try {
           const updatedNames = [...finalNonlands, ...finalLands].map(c => c.name);
           const reCombos = bracketEstimate?.combos ?? [];
-          const reLocal = estimateBracketLocal(updatedNames, commander.name, reCombos);
+          // Rebuild diagnostic maps after changes
+          const reOracleTexts = new Map<string, string>();
+          const reCardCMCs = new Map<string, number>();
+          const reCardTypes = new Map<string, string>();
+          for (const card of [...finalNonlands, ...finalLands]) {
+            reOracleTexts.set(card.name, card.oracle_text || '');
+            reCardCMCs.set(card.name, card.cmc || 0);
+            reCardTypes.set(card.name, card.type_line || '');
+          }
+          const reLocal = estimateBracketLocal(updatedNames, commander.name, reCombos, reOracleTexts, reCardCMCs, reCardTypes);
           bracketEstimate = {
             bracket: reLocal.bracket,
             combos: reLocal.combos ?? [],
             gameChangersFound: reLocal.gameChangersFound,
             gameChangerCount: reLocal.gameChangerCount,
             reasons: reLocal.reasons,
+            diagnostics: reLocal.diagnostics,
           };
           console.log(`🎯 BRACKET: Re-estimated bracket after removal: ${reLocal.bracket}`);
         } catch {
@@ -751,28 +773,49 @@ export class NewDeckGenerator {
       this.log(`⚡ STEP1: Fast mana search added ${allCards.length - fastManaStart} cards for bracket ${constraints?.targetBracket}`);
     }
 
-    // ── Bracket 5: Supplemental cEDH staples search ─────────────────────────
-    if (this.bracketStrategy?.searchCedhStaples) {
-      const cedhStart = allCards.length;
-      // Search for efficient interaction: free counterspells, cheap removal, protection
-      const cedhQueries = [
-        `o:"without paying" t:instant ${colorQuery} f:commander`,
-        `o:"counter target" cmc<=2 t:instant ${colorQuery} f:commander`,
-        `o:"exile target" cmc<=2 ${colorQuery} f:commander`,
-      ];
-      for (const q of cedhQueries) {
+    // ── Bracket 4+: Supplemental Game Changers search ──────────────────────
+    if (this.bracketStrategy?.searchGameChangers) {
+      const gcStart = allCards.length;
+      for (const gcName of GAME_CHANGERS) {
+        if (seenNames.has(gcName.toLowerCase())) continue;
         try {
-          const res = await this.scryfallClient.searchCards(q, 1, 'edhrec');
+          const res = await this.scryfallClient.searchCards(`!"${gcName}" f:commander`, 1, 'name');
           for (const card of res.data) {
             const nameLower = card.name.toLowerCase();
             if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+            const cmdColors = new Set(commander.color_identity.map((c: string) => c.toLowerCase()));
+            const cardOk = card.color_identity.every((c: string) => cmdColors.has(c.toLowerCase()) || commander.color_identity.length === 0);
+            if (!cardOk) continue;
             seenIds.add(card.id);
             seenNames.add(nameLower);
             allCards.push(card);
           }
         } catch { /* skip */ }
       }
-      this.log(`🏆 STEP1: cEDH staples search added ${allCards.length - cedhStart} cards`);
+      this.log(`🎮 STEP1: Game Changers search added ${allCards.length - gcStart} cards for bracket ${constraints?.targetBracket}`);
+    }
+
+    // ── Bracket 4-5: Supplemental cEDH staples by exact name ────────────────
+    if (this.bracketStrategy?.searchCedhStaples) {
+      const cedhStart = allCards.length;
+      const stapleNames = getCedhStapleNames(commander.color_identity);
+      for (const stapleName of stapleNames) {
+        if (seenNames.has(stapleName.toLowerCase())) continue;
+        try {
+          const res = await this.scryfallClient.searchCards(`!"${stapleName}" f:commander`, 1, 'name');
+          for (const card of res.data) {
+            const nameLower = card.name.toLowerCase();
+            if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+            const cmdColors = new Set(commander.color_identity.map((c: string) => c.toLowerCase()));
+            const cardOk = card.color_identity.every((c: string) => cmdColors.has(c.toLowerCase()) || commander.color_identity.length === 0);
+            if (!cardOk) continue;
+            seenIds.add(card.id);
+            seenNames.add(nameLower);
+            allCards.push(card);
+          }
+        } catch { /* skip */ }
+      }
+      this.log(`🏆 STEP1: cEDH staples search added ${allCards.length - cedhStart} cards (${stapleNames.length} staple names searched)`);
     }
 
     this.log(`📋 STEP1: total pool = ${allCards.length} candidates`);
@@ -831,7 +874,28 @@ export class NewDeckGenerator {
         this.log(`🚫 STEP1: Excluding likely Un-set card by name: ${card.name}`);
         return false;
       }
-      
+
+      // Bracket 1: Exclude tutors entirely from pool (not just penalized)
+      if (this.bracketStrategy?.excludeTutors) {
+        const oracleText = (card.oracle_text || '').toLowerCase();
+        if (
+          oracleText.includes('search your library') &&
+          !oracleText.includes('search your library for a basic land') &&
+          !oracleText.includes('search your library for a land card') &&
+          !(oracleText.includes('search your library') && oracleText.includes('land') && !oracleText.includes('creature') && !oracleText.includes('artifact'))
+        ) {
+          return false;
+        }
+      }
+
+      // Bracket 1: Exclude extra turn cards
+      if (this.bracketStrategy && !this.bracketStrategy.extraTurnsAllowed) {
+        const oracleText = (card.oracle_text || '').toLowerCase();
+        if (oracleText.includes('extra turn') || oracleText.includes('additional turn')) {
+          return false;
+        }
+      }
+
       return true;
     });
   }
@@ -1171,6 +1235,38 @@ export class NewDeckGenerator {
             const penalty = bs.highCMCPenaltyPerPoint * ((card.cmc || 0) - bs.highCMCThreshold);
             synergyScore = Math.max(0, synergyScore - penalty);
             synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `High CMC -${penalty} (bracket)`;
+          }
+        }
+
+        // Tribal filler penalty (bracket 4-5: vanilla token sorceries, slow anthems)
+        if (bs.tribalFillerPenalty > 0 && isTribalFiller(card.name)) {
+          synergyScore = Math.max(0, synergyScore - bs.tribalFillerPenalty);
+          synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Tribal filler -${bs.tribalFillerPenalty} (bracket)`;
+        }
+
+        // Interaction bonus (bracket 4-5: counterspells, instant-speed removal)
+        if (bs.interactionBonus > 0 && cardRoles.includes('removal')) {
+          const cardType = (card.type_line || '').toLowerCase();
+          // Instant-speed interaction is more valuable at high brackets
+          if (cardType.includes('instant') || (card.oracle_text || '').toLowerCase().includes('flash')) {
+            synergyScore += bs.interactionBonus;
+            synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Interaction +${bs.interactionBonus} (bracket)`;
+          }
+        }
+
+        // Exhibition: penalize hyper-optimized auto-includes
+        if (bs.hyperOptimizedPenalty > 0 && edhrecEntry && edhrecEntry.synergy > 0.6) {
+          synergyScore = Math.max(0, synergyScore - bs.hyperOptimizedPenalty);
+          synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Hyper-optimized -${bs.hyperOptimizedPenalty} (Exhibition)`;
+        }
+
+        // cEDH staple bonus: boost cards from the staple list
+        if (bs.cedhStapleBonus > 0) {
+          const stapleNames = getCedhStapleNames(commander.color_identity);
+          const isStaple = stapleNames.some(s => s.toLowerCase() === card.name.toLowerCase());
+          if (isStaple) {
+            synergyScore += bs.cedhStapleBonus;
+            synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `cEDH staple +${bs.cedhStapleBonus} (bracket)`;
           }
         }
       }

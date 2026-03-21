@@ -36,6 +36,8 @@ export interface BracketStrategy {
   // ── Tutor tuning (step 2 scoring) ─────────────────────────────────────────
   /** Score adjustment for tutor cards (negative = discourage, positive = seek) */
   tutorAdjustment: number;
+  /** If true, tutors are completely excluded from the pool (step1), not just penalized */
+  excludeTutors: boolean;
 
   // ── EDHREC synergy weight (step 2) ────────────────────────────────────────
   /** Multiplier on the EDHREC synergy bonus (1.0 = normal) */
@@ -80,6 +82,18 @@ export interface BracketStrategy {
   searchFastMana: boolean;
   /** Whether to run a cEDH staples supplemental search in step1 */
   searchCedhStaples: boolean;
+  /** Whether to actively search for Game Changers by name in step1 */
+  searchGameChangers: boolean;
+
+  // ── Bracket-specific scoring adjustments (step 2) ─────────────────────────
+  /** Score penalty for casual tribal filler at high brackets (0 = none) */
+  tribalFillerPenalty: number;
+  /** Score bonus for interaction pieces (counterspells, removal) */
+  interactionBonus: number;
+  /** Penalty for hyper-optimized auto-includes at Exhibition bracket */
+  hyperOptimizedPenalty: number;
+  /** Bonus applied to cEDH staple cards when found in pool */
+  cedhStapleBonus: number;
 }
 
 // ─── Fast mana card names (for detection + supplemental search) ─────────────
@@ -100,6 +114,20 @@ export function isFastMana(cardName: string): boolean {
   return FAST_MANA_NAMES_LOWER.has(cardName.toLowerCase());
 }
 
+/** Known casual tribal filler sorceries/enchantments that are too slow for bracket 4-5 */
+export const TRIBAL_FILLER_NAMES_LOWER = new Set([
+  'dragon fodder', "krenko's command", 'hordeling outburst',
+  'goblin rally', 'empty the warrens', 'mogg war marshal',
+  'raise the alarm', 'lingering souls', 'spectral procession',
+  'call of the herd', 'increasing devotion', 'army of the damned',
+  'decree of justice', 'white sun\'s zenith',
+].map(n => n.toLowerCase()));
+
+/** Returns true if a card is known casual tribal filler */
+export function isTribalFiller(cardName: string): boolean {
+  return TRIBAL_FILLER_NAMES_LOWER.has(cardName.toLowerCase());
+}
+
 // ─── Bracket Configurations ─────────────────────────────────────────────────
 
 const BRACKET_1_EXHIBITION: BracketStrategy = {
@@ -110,6 +138,7 @@ const BRACKET_1_EXHIBITION: BracketStrategy = {
   comboMinTotalCMC: Infinity,
   gameChangersAllowed: 0,
   tutorAdjustment: -30,
+  excludeTutors: true,
   edhrecSynergyWeight: 0.5,
   themeBonus: 2.0,
   functionalMinimums: {
@@ -132,6 +161,11 @@ const BRACKET_1_EXHIBITION: BracketStrategy = {
   landCount: 38,
   searchFastMana: false,
   searchCedhStaples: false,
+  searchGameChangers: false,
+  tribalFillerPenalty: 0,
+  interactionBonus: 0,
+  hyperOptimizedPenalty: 15,
+  cedhStapleBonus: 0,
 };
 
 const BRACKET_2_CORE: BracketStrategy = {
@@ -142,6 +176,7 @@ const BRACKET_2_CORE: BracketStrategy = {
   comboMinTotalCMC: Infinity,
   gameChangersAllowed: 0,
   tutorAdjustment: -15,
+  excludeTutors: false,
   edhrecSynergyWeight: 1.0,
   themeBonus: 1.5,
   functionalMinimums: {
@@ -157,13 +192,18 @@ const BRACKET_2_CORE: BracketStrategy = {
   penalizeHighCMC: false,
   highCMCPenaltyPerPoint: 0,
   highCMCThreshold: 99,
-  fastManaAllowed: false,
+  fastManaAllowed: true, // Sol Ring is fine at Bracket 2
   fastManaBonus: 0,
   extraTurnsAllowed: false,
   massLandDenialAllowed: false,
   landCount: 37,
   searchFastMana: false,
   searchCedhStaples: false,
+  searchGameChangers: false,
+  tribalFillerPenalty: 0,
+  interactionBonus: 0,
+  hyperOptimizedPenalty: 0,
+  cedhStapleBonus: 0,
 };
 
 const BRACKET_3_UPGRADED: BracketStrategy = {
@@ -174,6 +214,7 @@ const BRACKET_3_UPGRADED: BracketStrategy = {
   comboMinTotalCMC: 6,
   gameChangersAllowed: 3,
   tutorAdjustment: 0,
+  excludeTutors: false,
   edhrecSynergyWeight: 1.2,
   themeBonus: 1.0,
   functionalMinimums: {
@@ -196,6 +237,11 @@ const BRACKET_3_UPGRADED: BracketStrategy = {
   landCount: 36,
   searchFastMana: false,
   searchCedhStaples: false,
+  searchGameChangers: false,
+  tribalFillerPenalty: 0,
+  interactionBonus: 0,
+  hyperOptimizedPenalty: 0,
+  cedhStapleBonus: 0,
 };
 
 const BRACKET_4_OPTIMIZED: BracketStrategy = {
@@ -206,6 +252,7 @@ const BRACKET_4_OPTIMIZED: BracketStrategy = {
   comboMinTotalCMC: 0,
   gameChangersAllowed: Infinity,
   tutorAdjustment: 20,
+  excludeTutors: false,
   edhrecSynergyWeight: 1.5,
   themeBonus: 0.5,
   functionalMinimums: {
@@ -228,6 +275,11 @@ const BRACKET_4_OPTIMIZED: BracketStrategy = {
   landCount: 34,
   searchFastMana: true,
   searchCedhStaples: false,
+  searchGameChangers: true,
+  tribalFillerPenalty: 10,
+  interactionBonus: 15,
+  hyperOptimizedPenalty: 0,
+  cedhStapleBonus: 20,
 };
 
 const BRACKET_5_CEDH: BracketStrategy = {
@@ -238,6 +290,7 @@ const BRACKET_5_CEDH: BracketStrategy = {
   comboMinTotalCMC: 0,
   gameChangersAllowed: Infinity,
   tutorAdjustment: 35,
+  excludeTutors: false,
   edhrecSynergyWeight: 2.0,
   themeBonus: 0.0,
   functionalMinimums: {
@@ -260,6 +313,11 @@ const BRACKET_5_CEDH: BracketStrategy = {
   landCount: 31,
   searchFastMana: true,
   searchCedhStaples: true,
+  searchGameChangers: true,
+  tribalFillerPenalty: 20,
+  interactionBonus: 25,
+  hyperOptimizedPenalty: 0,
+  cedhStapleBonus: 30,
 };
 
 export const BRACKET_STRATEGIES: Record<number, BracketStrategy> = {

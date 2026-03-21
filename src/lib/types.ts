@@ -306,4 +306,14 @@ export interface BracketEstimate {
   gameChangerCount?: number;
   /** Human-readable reasons for bracket assignment */
   reasons?: string[];
+  /** Detailed diagnostics for bracket verification */
+  diagnostics?: {
+    tutorCount: number;
+    fastManaCount: number;
+    averageCMC: number;
+    infiniteComboCount: number;
+    gameChangerCount: number;
+    tutorNames: string[];
+    fastManaNames: string[];
+  };
 }
