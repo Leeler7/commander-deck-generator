@@ -94,6 +94,18 @@ export interface BracketStrategy {
   hyperOptimizedPenalty: number;
   /** Bonus applied to cEDH staple cards when found in pool */
   cedhStapleBonus: number;
+
+  // ── Dynamic sourcing overrides (bracket 4-5) ───────────────────────────────
+  /** Whether to bypass type ratio filtering (step4) and sort by score instead */
+  bypassTypeRatios: boolean;
+  /** Minimum override score for combo pieces from Commander Spellbook */
+  comboOverrideScore: number;
+  /** Minimum override score for fast mana cards */
+  fastManaOverrideScore: number;
+  /** Minimum override score for tutor cards */
+  tutorOverrideScore: number;
+  /** Minimum override score for instant-speed interaction */
+  interactionOverrideScore: number;
 }
 
 // ─── Fast mana card names (for detection + supplemental search) ─────────────
@@ -166,6 +178,11 @@ const BRACKET_1_EXHIBITION: BracketStrategy = {
   interactionBonus: 0,
   hyperOptimizedPenalty: 15,
   cedhStapleBonus: 0,
+  bypassTypeRatios: false,
+  comboOverrideScore: 0,
+  fastManaOverrideScore: 0,
+  tutorOverrideScore: 0,
+  interactionOverrideScore: 0,
 };
 
 const BRACKET_2_CORE: BracketStrategy = {
@@ -204,6 +221,11 @@ const BRACKET_2_CORE: BracketStrategy = {
   interactionBonus: 0,
   hyperOptimizedPenalty: 0,
   cedhStapleBonus: 0,
+  bypassTypeRatios: false,
+  comboOverrideScore: 0,
+  fastManaOverrideScore: 0,
+  tutorOverrideScore: 0,
+  interactionOverrideScore: 0,
 };
 
 const BRACKET_3_UPGRADED: BracketStrategy = {
@@ -242,6 +264,11 @@ const BRACKET_3_UPGRADED: BracketStrategy = {
   interactionBonus: 0,
   hyperOptimizedPenalty: 0,
   cedhStapleBonus: 0,
+  bypassTypeRatios: false,
+  comboOverrideScore: 0,
+  fastManaOverrideScore: 0,
+  tutorOverrideScore: 0,
+  interactionOverrideScore: 0,
 };
 
 const BRACKET_4_OPTIMIZED: BracketStrategy = {
@@ -280,6 +307,11 @@ const BRACKET_4_OPTIMIZED: BracketStrategy = {
   interactionBonus: 15,
   hyperOptimizedPenalty: 0,
   cedhStapleBonus: 20,
+  bypassTypeRatios: true,
+  comboOverrideScore: 160,
+  fastManaOverrideScore: 140,
+  tutorOverrideScore: 120,
+  interactionOverrideScore: 0,
 };
 
 const BRACKET_5_CEDH: BracketStrategy = {
@@ -314,10 +346,15 @@ const BRACKET_5_CEDH: BracketStrategy = {
   searchFastMana: true,
   searchCedhStaples: true,
   searchGameChangers: true,
-  tribalFillerPenalty: 20,
+  tribalFillerPenalty: 30,
   interactionBonus: 25,
   hyperOptimizedPenalty: 0,
   cedhStapleBonus: 30,
+  bypassTypeRatios: true,
+  comboOverrideScore: 200,
+  fastManaOverrideScore: 180,
+  tutorOverrideScore: 160,
+  interactionOverrideScore: 140,
 };
 
 export const BRACKET_STRATEGIES: Record<number, BracketStrategy> = {

@@ -16,7 +16,8 @@ import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, F
 import { parseCommanderMechanics, summarizeProfile, CommanderProfile } from './commander-parser';
 import { evaluateSynergy } from './synergy-evaluator';
 import { getBracketStrategy, BracketStrategy, isFastMana, isTribalFiller, FAST_MANA_CARDS } from './bracket-strategy';
-import { getCedhStapleNames } from './cedh-staples';
+// Dynamic cEDH card sourcing — cedh-staples.ts has been removed in favor of
+// EDHREC bracket data, Commander Spellbook combos, and Scryfall functional searches.
 
 /**
  * New Generation Pipeline following user's 8-step specification:
@@ -100,6 +101,19 @@ export class NewDeckGenerator {
         console.log(`   Combos: ${this.bracketStrategy.comboMode} | Game Changers: ${this.bracketStrategy.gameChangersAllowed === Infinity ? 'unlimited' : this.bracketStrategy.gameChangersAllowed} | Lands: ${this.bracketStrategy.landCount}`);
         console.log(`   Fast mana: ${this.bracketStrategy.fastManaAllowed ? 'yes' : 'no'} | Tutor adj: ${this.bracketStrategy.tutorAdjustment > 0 ? '+' : ''}${this.bracketStrategy.tutorAdjustment} | Theme mult: ${this.bracketStrategy.themeBonus}x`);
 
+        const bs = this.bracketStrategy;
+        console.log(`🎯 BRACKET STRATEGY CONFIG:`, JSON.stringify({
+          comboMode: bs.comboMode,
+          gameChangersAllowed: bs.gameChangersAllowed,
+          fastManaBonus: bs.fastManaBonus,
+          tutorAdjustment: bs.tutorAdjustment,
+          landCount: bs.landCount,
+          searchFastMana: bs.searchFastMana,
+          searchCedhStaples: bs.searchCedhStaples,
+          searchGameChangers: bs.searchGameChangers,
+          bypassTypeRatios: bs.bypassTypeRatios,
+        }, null, 2));
+
         // Auto-set constraint flags based on bracket strategy
         if (!this.bracketStrategy.extraTurnsAllowed) constraints.no_extra_turns = true;
         if (!this.bracketStrategy.fastManaAllowed) constraints.no_fast_mana = true;
@@ -163,15 +177,25 @@ export class NewDeckGenerator {
         : themeEnhanced;
 
       // STEP 4: Narrow card pool to recommended ratios based on sliders
-      this.log('⚖️ STEP 4: Applying ratio constraints');
-      const ratioFiltered = await this.step4_ApplyRatios(gcFilteredPool, constraints.card_type_weights || {
-        creatures: 5,
-        artifacts: 5,
-        enchantments: 5,
-        instants: 5,
-        sorceries: 5,
-        planeswalkers: 1
-      }, colorMatchedCards, commander, constraints);
+      // Bracket 4-5: bypass type ratios entirely — sort by score and take top 65
+      let ratioFiltered: ScoredCard[];
+      if (this.bracketStrategy?.bypassTypeRatios) {
+        console.log(`⚖️ STEP 4: BYPASSING type ratios for bracket ${constraints.targetBracket} — sorting by finalScore`);
+        ratioFiltered = [...gcFilteredPool]
+          .sort((a, b) => b.finalScore - a.finalScore)
+          .slice(0, 65);
+        console.log(`✅ Top 65 cards by score selected (bypassed type ratios)`);
+      } else {
+        this.log('⚖️ STEP 4: Applying ratio constraints');
+        ratioFiltered = await this.step4_ApplyRatios(gcFilteredPool, constraints.card_type_weights || {
+          creatures: 5,
+          artifacts: 5,
+          enchantments: 5,
+          instants: 5,
+          sorceries: 5,
+          planeswalkers: 1
+        }, colorMatchedCards, commander, constraints);
+      }
       this.log(`✅ Filtered to ${ratioFiltered.length} cards based on ratios`);
 
       // STEP 5: Check price of cards
@@ -795,30 +819,140 @@ export class NewDeckGenerator {
       this.log(`🎮 STEP1: Game Changers search added ${allCards.length - gcStart} cards for bracket ${constraints?.targetBracket}`);
     }
 
-    // ── Bracket 4-5: Supplemental cEDH staples by exact name ────────────────
-    if (this.bracketStrategy?.searchCedhStaples) {
-      const cedhStart = allCards.length;
-      const stapleNames = getCedhStapleNames(commander.color_identity);
-      for (const stapleName of stapleNames) {
-        if (seenNames.has(stapleName.toLowerCase())) continue;
-        try {
-          const res = await this.scryfallClient.searchCards(`!"${stapleName}" f:commander`, 1, 'name');
-          for (const card of res.data) {
-            const nameLower = card.name.toLowerCase();
-            if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
-            const cmdColors = new Set(commander.color_identity.map((c: string) => c.toLowerCase()));
-            const cardOk = card.color_identity.every((c: string) => cmdColors.has(c.toLowerCase()) || commander.color_identity.length === 0);
-            if (!cardOk) continue;
-            seenIds.add(card.id);
-            seenNames.add(nameLower);
-            allCards.push(card);
+    // ── Layer 1: EDHREC bracket-filtered data (bracket 4-5) ─────────────────
+    if (this.bracketStrategy?.searchCedhStaples && constraints?.targetBracket) {
+      const edhrecBracketStart = allCards.length;
+      try {
+        const bracketRecs = await edhrecClient.getBracketFilteredRecommendations(
+          commander.name,
+          constraints.targetBracket
+        );
+        if (bracketRecs.length > 0) {
+          console.log(`[Layer1] EDHREC bracket data: ${bracketRecs.length} recommendations for bracket ${constraints.targetBracket}`);
+          // Fetch cards from Scryfall in batched OR queries (10 per query)
+          const recNames = bracketRecs
+            .map(r => r.name)
+            .filter(n => !seenNames.has(n.toLowerCase()));
+          for (let i = 0; i < recNames.length; i += 10) {
+            const batch = recNames.slice(i, i + 10);
+            const orQuery = batch.map(n => `!"${n}"`).join(' OR ');
+            try {
+              const res = await this.scryfallClient.searchCards(`(${orQuery}) f:commander`, 1, 'edhrec');
+              for (const card of res.data) {
+                const nameLower = card.name.toLowerCase();
+                if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+                const cmdColors = new Set(commander.color_identity.map((c: string) => c.toLowerCase()));
+                const cardOk = card.color_identity.every((c: string) => cmdColors.has(c.toLowerCase()) || commander.color_identity.length === 0);
+                if (!cardOk) continue;
+                seenIds.add(card.id);
+                seenNames.add(nameLower);
+                allCards.push(card);
+              }
+            } catch { /* skip batch */ }
           }
-        } catch { /* skip */ }
+        }
+      } catch (err) {
+        console.log(`[Layer1] EDHREC bracket data failed (non-fatal):`, err);
       }
-      this.log(`🏆 STEP1: cEDH staples search added ${allCards.length - cedhStart} cards (${stapleNames.length} staple names searched)`);
+      console.log(`[Layer1] EDHREC bracket data added ${allCards.length - edhrecBracketStart} cards`);
+    }
+
+    // ── Layer 2: Commander Spellbook combo saturation (bracket 4-5) ──────────
+    if (this.bracketStrategy?.searchCedhStaples && constraints?.targetBracket && constraints.targetBracket >= 4) {
+      const comboStart = allCards.length;
+      try {
+        const combos = await spellbookClient.findCombosForCommander(commander.name);
+        if (combos.length > 0) {
+          // Extract unique card names from all combo lines
+          const comboCardNames = new Set<string>();
+          for (const combo of combos) {
+            for (const cardName of combo.cards) {
+              if (cardName.toLowerCase() !== commander.name.toLowerCase()) {
+                comboCardNames.add(cardName);
+              }
+            }
+          }
+          console.log(`[Layer2] Spellbook: ${combos.length} combos, ${comboCardNames.size} unique combo pieces`);
+
+          // Fetch missing combo pieces via batched OR queries
+          const missingPieces = [...comboCardNames].filter(n => !seenNames.has(n.toLowerCase()));
+          for (let i = 0; i < missingPieces.length; i += 10) {
+            const batch = missingPieces.slice(i, i + 10);
+            const orQuery = batch.map(n => `!"${n}"`).join(' OR ');
+            try {
+              const res = await this.scryfallClient.searchCards(`(${orQuery}) f:commander`, 1, 'name');
+              for (const card of res.data) {
+                const nameLower = card.name.toLowerCase();
+                if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+                const cmdColors = new Set(commander.color_identity.map((c: string) => c.toLowerCase()));
+                const cardOk = card.color_identity.every((c: string) => cmdColors.has(c.toLowerCase()) || commander.color_identity.length === 0);
+                if (!cardOk) continue;
+                seenIds.add(card.id);
+                seenNames.add(nameLower);
+                allCards.push(card);
+              }
+            } catch { /* skip batch */ }
+          }
+        }
+      } catch (err) {
+        console.log(`[Layer2] Spellbook combo search failed (non-fatal):`, err);
+      }
+      console.log(`[Layer2] Spellbook combo pieces added ${allCards.length - comboStart} cards`);
+    }
+
+    // ── Layer 3: Scryfall functional category searches (bracket 4-5) ────────
+    if (this.bracketStrategy?.searchCedhStaples && constraints?.targetBracket && constraints.targetBracket >= 4) {
+      const funcStart = allCards.length;
+      const hasBlue = commander.color_identity.some((c: string) => c.toUpperCase() === 'U');
+
+      const functionalQueries: { label: string; query: string }[] = [
+        { label: 'Fast mana', query: `t:artifact cmc<=1 o:"add" -t:equipment f:commander ${colorQuery}` },
+        { label: 'Free interaction', query: `o:"without paying" t:instant f:commander ${colorQuery}` },
+        { label: 'Cheap removal', query: `(o:"destroy target" OR o:"exile target") cmc<=2 f:commander ${colorQuery}` },
+        { label: 'Tutors', query: `o:"search your library" -o:"basic land" f:commander ${colorQuery}` },
+        { label: 'Sacrifice outlets', query: `o:"sacrifice a creature:" f:commander ${colorQuery}` },
+        { label: 'Haste enablers', query: `o:"creatures you control have haste" f:commander ${colorQuery}` },
+        { label: 'Untap effects', query: `o:"untap target" f:commander ${colorQuery}` },
+      ];
+
+      if (hasBlue) {
+        functionalQueries.push(
+          { label: 'Cheap counters', query: `o:"counter target" cmc<=2 t:instant f:commander ${colorQuery}` }
+        );
+      }
+
+      for (const { label, query } of functionalQueries) {
+        const catStart = allCards.length;
+        // Take top 1-2 pages sorted by EDHREC rank
+        for (let page = 1; page <= 2; page++) {
+          try {
+            const res = await this.scryfallClient.searchCards(query, page, 'edhrec');
+            for (const card of res.data) {
+              const nameLower = card.name.toLowerCase();
+              if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+              seenIds.add(card.id);
+              seenNames.add(nameLower);
+              allCards.push(card);
+            }
+            if (!res.has_more) break;
+          } catch { break; }
+        }
+        const added = allCards.length - catStart;
+        if (added > 0) {
+          console.log(`[Layer3] ${label}: +${added} cards`);
+        }
+      }
+      console.log(`[Layer3] Functional searches added ${allCards.length - funcStart} total cards`);
     }
 
     this.log(`📋 STEP1: total pool = ${allCards.length} candidates`);
+
+    // ── Pool assembly diagnostics ────────────────────────────────────────────
+    const GAME_CHANGERS_LOWER = new Set(GAME_CHANGERS.map(g => g.toLowerCase()));
+    const gcNames = allCards.filter(c => GAME_CHANGERS_LOWER.has(c.name.toLowerCase())).map(c => c.name);
+    console.log(`📊 POOL ASSEMBLY COMPLETE: ${allCards.length} cards`);
+    console.log(`   Game Changers in pool: ${gcNames.length}: ${gcNames.join(', ')}`);
+    console.log(`   Fast mana in pool: ${allCards.filter(c => isFastMana(c.name)).length}`);
 
     return allCards.filter(card => {
       // Color identity check
@@ -1260,13 +1394,61 @@ export class NewDeckGenerator {
           synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Hyper-optimized -${bs.hyperOptimizedPenalty} (Exhibition)`;
         }
 
-        // cEDH staple bonus: boost cards from the staple list
-        if (bs.cedhStapleBonus > 0) {
-          const stapleNames = getCedhStapleNames(commander.color_identity);
-          const isStaple = stapleNames.some(s => s.toLowerCase() === card.name.toLowerCase());
-          if (isStaple) {
-            synergyScore += bs.cedhStapleBonus;
-            synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `cEDH staple +${bs.cedhStapleBonus} (bracket)`;
+        // ── Bracket 4-5: Override scores for key card categories ──────────
+        // Combo pieces, fast mana, tutors, and interaction get minimum scores
+        // so they can't be outcompeted by casual synergy cards.
+        if (bs.comboOverrideScore > 0 || bs.fastManaOverrideScore > 0 || bs.tutorOverrideScore > 0 || bs.interactionOverrideScore > 0) {
+          // Fast mana override
+          if (bs.fastManaOverrideScore > 0 && isFastMana(card.name)) {
+            const prev = synergyScore;
+            synergyScore = Math.max(synergyScore, bs.fastManaOverrideScore);
+            if (synergyScore > prev) {
+              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Fast mana override=${bs.fastManaOverrideScore}`;
+            }
+          }
+
+          // Tutor override (with Urza's Saga fix: restricted tutors get halved/zeroed)
+          if (bs.tutorOverrideScore > 0 && cardRoles.includes('tutor')) {
+            let tutorOverride = bs.tutorOverrideScore;
+            // Restricted tutor check: if oracle text mentions specific constraints
+            const oText = (card.oracle_text || '').toLowerCase();
+            const isRestricted = oText.includes('mana value 0 or 1') ||
+              oText.includes('mana value 1 or less') ||
+              oText.includes('converted mana cost 0 or 1') ||
+              /search your library for an? (?:aura|equipment|vehicle)/.test(oText);
+            if (isRestricted) {
+              // TODO: Could count valid targets in pool, but we don't have pool context here
+              // Use a conservative halving for restricted tutors
+              tutorOverride = Math.floor(tutorOverride / 2);
+              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Restricted tutor (halved)`;
+            }
+            const prev = synergyScore;
+            synergyScore = Math.max(synergyScore, tutorOverride);
+            if (synergyScore > prev) {
+              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Tutor override=${tutorOverride}`;
+            }
+          }
+
+          // Interaction override (instant-speed removal/counterspells)
+          if (bs.interactionOverrideScore > 0 && cardRoles.includes('removal')) {
+            const cardType = (card.type_line || '').toLowerCase();
+            if (cardType.includes('instant') || (card.oracle_text || '').toLowerCase().includes('flash')) {
+              const prev = synergyScore;
+              synergyScore = Math.max(synergyScore, bs.interactionOverrideScore);
+              if (synergyScore > prev) {
+                synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Interaction override=${bs.interactionOverrideScore}`;
+              }
+            }
+          }
+
+          // Combo piece override — check if this card appears in any known combo for the commander
+          // (combo data is populated later in step2b, so we use the cedhStapleBonus as a general boost here)
+          if (bs.cedhStapleBonus > 0) {
+            // Apply cedhStapleBonus as general bracket power boost for high-EDHREC-rank cards
+            if (edhrecEntry && edhrecEntry.inclusion > 0.3 && edhrecEntry.synergy > 0.1) {
+              synergyScore += bs.cedhStapleBonus;
+              synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `High-inclusion staple +${bs.cedhStapleBonus}`;
+            }
           }
         }
       }
@@ -1507,10 +1689,19 @@ export class NewDeckGenerator {
 
       this.log(`🔗 STEP2b: Boosting ${boostMap.size} combo piece(s)`);
 
+      // Apply combo override score for bracket 4-5
+      const comboOverrideScore = this.bracketStrategy?.comboOverrideScore ?? 0;
+
       return augmentedCards.map(card => {
         const boost = boostMap.get(card.name);
         if (!boost) return card;
-        const newScore = card.synergyScore + boost.bonus;
+        let newScore = card.synergyScore + boost.bonus;
+
+        // Bracket 4-5 combo override: ensure combo pieces meet minimum score
+        if (comboOverrideScore > 0) {
+          newScore = Math.max(newScore, comboOverrideScore);
+        }
+
         this.log(`  ⚡ ${card.name}: ${card.synergyScore.toFixed(1)} → ${newScore.toFixed(1)} (${boost.note})`);
         return {
           ...card,

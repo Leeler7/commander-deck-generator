@@ -109,6 +109,54 @@ class CommanderSpellbookClient {
     }
   }
 
+  /**
+   * Find ALL combos involving a specific commander card.
+   * Used for bracket 4-5 to discover combo pieces before pool assembly.
+   */
+  async findCombosForCommander(commanderName: string): Promise<ComboResult[]> {
+    const key = `commander-combos:${commanderName}`;
+    const cached = this.getCached<ComboResult[]>(key);
+    if (cached) return cached;
+
+    // Try multiple search patterns
+    const searchPatterns = [
+      `card:"${commanderName}"`,
+      `card:="${commanderName}"`,
+    ];
+
+    for (const pattern of searchPatterns) {
+      try {
+        const encodedQuery = encodeURIComponent(pattern);
+        const url = `${SPELLBOOK_BASE}/search?q=${encodedQuery}`;
+        console.log(`[Spellbook] Searching combos for commander: ${url}`);
+        const res = await fetch(url, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (!res.ok) {
+          console.log(`[Spellbook] findCombosForCommander HTTP ${res.status} for pattern "${pattern}"`);
+          continue;
+        }
+
+        const json = await res.json();
+        const results = json?.results ?? json?.data ?? json;
+        const combos = this.parseComboResults(Array.isArray(results) ? results : []);
+        if (combos.length > 0) {
+          console.log(`[Spellbook] Found ${combos.length} combos for ${commanderName}`);
+          this.setCached(key, combos);
+          return combos;
+        }
+        console.log(`[Spellbook] Pattern "${pattern}" returned 0 combos, trying next`);
+      } catch (err) {
+        console.log(`[Spellbook] findCombosForCommander error for pattern "${pattern}":`, err);
+      }
+    }
+
+    console.log(`[Spellbook] No combos found for commander ${commanderName}`);
+    this.setCached(key, []);
+    return [];
+  }
+
   private parseComboResults(raw: any[]): ComboResult[] {
     if (!Array.isArray(raw)) return [];
     return raw.map((item: any) => ({

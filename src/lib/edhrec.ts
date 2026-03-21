@@ -169,6 +169,65 @@ class EDHRECClient {
     return recs;
   }
 
+  /**
+   * Fetch bracket-filtered recommendations for a commander.
+   * Tries cEDH, expensive, budget, or regular page depending on bracket.
+   */
+  async getBracketFilteredRecommendations(
+    commanderName: string,
+    bracket: number
+  ): Promise<EDHRECCardRecommendation[]> {
+    const slug = commanderToSlug(commanderName);
+    const cacheKey = `bracket-recs:${slug}:${bracket}`;
+    const cached = this.getCached<EDHRECCardRecommendation[]>(cacheKey);
+    if (cached) return cached;
+
+    // Build ordered list of URLs to try based on bracket
+    const urlsToTry: { url: string; label: string }[] = [];
+    if (bracket >= 5) {
+      urlsToTry.push({
+        url: `${EDHREC_JSON_BASE}/pages/commanders/${slug}/cedh.json`,
+        label: 'cEDH',
+      });
+    }
+    if (bracket >= 4) {
+      urlsToTry.push({
+        url: `${EDHREC_JSON_BASE}/pages/commanders/${slug}/expensive.json`,
+        label: 'expensive',
+      });
+    }
+    if (bracket <= 2) {
+      urlsToTry.push({
+        url: `${EDHREC_JSON_BASE}/pages/commanders/${slug}/budget.json`,
+        label: 'budget',
+      });
+    }
+    // Always fall back to regular page
+    urlsToTry.push({
+      url: `${EDHREC_JSON_BASE}/pages/commanders/${slug}.json`,
+      label: 'regular',
+    });
+
+    for (const { url, label } of urlsToTry) {
+      console.log(`[EDHREC] Trying ${label} page for ${commanderName}: ${url}`);
+      const page = await this.fetchJson<any>(url);
+      if (page) {
+        const recs = this.extractCardRecommendations(page);
+        if (recs.length > 0) {
+          console.log(`[EDHREC] ${label} page succeeded: ${recs.length} recommendations`);
+          this.setCached(cacheKey, recs);
+          return recs;
+        }
+        console.log(`[EDHREC] ${label} page returned no recommendations, trying next`);
+      } else {
+        console.log(`[EDHREC] ${label} page not found or failed, trying next`);
+      }
+    }
+
+    console.log(`[EDHREC] All bracket-filtered pages failed for ${commanderName}`);
+    return [];
+  }
+
   // ── Internal parsing ────────────────────────────────────────────────────────
 
   private extractCardRecommendations(page: any): EDHRECCardRecommendation[] {
