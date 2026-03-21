@@ -2,6 +2,45 @@
 **Last Updated:** March 20, 2026 (session 9)
 **Status:** Active Development
 
+## Sprint — 2026-03-20: Self-Reference Fix + Combo-First Selection
+
+### FIX 1 — Self-referential ability false positives (`engine-interaction.ts`)
+**Root cause:** Endbringer appearing in Krenko decks — engine scoring saw "untap" in its oracle text ("Untap Endbringer during each other player's untap step" + "untap target creature an opponent controls"). The previous check matched both sentences.
+
+**Fixes:**
+- Added `candidateName?: string` parameter to `scoreEngineInteraction()` — called with `card.name` from all call sites
+- Added `isSelfTargeting(text, verb, candidateName)` helper that checks 50-char window after verb for the card's own name or `~`
+- **Untap check rewritten**: only fires for explicitly friendly-targeting language:
+  `untap target creature/permanent you control`, `untap another creature`, `untap all/each you control`, `untap up to`, `untap equipped/enchanted`
+  — NOT for unqualified `untap target permanent` (Endbringer) or `untap target creature an opponent controls`
+- Split into two separate bonuses: **untap enabler +15** vs **tap-payoff +10** (benefits from things being tapped)
+- **Sac outlet** now excludes self-sacrifice: if only "sacrifice" reference is `sacrifice {cardname}:`, the +15 bonus is suppressed
+
+### FIX 2 — Combo-first card selection (`new-generation-pipeline.ts`)
+
+**`step2b_ComboAwareScoring` rewrite:**
+- Searches **top 100 cards** (was 30) for better combo coverage
+- Respects bracket constraints: no infinite combos for bracket ≤2 or `no_infinite_combos`
+- **Fetches missing combo pieces from Scryfall** by exact name if not in pool (colour-identity checked, capped at 20 fetches)
+- **Size-based bonuses**: 2-card = **+30**, 3-card = **+20**, 4+ ignored
+- **Completeness bonus +10**: when all other combo pieces score ≥50 in the pool
+- Stores `TrackedCombo[]` in `this.earlyComboData` for post-assembly use
+
+**New `step_ComboCompleteness()` (post-assembly, before bracket estimation):**
+- For each combo exactly 1 piece short: swaps missing piece in from `themeEnhanced` for the lowest-scored non-combo card of the same type
+- Affordability-checked against `max_card_price`
+
+**`ComboDisplay.tsx` upgrades:**
+- `isInfiniteCombo()` helper detects "infinite"/"unlimited" in results
+- Each combo shows **"∞ Infinite"** (orange) or **"✓ Finite"** (green) badge
+- Header shows total / infinite count / finite count pills
+- Infinite combos in bracket ≤2 decks show contextual bracket warning
+- Accepts `targetBracket` prop, wired from `constraints.targetBracket` in `page.tsx`
+
+**Commit:** `38180f2 feat: fix self-reference scoring + combo-first selection via Commander Spellbook`
+
+---
+
 ## Sprint — 2026-03-20: Commander Engine Interaction Scoring
 
 ### NEW — `src/lib/engine-interaction.ts`
