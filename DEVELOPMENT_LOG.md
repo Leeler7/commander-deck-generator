@@ -1,6 +1,39 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 9)
+**Last Updated:** March 20, 2026 (session 10)
 **Status:** Active Development
+
+## Sprint — 2026-03-20: Structured Commander Parser + Mechanical Synergy Evaluator
+
+### Problem
+The previous `engine-interaction.ts` used shallow keyword matching to score cards against the commander. It couldn't distinguish contextual meaning — e.g., "untap" in self-referential text vs. untap effects targeting other permanents. It also couldn't understand what a commander mechanically *produces* vs what it *wants*.
+
+### NEW — `commander-parser.ts`
+- `parseCommanderMechanics(oracleText, typeLine, name) → CommanderProfile`
+- Extracts structured data: activation costs (tap, mana, sacrifice, discard), token production (P/T, colors, types, scaling), counter production, mana production, card draw, damage profiles
+- Detects scaling factors, relevant creature types, zone references, keywords
+- `summarizeProfile()` produces human-readable descriptions for the UI
+- 13 boolean/array "wants" fields: untapEffects, hasteEnablers, tribalPieces, tokenPayoffs, sacrificeOutlets, anthemEffects, etkTriggers, goWidePayoffs, costReduction, selfMillOrDiscard, counterSynergy, topOfLibrary, damageAmplifiers
+
+### NEW — `synergy-evaluator.ts`
+- `evaluateSynergy(profile, candidateOracle, candidateTypeLine, candidateName) → { score, reasons }`
+- **Positive scoring** (14 categories): untap effects (+25), damage amplifiers (+22), tribal anthem (+22), haste enablers (+20), tribal pieces (+20), token payoffs (+20), sacrifice outlets (+18), generic anthem (+18), ETB/death triggers (+15), go-wide payoffs (+15), counter synergy (+15), graveyard synergy (+15), cost reduction (+12), top-of-library (+12)
+- **Negative scoring** (5 categories): wrong tribal (-20), draw trigger without draw (-15), noncombat damage mismatch (-15), life-gain trigger without life gain (-10), non-matching creature in tribal deck (-10)
+- Self-reference detection via `isSelfTarget()` prevents false positives
+
+### NEW — `CommanderAnalysis.tsx` UI component
+- Displays what the commander produces (green pills), activation costs (gray box), and what it wants (blue pills)
+- Rendered between ComboDisplay and deck overview on the results page
+
+### Pipeline wiring
+- Replaced `engine-interaction.ts` imports with `commander-parser` + `synergy-evaluator`
+- `commanderProfile` computed once per generation, reused for all candidate scoring
+- `evaluateSynergy()` replaces `scoreEngineInteraction()` in step2 scoring loop
+- `commanderAnalysis` (wants/produces/activation descriptions) added to `GeneratedDeck` return value
+- Synergy reasons stored in each card's `synergy_notes` field
+
+**Commit:** `99492cf feat: structured commander parser + mechanical synergy evaluator`
+
+---
 
 ## Sprint — 2026-03-20: Negative Synergy Penalty + Functional Fallback
 
