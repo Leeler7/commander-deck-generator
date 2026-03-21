@@ -13,7 +13,8 @@ import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
 import { estimateBracketLocal, GAME_CHANGERS } from './brackets';
 import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, FunctionalRole, FUNCTIONAL_MINIMUMS } from './functional-roles';
-import { extractCommanderEngine, scoreEngineInteraction, CommanderEngineTraits } from './engine-interaction';
+import { parseCommanderMechanics, summarizeProfile, CommanderProfile } from './commander-parser';
+import { evaluateSynergy } from './synergy-evaluator';
 
 /**
  * New Generation Pipeline following user's 8-step specification:
@@ -59,6 +60,9 @@ export class NewDeckGenerator {
 
   /** Combos detected in step2b — used by the post-assembly completeness check */
   private earlyComboData: TrackedCombo[] = [];
+
+  /** Structured commander mechanical profile — computed once per generation */
+  private commanderProfile: CommanderProfile | null = null;
 
   private log(message: string, ...args: any[]): void {
     // Reduce logging in production to avoid Railway rate limits
@@ -602,7 +606,10 @@ export class NewDeckGenerator {
         deck_explanation: `This deck focuses on synergy with ${commander.name}, prioritizing cards that work well with the commander's abilities and strategy.`,
         random_tags: constraints.random_tags || [],
         bracketEstimate,
-        functionalCoverage: countFunctionalRoles([...finalNonlands, ...finalLands])
+        functionalCoverage: countFunctionalRoles([...finalNonlands, ...finalLands]),
+        commanderAnalysis: this.commanderProfile
+          ? summarizeProfile(this.commanderProfile)
+          : undefined,
       };
 
     } catch (error) {
@@ -961,15 +968,17 @@ export class NewDeckGenerator {
     // Pre-load MTGJSON keywords for fallback scoring
     await mtgjsonKeywords.getKeywordCategories();
 
-    // ── Commander engine analysis (done once, used for every candidate) ──────
-    const engineTraits: CommanderEngineTraits = extractCommanderEngine(
+    // ── Structured commander analysis (done once, used for every candidate) ─
+    this.commanderProfile = parseCommanderMechanics(
       commander.oracle_text || '',
       commander.type_line || '',
+      commander.name,
     );
-    this.log(`🔧 COMMANDER ENGINE for ${commander.name}:`);
-    const activeTraits = (Object.keys(engineTraits) as Array<keyof CommanderEngineTraits>)
-      .filter(k => engineTraits[k]);
-    this.log(`   Traits: ${activeTraits.join(', ') || 'none detected'}`);
+    const profileSummary = summarizeProfile(this.commanderProfile);
+    this.log(`🔧 COMMANDER PROFILE for ${commander.name}:`);
+    this.log(`   Produces: ${profileSummary.producesDescription.join(', ') || 'none'}`);
+    this.log(`   Wants: ${profileSummary.wantsDescription.join(', ') || 'none'}`);
+    this.log(`   Activation: ${profileSummary.activationDescription}`);
 
     const scoredCards = await Promise.all(cards.map(async card => {
       let synergyScore: number;
@@ -1035,20 +1044,21 @@ export class NewDeckGenerator {
         synergy_notes = kw.score > 0 ? `Keyword: ${kw.analysis}` : undefined;
       }
 
-      // ── Engine interaction adjustment ─────────────────────────────────────
-      // Applied on top of EDHREC score. Keeps EDHREC authority intact while
-      // surfacing cards that mechanically plug into the commander's engine AND
-      // down-ranking cards referencing mechanics the commander never uses.
-      const engineResult = scoreEngineInteraction(
-        engineTraits,
-        card.oracle_text || '',
-        card.type_line || '',
-        card.name,  // pass name so self-referential abilities are excluded
-      );
-      if (engineResult.bonus !== 0) {
-        synergyScore = Math.max(0, synergyScore + engineResult.bonus);
-        const engineNote = engineResult.reasons.join('; ');
-        synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Engine: ${engineNote}`;
+      // ── Structured synergy evaluation ──────────────────────────────────────
+      // Uses the CommanderProfile (parsed once) to evaluate mechanical fit.
+      // Replaces the shallow keyword matching in engine-interaction.ts.
+      if (this.commanderProfile) {
+        const synEval = evaluateSynergy(
+          this.commanderProfile,
+          card.oracle_text || '',
+          card.type_line || '',
+          card.name,
+        );
+        if (synEval.score !== 0) {
+          synergyScore = Math.max(0, synergyScore + synEval.score);
+          const evalNote = synEval.reasons.join(' | ');
+          synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + evalNote;
+        }
       }
 
       return {
@@ -1093,24 +1103,27 @@ export class NewDeckGenerator {
     console.log();
 
     // Debug: print top 5 penalized cards for diagnostics
-    const penalized = [...scoredCards]
-      .filter(c => {
-        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '', c.name);
-        return r.bonus < 0;
-      })
-      .sort((a, b) => {
-        const ra = scoreEngineInteraction(engineTraits, a.oracle_text || '', a.type_line || '', a.name);
-        const rb = scoreEngineInteraction(engineTraits, b.oracle_text || '', b.type_line || '', b.name);
-        return ra.bonus - rb.bonus; // most penalized first
-      })
-      .slice(0, 5);
-    if (penalized.length > 0) {
-      console.log(`\n⚠️  TOP 5 ENGINE-PENALIZED CARDS for ${commander.name}:`);
-      penalized.forEach((c, i) => {
-        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '', c.name);
-        console.log(`  ${i + 1}. ${c.name.padEnd(40)} penalty=${r.bonus}  (${r.reasons.join('; ')})`);
-      });
-      console.log();
+    if (this.commanderProfile) {
+      const cp = this.commanderProfile;
+      const penalized = [...scoredCards]
+        .filter(c => {
+          const r = evaluateSynergy(cp, c.oracle_text || '', c.type_line || '', c.name);
+          return r.score < 0;
+        })
+        .sort((a, b) => {
+          const ra = evaluateSynergy(cp, a.oracle_text || '', a.type_line || '', a.name);
+          const rb = evaluateSynergy(cp, b.oracle_text || '', b.type_line || '', b.name);
+          return ra.score - rb.score;
+        })
+        .slice(0, 5);
+      if (penalized.length > 0) {
+        console.log(`\n⚠️  TOP 5 MECHANICALLY-PENALIZED CARDS for ${commander.name}:`);
+        penalized.forEach((c, i) => {
+          const r = evaluateSynergy(cp, c.oracle_text || '', c.type_line || '', c.name);
+          console.log(`  ${i + 1}. ${c.name.padEnd(40)} penalty=${r.score}  (${r.reasons.join('; ')})`);
+        });
+        console.log();
+      }
     }
 
     return scoredCards;

@@ -36,6 +36,7 @@ import PriceBar from '@/components/PriceBar';
 import Warnings from '@/components/Warnings';
 import ExportOptions from '@/components/ExportOptions';
 import DeckAnalysis from '@/components/DeckAnalysis';
+import CommanderAnalysis from '@/components/CommanderAnalysis';
 import ManaCost from '@/components/ManaCost';
 import BuyDeck from '@/components/BuyDeck';
 
@@ -715,6 +716,16 @@ export default function Home() {
               <ComboDisplay
                 combos={generatedDeck.bracketEstimate.combos}
                 targetBracket={constraints.targetBracket}
+              />
+            )}
+
+            {/* Commander Analysis */}
+            {generatedDeck.commanderAnalysis && (
+              <CommanderAnalysis
+                commanderName={generatedDeck.commander.name}
+                wantsDescription={generatedDeck.commanderAnalysis.wantsDescription}
+                producesDescription={generatedDeck.commanderAnalysis.producesDescription}
+                activationDescription={generatedDeck.commanderAnalysis.activationDescription}
               />
             )}
 

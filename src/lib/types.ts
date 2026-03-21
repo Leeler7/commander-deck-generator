@@ -159,6 +159,12 @@ export interface GeneratedDeck {
     tutor: number;
     payoff: number;
   };
+  /** Structured commander mechanical analysis — computed by parseCommanderMechanics */
+  commanderAnalysis?: {
+    wantsDescription: string[];
+    producesDescription: string[];
+    activationDescription: string;
+  };
 }
 
 export interface PowerLevelConfig {
