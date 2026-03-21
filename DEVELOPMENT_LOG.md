@@ -1,46 +1,66 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 11)
+**Last Updated:** March 20, 2026 (session 12)
 **Status:** Active Development
 
-## Sprint — 2026-03-20: Bracket Selection as Full Pipeline Mode Switch
+## Sprint — 2026-03-20: Bracket-Specific Card Pools + Scoring + Estimation + Verification
 
 ### Problem
-Selecting Bracket 4 or 5 still generated a Bracket 2 deck because the pipeline only used bracket targeting to filter Game Changers post-assembly. The bracket selection needed to be a MODE SWITCH that changes how the entire pipeline operates.
+Even after the initial bracket-strategy system, Bracket 5 (cEDH) was generating Bracket 3 decks with only 22% overlap to actual cEDH lists — missing all fast mana, combo pieces, tutors, and interaction. Bracket 1 and 2 were indistinguishable because both had zero Game Changers. The bracket selector only controlled Game Changer filtering and scoring weights; it didn't control WHERE cards came from.
 
-### NEW — `bracket-strategy.ts`
-- `BracketStrategy` interface with 25+ config fields covering combos, scoring, mana, lands, and searches
-- `BRACKET_STRATEGIES` map with complete configs for brackets 1-5
-- `getBracketStrategy()` returns the config (null if no bracket selected — backward compatible)
-- `FAST_MANA_CARDS` list and `isFastMana()` helper for fast mana detection
-- Each bracket defines: comboMode, gameChangersAllowed, tutorAdjustment, edhrecSynergyWeight, themeBonus, functionalMinimums, preferCurve, penalizeHighCMC, fastManaAllowed/Bonus, extraTurnsAllowed, massLandDenialAllowed, landCount, searchFastMana, searchCedhStaples
+### NEW — `cedh-staples.ts`
+- Per-color cEDH staple lists: 17 colorless, 15 white, 24 blue, 20 black, 21 red, 20 green, 6 multi-color
+- Each entry has name + category (fast_mana/interaction/draw/tutor/hate/utility/extra_turn/win_condition)
+- `getCedhStaplesForColors(colorIdentity)` returns all staples legal in the color identity
+- `getCedhStapleNames()` returns just names for Scryfall fetching
+- Multi-color staples only included when ALL colors match the identity
 
-### Pipeline Integration (every step reads from BracketStrategy)
-- **Init**: Auto-sets constraint flags (no_extra_turns, no_fast_mana, no_land_destruction, no_infinite_combos) based on bracket
-- **Step 1**: Supplemental fast mana search (B4-5) fetches Sol Ring, Mana Crypt, etc. by name; cEDH staples search (B5) fetches free counterspells and cheap removal
-- **Step 2**: EDHREC synergy weight multiplier (0.5x for B1, 2.0x for B5); tutor adjustment (-30 to +35); fast mana bonus (0 to +40); high CMC penalty (-10 to -15 per point above threshold for B4-5, exempting win conditions)
-- **Step 2b**: comboMode gates all combo processing (none/late_game/aggressive/maximum); combo bonuses scaled 1.0x-1.7x
-- **Step 3**: Theme bonus multiplier (2.0x for B1 Exhibition, 0.0x for B5 cEDH)
-- **Step 4**: Land count from strategy (38 for B1 → 31 for B5); functional minimums override passed to calculateFunctionalBonus
-- **Post-assembly**: Combo completeness mode (skip/best_effort/force); force mode allows 2 missing pieces with relaxed price cap; Game Changer cap (0/3/unlimited) with score-ordered pruning
+### Updated — `bracket-strategy.ts`
+- Added 6 new config fields: `excludeTutors`, `searchGameChangers`, `tribalFillerPenalty`, `interactionBonus`, `hyperOptimizedPenalty`, `cedhStapleBonus`
+- `isTribalFiller()` helper detects known casual tribal filler cards (Dragon Fodder, Hordeling Outburst, etc.)
+- Bracket 1: `excludeTutors: true` — tutors removed from pool entirely, not just penalized
+- Bracket 2: `fastManaAllowed: true` — Sol Ring is fine at precon level
+- Bracket 4: `searchGameChangers: true`, `tribalFillerPenalty: 10`, `interactionBonus: 15`, `cedhStapleBonus: 20`
+- Bracket 5: `searchGameChangers: true`, `tribalFillerPenalty: 20`, `interactionBonus: 25`, `cedhStapleBonus: 30`
 
-### UI Updates
-- **BracketEstimate.tsx**: New `targetBracket` prop; shows green/yellow/red comparison message ("Deck matches target" / "Below target" / "Exceeds target"); target bracket pill marked with blue "T" indicator
-- **BudgetPowerControls.tsx**: Each bracket now shows a description when selected explaining what it changes (combos, Game Changers, fast mana, mana curve)
-- **functional-roles.ts**: `calculateFunctionalBonus()` now accepts optional `minimumsOverride` from BracketStrategy, replacing ad-hoc bracket checks
+### Updated — `brackets.ts` (Estimation rewrite)
+- `estimateBracketLocal()` now accepts optional `oracleTexts`, `cardCMCs`, `cardTypes` maps for richer analysis
+- **Bracket 1 vs 2 distinction**: B1 requires ALL of: zero GCs, zero tutors, zero fast mana, avg CMC >= 3.0
+- **Bracket 4 detection**: 4+ GCs, OR any GCs + infinite combos + 4+ fast mana sources
+- **Bracket 5 verification**: 6+ GCs + 2+ infinite combos + avg CMC < 2.5 + 8+ fast mana
+- Returns `BracketDiagnostics` with tutor count, fast mana count, avg CMC, infinite combo count, and card names
 
-### Bracket Summary
+### Updated — Pipeline (`new-generation-pipeline.ts`)
+- **Step 1**: Searches Game Changers by exact name for B4-5 (not just random pool); searches all cEDH staples by exact name for B5 using per-color lists
+- **Step 1 filtering**: B1 excludes tutors and extra-turn cards entirely from pool
+- **Step 2**: Tribal filler penalty (-10 B4, -20 B5); interaction bonus (+15 B4, +25 B5) for instant-speed removal; Exhibition hyper-optimized penalty (-15 for cards with >60% EDHREC synergy); cEDH staple bonus (+20 B4, +30 B5)
+- **Bracket estimation**: Passes oracle text, CMC, and type maps for full diagnostic analysis
+
+### Updated — `BracketEstimate.tsx`
+- Shows 5-column diagnostics grid: Avg CMC, Fast Mana count, Tutor count, Game Changer count, Infinite Combo count
+- Below-target warnings now include specific missing metrics: "Missing: Game Changers: have 2, need 4+ | Fast mana: have 1, need 4+ | Tutors: have 0, need 2+"
+- Different detail thresholds for B4 vs B5 targets
+
+### Updated — `types.ts`
+- `BracketEstimate.diagnostics` field with tutor/fast-mana/CMC/combo counts and card name arrays
+
+### Bracket Summary (updated)
 | | B1 Exhibition | B2 Core | B3 Upgraded | B4 Optimized | B5 cEDH |
 |---|---|---|---|---|---|
 | Combos | none | none | late_game | aggressive | maximum |
 | Game Changers | 0 | 0 | 3 | unlimited | unlimited |
-| Tutor adj | -30 | -15 | 0 | +20 | +35 |
-| Fast mana | banned | banned | allowed | +25 bonus | +40 bonus |
+| Tutor adj | excluded | -15 | 0 | +20 | +35 |
+| Fast mana | banned | allowed | allowed | +25 bonus | +40 bonus |
 | Theme mult | 2.0x | 1.5x | 1.0x | 0.5x | 0.0x |
 | EDHREC weight | 0.5x | 1.0x | 1.2x | 1.5x | 2.0x |
 | Lands | 38 | 37 | 36 | 34 | 31 |
 | CMC penalty | none | none | none | -10/pt >5 | -15/pt >4 |
+| Tribal filler | none | none | none | -10 | -20 |
+| Interaction | none | none | none | +15 | +25 |
+| cEDH staple | none | none | none | +20 | +30 |
+| Search GCs | no | no | no | yes | yes |
+| Search staples | no | no | no | no | yes |
 
-**Commit:** `9f032e3 feat: bracket selection as full pipeline mode switch`
+**Commit:** `3b5e9e7 feat: bracket-specific card pools + scoring + estimation + verification`
 
 ---
 
