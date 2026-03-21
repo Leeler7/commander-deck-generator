@@ -154,38 +154,53 @@ export function countFunctionalRoles(cards: Array<{ oracle_text?: string; type_l
   return coverage;
 }
 
-/** Calculate bonus points for a card based on unmet functional needs */
+/**
+ * Calculate bonus points for a card based on unmet functional needs.
+ *
+ * When a `minimumsOverride` is provided (from BracketStrategy), it takes
+ * precedence over the old ad-hoc bracket logic.
+ */
 export function calculateFunctionalBonus(
   roles: FunctionalRole[],
   coverage: FunctionalCoverage,
-  bracketTarget?: number
+  bracketTarget?: number,
+  minimumsOverride?: Partial<FunctionalCoverage>,
 ): { bonus: number; reasons: string[] } {
   let bonus = 0;
   const reasons: string[] = [];
 
-  // cEDH / Optimized: higher functional minimums
-  const isHighPower = bracketTarget !== undefined && bracketTarget >= 4;
-  const minimums = isHighPower
-    ? { ...FUNCTIONAL_MINIMUMS, ramp: 12, card_draw: 10, tutor: 3 }
-    : FUNCTIONAL_MINIMUMS;
+  // Resolve minimums: strategy-driven override > ad-hoc bracket logic > defaults
+  let minimums: FunctionalCoverage;
+  let bonuses: FunctionalCoverage;
 
-  const bonuses = isHighPower
-    ? { ...FUNCTIONAL_BONUSES, tutor: 20 }
-    : (bracketTarget !== undefined && bracketTarget <= 2)
-      ? { ...FUNCTIONAL_BONUSES, tutor: -10 }  // tutors deprioritized at low bracket
-      : FUNCTIONAL_BONUSES;
+  if (minimumsOverride) {
+    minimums = { ...FUNCTIONAL_MINIMUMS, ...minimumsOverride };
+    // Scale tutor bonus based on whether tutors are desired
+    const tutorBonus = (minimumsOverride.tutor ?? 0) > 0 ? 20 : FUNCTIONAL_BONUSES.tutor;
+    bonuses = { ...FUNCTIONAL_BONUSES, tutor: tutorBonus };
+  } else {
+    const isHighPower = bracketTarget !== undefined && bracketTarget >= 4;
+    minimums = isHighPower
+      ? { ...FUNCTIONAL_MINIMUMS, ramp: 12, card_draw: 10, tutor: 3 }
+      : FUNCTIONAL_MINIMUMS;
+    bonuses = isHighPower
+      ? { ...FUNCTIONAL_BONUSES, tutor: 20 }
+      : (bracketTarget !== undefined && bracketTarget <= 2)
+        ? { ...FUNCTIONAL_BONUSES, tutor: -10 }
+        : FUNCTIONAL_BONUSES;
+  }
 
   for (const role of roles) {
     const min = minimums[role];
     const current = coverage[role];
-    if (current < min || (role === 'tutor' && current < (isHighPower ? 3 : 0))) {
+    if (current < min) {
       const b = bonuses[role];
       if (b > 0) {
         bonus += b;
         reasons.push(`+${b} (needs ${role}: ${current}/${min})`);
       } else if (b < 0) {
         bonus += b;
-        reasons.push(`${b} (${role} deprioritized at bracket ≤2)`);
+        reasons.push(`${b} (${role} deprioritized)`);
       }
     }
   }

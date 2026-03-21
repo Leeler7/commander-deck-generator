@@ -141,7 +141,7 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-2">Target Bracket (Optional)</h3>
         <p className="text-xs text-gray-500 mb-3">
-          Keep the deck at or below this power level. Combo cards that push over the target will be removed.
+          Sets the power level for the entire deck — changes how cards are scored, which combos are allowed, and how many lands to run.
         </p>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {[
@@ -167,6 +167,16 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
             </button>
           ))}
         </div>
+        {/* Bracket description based on selection */}
+        {constraints.targetBracket && (
+          <div className="mt-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-600">
+            {constraints.targetBracket === 1 && 'Theme-focused, no combos, no Game Changers, no fast mana. Games go long — higher mana curve OK.'}
+            {constraints.targetBracket === 2 && 'Precon-level, balanced. No infinite combos, no Game Changers. Standard staples, splashy turns.'}
+            {constraints.targetBracket === 3 && 'Optimized synergy, up to 3 Game Changers, late-game combos OK. Efficient mana curve.'}
+            {constraints.targetBracket === 4 && 'Full power — all combos, all Game Changers, fast mana prioritized. Explosive starts, lower land count.'}
+            {constraints.targetBracket === 5 && 'Competitive — fastest combos, maximum interaction, tutors essential. Win turns 1-3. Avg CMC under 2.5.'}
+          </div>
+        )}
       </div>
 
       {/* Add Keywords */}

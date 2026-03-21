@@ -15,6 +15,7 @@ import { estimateBracketLocal, GAME_CHANGERS } from './brackets';
 import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, FunctionalRole, FUNCTIONAL_MINIMUMS } from './functional-roles';
 import { parseCommanderMechanics, summarizeProfile, CommanderProfile } from './commander-parser';
 import { evaluateSynergy } from './synergy-evaluator';
+import { getBracketStrategy, BracketStrategy, isFastMana, FAST_MANA_CARDS } from './bracket-strategy';
 
 /**
  * New Generation Pipeline following user's 8-step specification:
@@ -64,6 +65,9 @@ export class NewDeckGenerator {
   /** Structured commander mechanical profile — computed once per generation */
   private commanderProfile: CommanderProfile | null = null;
 
+  /** Bracket strategy config — loaded once at the start of generation */
+  private bracketStrategy: BracketStrategy | null = null;
+
   private log(message: string, ...args: any[]): void {
     // Reduce logging in production to avoid Railway rate limits
     if (this.verbose && process.env.NODE_ENV === 'development') {
@@ -87,6 +91,20 @@ export class NewDeckGenerator {
 
       const commander = commanderValidation.card;
       this.log(`🎯 NEW PIPELINE: Generating deck for ${commander.name}`);
+
+      // ── Load bracket strategy ─────────────────────────────────────────────
+      this.bracketStrategy = getBracketStrategy(constraints.targetBracket);
+      if (this.bracketStrategy) {
+        console.log(`🎯 BRACKET MODE: ${this.bracketStrategy.name} (Bracket ${constraints.targetBracket})`);
+        console.log(`   Combos: ${this.bracketStrategy.comboMode} | Game Changers: ${this.bracketStrategy.gameChangersAllowed === Infinity ? 'unlimited' : this.bracketStrategy.gameChangersAllowed} | Lands: ${this.bracketStrategy.landCount}`);
+        console.log(`   Fast mana: ${this.bracketStrategy.fastManaAllowed ? 'yes' : 'no'} | Tutor adj: ${this.bracketStrategy.tutorAdjustment > 0 ? '+' : ''}${this.bracketStrategy.tutorAdjustment} | Theme mult: ${this.bracketStrategy.themeBonus}x`);
+
+        // Auto-set constraint flags based on bracket strategy
+        if (!this.bracketStrategy.extraTurnsAllowed) constraints.no_extra_turns = true;
+        if (!this.bracketStrategy.fastManaAllowed) constraints.no_fast_mana = true;
+        if (!this.bracketStrategy.massLandDenialAllowed) constraints.no_land_destruction = true;
+        if (this.bracketStrategy.comboMode === 'none') constraints.no_infinite_combos = true;
+      }
 
       // 🎲 FEATURE: Add randomized tags for spice variety (0-10 spice level)
       await this.addRandomizedTags(constraints, commander.name);
@@ -127,12 +145,18 @@ export class NewDeckGenerator {
       const themeEnhanced = await this.step3_ApplyUserThemes(comboScored, constraints);
       this.log(`✅ Applied theme bonuses to ${themeEnhanced.length} cards`);
 
-      // Post-step3: filter Game Changers if targeting bracket ≤2
-      const gcFilteredPool = (constraints.targetBracket && constraints.targetBracket <= 2)
+      // Post-step3: filter Game Changers based on bracket strategy cap
+      const gcAllowed = this.bracketStrategy?.gameChangersAllowed ?? Infinity;
+      const gcFilteredPool = gcAllowed < Infinity
         ? (() => {
             const gcLower = new Set(GAME_CHANGERS.map(g => g.toLowerCase()));
-            const filtered = themeEnhanced.filter(c => !gcLower.has(c.name.toLowerCase()));
-            console.log(`🎯 BRACKET: Filtered ${themeEnhanced.length - filtered.length} Game Changers from pool for bracket ≤2 target`);
+            const gcInPool = themeEnhanced.filter(c => gcLower.has(c.name.toLowerCase()));
+            if (gcInPool.length <= gcAllowed) return themeEnhanced; // Already within cap
+            // Keep the top N Game Changers by score, remove the rest
+            gcInPool.sort((a, b) => b.finalScore - a.finalScore);
+            const toRemove = new Set(gcInPool.slice(gcAllowed).map(c => c.name.toLowerCase()));
+            const filtered = themeEnhanced.filter(c => !toRemove.has(c.name.toLowerCase()));
+            console.log(`🎯 BRACKET: Filtered ${toRemove.size} Game Changers (cap=${gcAllowed}, kept=${gcAllowed > 0 ? gcInPool.slice(0, gcAllowed).map(c => c.name).join(', ') : 'none'})`);
             return filtered;
           })()
         : themeEnhanced;
@@ -248,7 +272,7 @@ export class NewDeckGenerator {
       }
 
       // Generate additional basic lands if needed to reach reasonable land count
-      const targetLandCount = 35; // Standard target for land count
+      const targetLandCount = this.bracketStrategy?.landCount ?? 35;
       const additionalLands = await this.generateBasicLands(commander, nonlandCards, targetLandCount - landCards.length, landCards);
       const allLands = [...landCards, ...additionalLands];
 
@@ -521,25 +545,28 @@ export class NewDeckGenerator {
         }
       }
 
-      // When targeting bracket 1 or 2, exclude ALL Game Changers from the deck
-      if (constraints.targetBracket && constraints.targetBracket <= 2) {
-        const gcLower = new Set(GAME_CHANGERS.map(g => g.toLowerCase()));
-        const gcRemoved: string[] = [];
-        finalNonlands = finalNonlands.filter(c => {
-          if (gcLower.has(c.name.toLowerCase())) { gcRemoved.push(c.name); return false; }
-          return true;
-        });
-        if (gcRemoved.length > 0) {
-          console.log(`🎯 BRACKET: Removed ${gcRemoved.length} Game Changers for bracket ≤2 target: ${gcRemoved.join(', ')}`);
-          // Fill the gaps
-          const usedNames2 = new Set([...finalNonlands, ...finalLands].map(c => c.name));
-          const fillers = themeEnhanced
-            .filter(c => !usedNames2.has(c.name) && !gcLower.has(c.name.toLowerCase()) &&
-              extractCardPrice(c, constraints.prefer_cheapest) <= (constraints.max_card_price ?? 50))
-            .sort((a, b) => b.finalScore - a.finalScore)
-            .slice(0, gcRemoved.length);
-          for (const f of fillers) {
-            finalNonlands.push({ ...f, quantity: 1, role: 'synergy', tags: [], price_used: extractCardPrice(f, constraints.prefer_cheapest), price_source: 'Scryfall' } as DeckCard);
+      // Post-assembly Game Changer enforcement: respect bracket strategy cap
+      {
+        const gcCap = this.bracketStrategy?.gameChangersAllowed ?? Infinity;
+        if (gcCap < Infinity) {
+          const gcLower = new Set(GAME_CHANGERS.map(g => g.toLowerCase()));
+          const gcInDeck = finalNonlands.filter(c => gcLower.has(c.name.toLowerCase()));
+          if (gcInDeck.length > gcCap) {
+            // Sort by score desc, keep only the allowed count
+            gcInDeck.sort((a, b) => ((b as any).finalScore ?? 0) - ((a as any).finalScore ?? 0));
+            const toRemoveNames = new Set(gcInDeck.slice(gcCap).map(c => c.name));
+            console.log(`🎯 BRACKET: Post-assembly GC enforcement — removing ${toRemoveNames.size} Game Changers (cap=${gcCap}): ${[...toRemoveNames].join(', ')}`);
+            finalNonlands = finalNonlands.filter(c => !toRemoveNames.has(c.name));
+            // Fill the gaps
+            const usedNames2 = new Set([...finalNonlands, ...finalLands].map(c => c.name));
+            const fillers = themeEnhanced
+              .filter(c => !usedNames2.has(c.name) && !gcLower.has(c.name.toLowerCase()) &&
+                extractCardPrice(c, constraints.prefer_cheapest) <= (constraints.max_card_price ?? 50))
+              .sort((a, b) => b.finalScore - a.finalScore)
+              .slice(0, toRemoveNames.size);
+            for (const f of fillers) {
+              finalNonlands.push({ ...f, quantity: 1, role: 'synergy', tags: [], price_used: extractCardPrice(f, constraints.prefer_cheapest), price_source: 'Scryfall' } as DeckCard);
+            }
           }
         }
       }
@@ -601,6 +628,7 @@ export class NewDeckGenerator {
           `Total synergy-focused cards: ${finalNonlands.filter(c => c.role === 'synergy').length}`,
           `Average synergy score: ${(finalDeck.reduce((sum, card) => sum + card.finalScore, 0) / finalDeck.length).toFixed(1)}`,
           ...(bracketEstimate ? [`⚡ Estimated bracket: ${bracketEstimate.bracket}`] : []),
+          ...(this.bracketStrategy ? [`🎯 Target bracket: ${constraints.targetBracket} (${this.bracketStrategy.name}) — combos: ${this.bracketStrategy.comboMode}, lands: ${this.bracketStrategy.landCount}`] : []),
           ...(constraints.random_tags && constraints.random_tags.length > 0 ? [`🎲 Random tags: ${constraints.random_tags.join(', ')}`] : [])
         ],
         deck_explanation: `This deck focuses on synergy with ${commander.name}, prioritizing cards that work well with the commander's abilities and strategy.`,
@@ -699,6 +727,54 @@ export class NewDeckGenerator {
       }
     }
     this.log(`📋 STEP1: broad pool added ${allCards.length - broadStart} new cards (${broadPages} pages)`);
+
+    // ── Bracket 4-5: Supplemental fast mana search ──────────────────────────
+    if (this.bracketStrategy?.searchFastMana) {
+      const fastManaStart = allCards.length;
+      for (const fmName of FAST_MANA_CARDS) {
+        if (seenNames.has(fmName.toLowerCase())) continue;
+        try {
+          const res = await this.scryfallClient.searchCards(`!"${fmName}" f:commander`, 1, 'name');
+          for (const card of res.data) {
+            const nameLower = card.name.toLowerCase();
+            if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+            // Check color identity
+            const cmdColors = new Set(commander.color_identity.map((c: string) => c.toLowerCase()));
+            const cardOk = card.color_identity.every((c: string) => cmdColors.has(c.toLowerCase()) || commander.color_identity.length === 0);
+            if (!cardOk) continue;
+            seenIds.add(card.id);
+            seenNames.add(nameLower);
+            allCards.push(card);
+          }
+        } catch { /* skip individual fetch failures */ }
+      }
+      this.log(`⚡ STEP1: Fast mana search added ${allCards.length - fastManaStart} cards for bracket ${constraints?.targetBracket}`);
+    }
+
+    // ── Bracket 5: Supplemental cEDH staples search ─────────────────────────
+    if (this.bracketStrategy?.searchCedhStaples) {
+      const cedhStart = allCards.length;
+      // Search for efficient interaction: free counterspells, cheap removal, protection
+      const cedhQueries = [
+        `o:"without paying" t:instant ${colorQuery} f:commander`,
+        `o:"counter target" cmc<=2 t:instant ${colorQuery} f:commander`,
+        `o:"exile target" cmc<=2 ${colorQuery} f:commander`,
+      ];
+      for (const q of cedhQueries) {
+        try {
+          const res = await this.scryfallClient.searchCards(q, 1, 'edhrec');
+          for (const card of res.data) {
+            const nameLower = card.name.toLowerCase();
+            if (seenIds.has(card.id) || seenNames.has(nameLower)) continue;
+            seenIds.add(card.id);
+            seenNames.add(nameLower);
+            allCards.push(card);
+          }
+        } catch { /* skip */ }
+      }
+      this.log(`🏆 STEP1: cEDH staples search added ${allCards.length - cedhStart} cards`);
+    }
+
     this.log(`📋 STEP1: total pool = ${allCards.length} candidates`);
 
     return allCards.filter(card => {
@@ -996,7 +1072,8 @@ export class NewDeckGenerator {
         if (edhrecEntry.synergy >= 0) {
           // ── Positive synergy: normal formula ──────────────────────────────
           // Floor of 20 guarantees ANY positive-synergy EDHREC card beats keyword-only (capped 15).
-          const synergyBonus = edhrecEntry.synergy * 80;
+          const edhrecWeight = this.bracketStrategy?.edhrecSynergyWeight ?? 1.0;
+          const synergyBonus = edhrecEntry.synergy * 80 * edhrecWeight;
           synergyScore = Math.max(20, inclusionScore + synergyBonus);
         } else {
           // ── Negative synergy: 2x penalty weight, NO floor of 20 ──────────
@@ -1058,6 +1135,43 @@ export class NewDeckGenerator {
           synergyScore = Math.max(0, synergyScore + synEval.score);
           const evalNote = synEval.reasons.join(' | ');
           synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + evalNote;
+        }
+      }
+
+      // ── Bracket strategy scoring adjustments ────────────────────────────
+      if (this.bracketStrategy) {
+        const bs = this.bracketStrategy;
+        const cardRoles = classifyCardFunction(card.oracle_text || '', card.type_line || '');
+
+        // Tutor adjustment
+        if (cardRoles.includes('tutor')) {
+          synergyScore = Math.max(0, synergyScore + bs.tutorAdjustment);
+          if (bs.tutorAdjustment !== 0) {
+            const adj = bs.tutorAdjustment > 0 ? `+${bs.tutorAdjustment}` : `${bs.tutorAdjustment}`;
+            synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Tutor ${adj} (bracket)`;
+          }
+        }
+
+        // Fast mana bonus/ban
+        if (isFastMana(card.name)) {
+          if (!bs.fastManaAllowed) {
+            synergyScore = 0;
+            synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + 'Fast mana banned (bracket)';
+          } else if (bs.fastManaBonus > 0) {
+            synergyScore += bs.fastManaBonus;
+            synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `Fast mana +${bs.fastManaBonus} (bracket)`;
+          }
+        }
+
+        // High CMC penalty (bracket 4-5)
+        if (bs.penalizeHighCMC && (card.cmc || 0) > bs.highCMCThreshold) {
+          // Don't penalize win conditions — check if it's a payoff card
+          const isWinCon = cardRoles.includes('payoff');
+          if (!isWinCon) {
+            const penalty = bs.highCMCPenaltyPerPoint * ((card.cmc || 0) - bs.highCMCThreshold);
+            synergyScore = Math.max(0, synergyScore - penalty);
+            synergy_notes = (synergy_notes ? synergy_notes + ' | ' : '') + `High CMC -${penalty} (bracket)`;
+          }
         }
       }
 
@@ -1148,6 +1262,13 @@ export class NewDeckGenerator {
     // Reset combo tracking for this run
     this.earlyComboData = [];
 
+    // ── Bracket strategy combo mode check ─────────────────────────────────
+    const comboMode = this.bracketStrategy?.comboMode ?? 'late_game';
+    if (comboMode === 'none') {
+      this.log(`🔗 STEP2b: Combo mode is "none" (bracket ${constraints?.targetBracket}) — skipping all combo processing`);
+      return cards;
+    }
+
     try {
       // Use top 100 by synergy score to maximise combo discovery surface
       const top100 = [...cards]
@@ -1161,11 +1282,11 @@ export class NewDeckGenerator {
         return cards;
       }
 
-      this.log(`🔗 STEP2b: Found ${rawCombos.length} raw combos — processing`);
+      this.log(`🔗 STEP2b: Found ${rawCombos.length} raw combos — processing (mode: ${comboMode})`);
 
-      const targetBracket = constraints?.targetBracket;
       const noInfinite = constraints?.no_infinite_combos ?? false;
       const cmdNameLower = commander.name.toLowerCase();
+      const comboMinCMC = this.bracketStrategy?.comboMinTotalCMC ?? 0;
 
       // Filter and classify combos
       const eligibleCombos: TrackedCombo[] = [];
@@ -1175,8 +1296,9 @@ export class NewDeckGenerator {
         const isInfinite = combo.results.some(r =>
           r.toLowerCase().includes('infinite') || r.toLowerCase().includes('unlimited'),
         );
-        // Bracket 1-2: no infinite combos
-        if (isInfinite && (noInfinite || (targetBracket !== undefined && targetBracket <= 2))) continue;
+        // Filter by combo mode
+        if (comboMode === 'late_game' && isInfinite) continue;
+        if (isInfinite && noInfinite) continue;
 
         const nonCommanderPieces = combo.cards.filter(
           n => n.toLowerCase() !== cmdNameLower,
@@ -1256,7 +1378,9 @@ export class NewDeckGenerator {
       const boostMap = new Map<string, { bonus: number; note: string }>();
 
       for (const tc of eligibleCombos) {
-        const baseBonus = tc.size === 2 ? 30 : 20;
+        // Scale bonus by combo mode: aggressive/maximum get bigger bonuses
+        const bonusScale = comboMode === 'maximum' ? 1.7 : comboMode === 'aggressive' ? 1.3 : 1.0;
+        const baseBonus = Math.round((tc.size === 2 ? 30 : 20) * bonusScale);
         const result = tc.combo.results[0] ?? 'combo';
         const note = `${tc.size}-card combo: ${tc.combo.cards.join(' + ')} → ${result}`;
 
@@ -1317,7 +1441,8 @@ export class NewDeckGenerator {
     pool: ScoredCard[],
     constraints: GenerationConstraints,
   ): DeckCard[] {
-    if (this.earlyComboData.length === 0) return nonlandsIn;
+    const completeness = this.bracketStrategy?.comboCompleteness ?? 'best_effort';
+    if (this.earlyComboData.length === 0 || completeness === 'skip') return nonlandsIn;
 
     let nonlands = [...nonlandsIn];
     const deckNames = new Set(nonlands.map(c => c.name.toLowerCase()));
@@ -1329,65 +1454,69 @@ export class NewDeckGenerator {
     );
 
     let swapped = 0;
+    // "force" mode allows up to 2 missing pieces; "best_effort" only 1
+    const maxMissing = completeness === 'force' ? 2 : 1;
 
     for (const tc of this.earlyComboData) {
       const missing = tc.nonCommanderPieces.filter(p => !deckNames.has(p.toLowerCase()));
-      if (missing.length !== 1) continue; // Skip if 0 (complete) or 2+ (too far off)
+      if (missing.length === 0 || missing.length > maxMissing) continue;
 
-      const missingName = missing[0];
-      const missingCard = poolByName.get(missingName.toLowerCase());
-      if (!missingCard) continue; // Not in pool
+      // Swap in each missing piece
+      for (const missingName of missing) {
+        const missingCard = poolByName.get(missingName.toLowerCase());
+        if (!missingCard) continue; // Not in pool
 
-      const price = extractCardPrice(missingCard as any, preferCheap);
-      if (price > maxCardPrice) continue; // Too expensive for the constraint
+        const price = extractCardPrice(missingCard as any, preferCheap);
+        // In force mode, relax price cap for combo pieces
+        const effectivePriceCap = completeness === 'force' ? maxCardPrice * 2 : maxCardPrice;
+        if (price > effectivePriceCap) continue;
 
-      // Find the lowest-scored non-combo nonland card of the same broad type
-      const missingType = (missingCard.type_line || '').toLowerCase();
-      const broadType = missingType.includes('creature') ? 'creature'
-        : missingType.includes('artifact') ? 'artifact'
-        : missingType.includes('enchantment') ? 'enchantment'
-        : missingType.includes('instant') ? 'instant'
-        : missingType.includes('sorcery') ? 'sorcery'
-        : 'other';
-
-      const candidates = nonlands.filter(c => {
-        if (comboCardNames.has(c.name.toLowerCase())) return false; // Don't swap combo pieces
-        const cType = (c.type_line || '').toLowerCase();
-        const cBroadType = cType.includes('creature') ? 'creature'
-          : cType.includes('artifact') ? 'artifact'
-          : cType.includes('enchantment') ? 'enchantment'
-          : cType.includes('instant') ? 'instant'
-          : cType.includes('sorcery') ? 'sorcery'
+        // Find the lowest-scored non-combo nonland card of the same broad type
+        const missingType = (missingCard.type_line || '').toLowerCase();
+        const broadType = missingType.includes('creature') ? 'creature'
+          : missingType.includes('artifact') ? 'artifact'
+          : missingType.includes('enchantment') ? 'enchantment'
+          : missingType.includes('instant') ? 'instant'
+          : missingType.includes('sorcery') ? 'sorcery'
           : 'other';
-        return cBroadType === broadType;
-      });
 
-      if (candidates.length === 0) continue;
+        const candidates = nonlands.filter(c => {
+          if (comboCardNames.has(c.name.toLowerCase())) return false;
+          const cType = (c.type_line || '').toLowerCase();
+          const cBroadType = cType.includes('creature') ? 'creature'
+            : cType.includes('artifact') ? 'artifact'
+            : cType.includes('enchantment') ? 'enchantment'
+            : cType.includes('instant') ? 'instant'
+            : cType.includes('sorcery') ? 'sorcery'
+            : 'other';
+          return cBroadType === broadType;
+        });
 
-      // Sort by score ascending, pick the weakest card to replace
-      const weakest = candidates.sort((a, b) =>
-        ((a as any).finalScore ?? 0) - ((b as any).finalScore ?? 0)
-      )[0];
+        if (candidates.length === 0) continue;
 
-      // Perform the swap
-      nonlands = nonlands.filter(c => c.name !== weakest.name);
-      nonlands.push({
-        ...missingCard,
-        quantity: 1,
-        role: 'synergy',
-        tags: [],
-        price_used: price,
-        price_source: 'Scryfall',
-      } as DeckCard);
-      deckNames.delete(weakest.name.toLowerCase());
-      deckNames.add(missingName.toLowerCase());
-      swapped++;
+        const weakest = candidates.sort((a, b) =>
+          ((a as any).finalScore ?? 0) - ((b as any).finalScore ?? 0)
+        )[0];
 
-      const resultStr = tc.combo.results[0] ?? 'combo';
-      console.log(
-        `🔗 COMBO COMPLETE: Swapped "${weakest.name}" → "${missingCard.name}" ` +
-        `to complete ${tc.size}-card combo (${tc.combo.cards.join(' + ')} → ${resultStr})`,
-      );
+        nonlands = nonlands.filter(c => c.name !== weakest.name);
+        nonlands.push({
+          ...missingCard,
+          quantity: 1,
+          role: 'synergy',
+          tags: [],
+          price_used: price,
+          price_source: 'Scryfall',
+        } as DeckCard);
+        deckNames.delete(weakest.name.toLowerCase());
+        deckNames.add(missingName.toLowerCase());
+        swapped++;
+
+        const resultStr = tc.combo.results[0] ?? 'combo';
+        console.log(
+          `🔗 COMBO COMPLETE: Swapped "${weakest.name}" → "${missingCard.name}" ` +
+          `to complete ${tc.size}-card combo (${tc.combo.cards.join(' + ')} → ${resultStr})`,
+        );
+      }
     }
 
     if (swapped > 0) {
@@ -1418,12 +1547,18 @@ export class NewDeckGenerator {
     const maxCardPrice = constraints.max_card_price ?? 50;
     const preferCheap = constraints.prefer_cheapest;
 
-    // Roles to check (tutor and payoff are bonus-only, no forced fill)
+    // Merge bracket minimums with defaults
+    const effectiveMinimums = this.bracketStrategy?.functionalMinimums
+      ? { ...FUNCTIONAL_MINIMUMS, ...this.bracketStrategy.functionalMinimums }
+      : FUNCTIONAL_MINIMUMS;
+
+    // Roles to check — include tutor if bracket requires it
     const rolesToCheck: FunctionalRole[] = ['ramp', 'card_draw', 'removal', 'board_wipe', 'protection'];
+    if (effectiveMinimums.tutor > 0) rolesToCheck.push('tutor');
     const deficits: { role: FunctionalRole; needed: number }[] = [];
 
     for (const role of rolesToCheck) {
-      const deficit = FUNCTIONAL_MINIMUMS[role] - currentCoverage[role];
+      const deficit = effectiveMinimums[role] - currentCoverage[role];
       if (deficit > 0) {
         deficits.push({ role, needed: deficit });
       }
@@ -2136,9 +2271,12 @@ export class NewDeckGenerator {
       }
 
       
+      // Apply bracket theme multiplier (dampen at high brackets, amplify at low)
+      const effectiveThemeBonus = themeBonus * (this.bracketStrategy?.themeBonus ?? 1.0);
+
       enhancedCards.push({
         ...card,
-        finalScore: card.synergyScore + themeBonus
+        finalScore: card.synergyScore + effectiveThemeBonus
       });
     }
     
@@ -2215,7 +2353,10 @@ export class NewDeckGenerator {
       const coverage = countFunctionalRoles(alreadySelected);
       const scored = typeCards.map(card => {
         const roles = classifyCardFunction(card.oracle_text || '', card.type_line || '');
-        const { bonus } = calculateFunctionalBonus(roles, coverage, constraints?.targetBracket);
+        const { bonus } = calculateFunctionalBonus(
+          roles, coverage, constraints?.targetBracket,
+          this.bracketStrategy?.functionalMinimums,
+        );
 
         // Functional bonus only helps choose AMONG cards with decent base synergy.
         // Cards scoring below 15 (i.e. negative EDHREC synergy) cannot be "rescued"
@@ -2330,7 +2471,7 @@ export class NewDeckGenerator {
     }
     
     // Enhanced land filtering based on synergy scores
-    const landCount = 36; // Target around 36 lands for a 99-card deck
+    const landCount = this.bracketStrategy?.landCount ?? 36;
     if (cardsByType.lands.length > 0) {
       // Separate basic lands from non-basic lands
       const basicLands = cardsByType.lands.filter(land => {

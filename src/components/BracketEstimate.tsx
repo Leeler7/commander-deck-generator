@@ -10,10 +10,19 @@ const BRACKET_CONFIG = [
   { n: 5, name: 'cEDH',       color: 'bg-red-100 text-red-800 border-red-300' },
 ];
 
-interface Props { bracketEstimate: BracketEstimateType; }
+interface Props {
+  bracketEstimate: BracketEstimateType;
+  targetBracket?: number;
+}
 
-export default function BracketEstimate({ bracketEstimate }: Props) {
+export default function BracketEstimate({ bracketEstimate, targetBracket }: Props) {
   const { bracket, gameChangersFound = [], reasons = [], combos = [] } = bracketEstimate;
+
+  // Target vs generated comparison
+  const hasTarget = targetBracket !== undefined && targetBracket !== null;
+  const matchesTarget = hasTarget && bracket === targetBracket;
+  const belowTarget = hasTarget && bracket < targetBracket!;
+  const aboveTarget = hasTarget && bracket > targetBracket!;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -21,19 +30,49 @@ export default function BracketEstimate({ bracketEstimate }: Props) {
 
       {/* Bracket pills */}
       <div className="flex gap-2 flex-wrap mb-4">
-        {BRACKET_CONFIG.map(b => (
-          <span
-            key={b.n}
-            className={`px-3 py-1 rounded-full border text-sm font-medium transition-all ${
-              b.n === bracket
-                ? b.color + ' ring-2 ring-offset-1 ring-current'
-                : 'bg-gray-50 text-gray-400 border-gray-200'
-            }`}
-          >
-            {b.n} — {b.name}
-          </span>
-        ))}
+        {BRACKET_CONFIG.map(b => {
+          const isGenerated = b.n === bracket;
+          const isTarget = hasTarget && b.n === targetBracket;
+          return (
+            <span
+              key={b.n}
+              className={`px-3 py-1 rounded-full border text-sm font-medium transition-all relative ${
+                isGenerated
+                  ? b.color + ' ring-2 ring-offset-1 ring-current'
+                  : isTarget
+                    ? 'bg-gray-100 text-gray-600 border-gray-400 ring-2 ring-offset-1 ring-blue-400 ring-dashed'
+                    : 'bg-gray-50 text-gray-400 border-gray-200'
+              }`}
+            >
+              {b.n} — {b.name}
+              {isTarget && !isGenerated && (
+                <span className="absolute -top-1.5 -right-1.5 text-[10px] bg-blue-500 text-white rounded-full w-4 h-4 flex items-center justify-center">T</span>
+              )}
+            </span>
+          );
+        })}
       </div>
+
+      {/* Target vs generated comparison */}
+      {hasTarget && (
+        <div className={`text-sm px-3 py-2 rounded-md mb-3 ${
+          matchesTarget
+            ? 'bg-green-50 text-green-700 border border-green-200'
+            : belowTarget
+              ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {matchesTarget && (
+            <span>&#10003; Deck matches target Bracket {targetBracket}</span>
+          )}
+          {belowTarget && (
+            <span>&#9888; Deck generated at Bracket {bracket} — budget or card pool may be limiting higher-power options (target: {targetBracket})</span>
+          )}
+          {aboveTarget && (
+            <span>&#9888; Deck exceeds target Bracket {targetBracket} (estimated: {bracket})</span>
+          )}
+        </div>
+      )}
 
       {/* Reasons */}
       {reasons.length > 0 && (

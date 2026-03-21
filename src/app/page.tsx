@@ -707,7 +707,7 @@ export default function Home() {
             {/* Bracket Estimate */}
             {generatedDeck.bracketEstimate && (
               <div className="max-w-md">
-                <BracketEstimate bracketEstimate={generatedDeck.bracketEstimate} />
+                <BracketEstimate bracketEstimate={generatedDeck.bracketEstimate} targetBracket={constraints.targetBracket} />
               </div>
             )}
 
