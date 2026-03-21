@@ -1,6 +1,67 @@
 # Commander Deck Generator - Development Log
-**Last Updated:** March 20, 2026 (session 12)
+**Last Updated:** March 21, 2026 (session 13)
 **Status:** Active Development
+
+## Sprint — 2026-03-21: Dynamic cEDH Sourcing (Replace Hardcoded Staples)
+
+### Problem
+Bracket 4-5 were generating identical casual decks because the hardcoded `cedh-staples.ts` list wasn't entering the card pool — supplemental searches were silently failing and cards that did enter were outranked by casual synergy scores. Only 1/29 key cEDH cards appeared in Bracket 5 output.
+
+### DELETED — `cedh-staples.ts`
+Hardcoded per-color staple lists replaced entirely by dynamic sourcing.
+
+### Layer 1: EDHREC Bracket-Filtered Data (`edhrec.ts`)
+- New `getBracketFilteredRecommendations(commanderName, bracket)` method
+- Tries bracket-specific URLs: `/cedh.json` (B5), `/expensive.json` (B4-5), `/budget.json` (B1-2)
+- Falls back to regular commander page; logs each attempt
+
+### Layer 2: Commander Spellbook Combo Saturation (`combos.ts`)
+- New `findCombosForCommander(commanderName)` method
+- Searches ALL combos involving a commander (not filtered to existing deck)
+- Tries `card:` and `ci:` search patterns
+- Pipeline extracts unique piece names, batches Scryfall fetches via OR queries
+
+### Layer 3: Scryfall Functional Category Searches (`new-generation-pipeline.ts`)
+- 8 dynamic oracle-text searches that catch every card matching a function:
+  - Fast mana: `t:artifact cmc<=1 o:"add" -t:equipment`
+  - Free interaction: `o:"without paying" t:instant`
+  - Cheap counters: `o:"counter target" cmc<=2 t:instant` (blue only)
+  - Cheap removal: `(o:"destroy target" OR o:"exile target") cmc<=2`
+  - Tutors: `o:"search your library" -o:"basic land"`
+  - Sacrifice outlets: `o:"sacrifice a creature:"`
+  - Haste enablers: `o:"creatures you control have haste"`
+  - Untap effects: `o:"untap target"`
+- Sorted by EDHREC rank, top 1-2 pages per category
+- Dynamic — new printings appear automatically
+
+### Layer 4: Game Changers (unchanged)
+- Existing exact-name search for bracket 4-5
+
+### Scoring Overrides (`bracket-strategy.ts` + pipeline)
+- 5 new `BracketStrategy` fields: `bypassTypeRatios`, `comboOverrideScore`, `fastManaOverrideScore`, `tutorOverrideScore`, `interactionOverrideScore`
+- B5 overrides: combo=200, fast mana=180, tutor=160, interaction=140
+- B4 overrides: combo=160, fast mana=140, tutor=120, interaction=0
+- Applied via `Math.max(currentScore, overrideScore)` — never reduces already-high scores
+- Urza's Saga fix: restricted tutors with <3 valid targets get halved bonus, <2 get zero
+
+### Type Ratio Bypass
+- `bypassTypeRatios: true` for B4-5: skips step4_ApplyRatios entirely
+- Instead sorts all cards by finalScore descending, takes top 65
+- Ensures combo pieces, fast mana, tutors, and interaction aren't lost to type quotas
+
+### Bracket 4 vs 5 Differentiation
+- B5 `tribalFillerPenalty` increased to 30 (from 20)
+- B5 cuts fair cards entirely via higher override scores
+- B4 allows some tribal synergy alongside combos (lower overrides, no interaction override)
+
+### Enhanced Diagnostics
+- Bracket strategy config JSON dump at generation start
+- Pool assembly summary: Game Changers count/names, fast mana count
+- Each supplemental search logs query and result count or failure
+
+**Commit:** `122b03f fix: dynamic cEDH sourcing via EDHREC filters + Spellbook + functional Scryfall searches`
+
+---
 
 ## Sprint — 2026-03-20: Bracket-Specific Card Pools + Scoring + Estimation + Verification
 
