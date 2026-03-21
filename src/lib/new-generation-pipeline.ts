@@ -12,7 +12,7 @@ import { spellbookClient } from './combos';
 import { EDHRECCardRecommendation } from './types';
 import { determineArchetype, CURVE_ARCHETYPES, analyzeManaCurve, performManaCurveAnalysis } from './mana-curve-optimizer';
 import { estimateBracketLocal, GAME_CHANGERS } from './brackets';
-import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, FunctionalRole } from './functional-roles';
+import { classifyCardFunction, countFunctionalRoles, calculateFunctionalBonus, FunctionalRole, FUNCTIONAL_MINIMUMS } from './functional-roles';
 import { extractCommanderEngine, scoreEngineInteraction, CommanderEngineTraits } from './engine-interaction';
 
 /**
@@ -426,6 +426,13 @@ export class NewDeckGenerator {
       // from themeEnhanced for the weakest non-combo card of the same type.
       this.log('🔗 Combo completeness check');
       finalNonlands = this.step_ComboCompleteness(finalNonlands, themeEnhanced, constraints);
+
+      // ── Post-assembly functional fallback ──────────────────────────────────
+      // If a functional minimum is NOT met, allow negative-synergy cards to fill the gap.
+      // This is the ONLY path negative-synergy cards can enter the deck — and it's logged.
+      finalNonlands = this.step_FunctionalFallback(
+        finalNonlands, finalLands, themeEnhanced, constraints
+      );
 
       // Analyze mana curve
       const curveAnalysis = performManaCurveAnalysis(finalNonlands, commander);
@@ -972,17 +979,33 @@ export class NewDeckGenerator {
 
       if (useEDHREC && edhrecEntry) {
         // inclusion is now 0-1 (num_decks/potential_decks).
-        // Synergy dominates so commander-specific cards beat generic goodstuff:
-        //   inclusion contributes max 20 pts (card in 100% of decks)
-        //   synergy  contributes max 80 pts (synergy = 1.0, very rare)
-        // Floor of 20 guarantees ANY EDHREC-listed card beats keyword-only matches (capped at 15).
         const inclusionScore = edhrecEntry.inclusion * 20;
-        const synergyBonus = edhrecEntry.synergy * 80;
-        synergyScore = Math.max(20, inclusionScore + synergyBonus);
-
         const pct = Math.round(edhrecEntry.inclusion * 100);
         const syn = (edhrecEntry.synergy >= 0 ? '+' : '') + (edhrecEntry.synergy * 100).toFixed(0) + '%';
         synergy_notes = `EDHREC: ${syn} synergy, in ${pct}% of decks`;
+
+        if (edhrecEntry.synergy >= 0) {
+          // ── Positive synergy: normal formula ──────────────────────────────
+          // Floor of 20 guarantees ANY positive-synergy EDHREC card beats keyword-only (capped 15).
+          const synergyBonus = edhrecEntry.synergy * 80;
+          synergyScore = Math.max(20, inclusionScore + synergyBonus);
+        } else {
+          // ── Negative synergy: 2x penalty weight, NO floor of 20 ──────────
+          // -5% synergy → -10pts, -10% → -20pts, -18% → -36pts.
+          // Functional bonuses (+15 ramp etc.) can rescue mildly negative cards (-5%)
+          // but cannot overcome severely negative ones (-15% or worse).
+          const synergyPenalty = edhrecEntry.synergy * 200;
+          synergyScore = Math.max(0, inclusionScore + synergyPenalty);
+
+          // Low inclusion + negative synergy = hard reject.
+          // These cards are actively excluded by players of this commander.
+          // Exception: high-inclusion negative-synergy cards (e.g. Chaos Warp at
+          // 51% inclusion) are popular despite being off-theme → they fill real needs.
+          if (edhrecEntry.inclusion < 0.15) {
+            synergyScore = Math.max(0, synergyScore - 20);
+            synergy_notes += ' [low-incl -20]';
+          }
+        }
 
         if (synergyScore >= 30) {
           this.log(`🎯 HIGH SYNERGY: ${card.name} = ${synergyScore.toFixed(1)} (${synergy_notes})`);
@@ -1039,6 +1062,22 @@ export class NewDeckGenerator {
     }));
 
     const withScore = scoredCards.filter(c => c.synergyScore > 0).length;
+    // Count negative-synergy EDHREC cards and what score they got after penalties
+    const negSynergyCards = scoredCards.filter(c => {
+      const entry = this.edhrecRecs.get(c.name.toLowerCase());
+      return entry && entry.synergy < 0;
+    });
+    if (negSynergyCards.length > 0) {
+      console.log(`\n📉 NEGATIVE SYNERGY CARDS (${negSynergyCards.length} total, showing worst 10):`);
+      [...negSynergyCards]
+        .sort((a, b) => a.synergyScore - b.synergyScore)
+        .slice(0, 10)
+        .forEach(c => {
+          const entry = this.edhrecRecs.get(c.name.toLowerCase())!;
+          console.log(`  ${c.name.padEnd(40)} score=${c.synergyScore.toFixed(1).padStart(5)}  [synergy=${(entry.synergy * 100).toFixed(0)}%, incl=${Math.round(entry.inclusion * 100)}%]`);
+        });
+      console.log();
+    }
     this.log(`📊 SYNERGY SUMMARY: ${withScore}/${scoredCards.length} cards with positive synergy`);
 
     // Debug: print top 20 by synergy score so we can verify EDHREC data quality
@@ -1342,6 +1381,99 @@ export class NewDeckGenerator {
       console.log(`🔗 Completed ${swapped} combo line(s) via post-assembly swap`);
     } else {
       console.log(`🔗 Combo completeness: all combos already complete or missing pieces not swappable`);
+    }
+
+    return nonlands;
+  }
+
+  /**
+   * POST-ASSEMBLY: Functional coverage fallback.
+   *
+   * After the deck is assembled, check functional minimums (ramp, card_draw, removal, etc.).
+   * If a minimum is NOT met, allow negative-synergy / low-scored cards from the pool
+   * to fill the gap — but ONLY for that specific unmet function.
+   * This is the ONLY path by which negative-synergy cards can enter the deck.
+   */
+  private step_FunctionalFallback(
+    nonlandsIn: DeckCard[],
+    lands: DeckCard[],
+    pool: ScoredCard[],
+    constraints: GenerationConstraints,
+  ): DeckCard[] {
+    const allDeck = [...nonlandsIn, ...lands];
+    const currentCoverage = countFunctionalRoles(allDeck);
+    const maxCardPrice = constraints.max_card_price ?? 50;
+    const preferCheap = constraints.prefer_cheapest;
+
+    // Roles to check (tutor and payoff are bonus-only, no forced fill)
+    const rolesToCheck: FunctionalRole[] = ['ramp', 'card_draw', 'removal', 'board_wipe', 'protection'];
+    const deficits: { role: FunctionalRole; needed: number }[] = [];
+
+    for (const role of rolesToCheck) {
+      const deficit = FUNCTIONAL_MINIMUMS[role] - currentCoverage[role];
+      if (deficit > 0) {
+        deficits.push({ role, needed: deficit });
+      }
+    }
+
+    if (deficits.length === 0) {
+      console.log(`✅ FUNCTIONAL FALLBACK: All minimums met — no negative-synergy rescues needed`);
+      return nonlandsIn;
+    }
+
+    console.log(`⚠️ FUNCTIONAL FALLBACK: Unmet minimums: ${deficits.map(d => `${d.role}(need ${d.needed} more)`).join(', ')}`);
+
+    let nonlands = [...nonlandsIn];
+    const usedNames = new Set([...nonlands, ...lands].map(c => c.name.toLowerCase()));
+
+    for (const { role, needed } of deficits) {
+      // Find pool cards that fill this role, sorted by finalScore desc
+      const candidates = pool
+        .filter(c => {
+          if (usedNames.has(c.name.toLowerCase())) return false;
+          const price = extractCardPrice(c, preferCheap);
+          if (price > maxCardPrice) return false;
+          const roles = classifyCardFunction(c.oracle_text || '', c.type_line || '');
+          return roles.includes(role);
+        })
+        .sort((a, b) => b.finalScore - a.finalScore);
+
+      // Find the weakest non-functional cards in the deck to swap out
+      // ("non-functional" = doesn't fill any unmet role)
+      const weakest = [...nonlands]
+        .filter(c => {
+          const roles = classifyCardFunction(c.oracle_text || '', c.type_line || '');
+          // Don't swap out cards that fill OTHER unmet roles
+          return !roles.some(r => deficits.some(d => d.role === r));
+        })
+        .sort((a, b) => ((a as any).finalScore ?? 0) - ((b as any).finalScore ?? 0));
+
+      const toSwap = Math.min(needed, candidates.length, weakest.length);
+      for (let i = 0; i < toSwap; i++) {
+        const swapOut = weakest[i];
+        const swapIn = candidates[i];
+        const edhrecEntry = this.edhrecRecs.get(swapIn.name.toLowerCase());
+        const synStr = edhrecEntry
+          ? `${(edhrecEntry.synergy * 100).toFixed(0)}% synergy, ${Math.round(edhrecEntry.inclusion * 100)}% inclusion`
+          : 'no EDHREC data';
+
+        nonlands = nonlands.filter(c => c.name !== swapOut.name);
+        nonlands.push({
+          ...swapIn,
+          quantity: 1,
+          role: role,
+          tags: [],
+          price_used: extractCardPrice(swapIn, preferCheap),
+          price_source: 'Scryfall',
+        } as DeckCard);
+        usedNames.delete(swapOut.name.toLowerCase());
+        usedNames.add(swapIn.name.toLowerCase());
+
+        console.log(
+          `🔄 FUNCTIONAL FALLBACK: Swapped "${swapOut.name}" → "${swapIn.name}" ` +
+          `for ${role} quota (${synStr})`
+        );
+      }
     }
 
     return nonlands;
@@ -2072,11 +2204,17 @@ export class NewDeckGenerator {
         const roles = classifyCardFunction(card.oracle_text || '', card.type_line || '');
         const { bonus } = calculateFunctionalBonus(roles, coverage, constraints?.targetBracket);
 
+        // Functional bonus only helps choose AMONG cards with decent base synergy.
+        // Cards scoring below 15 (i.e. negative EDHREC synergy) cannot be "rescued"
+        // by functional needs during selection — that's handled by the post-assembly
+        // functional fallback, which deliberately logs when it happens.
+        const effectiveBonus = card.finalScore >= 15 ? bonus : 0;
+
         // Apply mana curve tiebreaker bonus to adjusted score
         const aCmc = Math.min(6, Math.floor(card.cmc || 0));
         const curveBonus = (targetCurve[aCmc as keyof typeof targetCurve] || 0) * 0.01; // small nudge, doesn't override synergy
 
-        return { card, adjustedScore: card.finalScore + bonus + curveBonus };
+        return { card, adjustedScore: card.finalScore + effectiveBonus + curveBonus };
       });
       scored.sort((a, b) => {
         if (Math.abs(b.adjustedScore - a.adjustedScore) > 0.1) {
