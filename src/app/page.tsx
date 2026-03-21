@@ -712,7 +712,10 @@ export default function Home() {
 
             {/* Detected Combos */}
             {generatedDeck.bracketEstimate && generatedDeck.bracketEstimate.combos.length > 0 && (
-              <ComboDisplay combos={generatedDeck.bracketEstimate.combos} />
+              <ComboDisplay
+                combos={generatedDeck.bracketEstimate.combos}
+                targetBracket={constraints.targetBracket}
+              />
             )}
 
             {/* Overview Cards */}

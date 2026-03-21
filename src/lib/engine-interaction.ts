@@ -175,13 +175,33 @@ export interface EngineInteractionResult {
   reasons: string[];
 }
 
+/**
+ * Returns true if a given oracle-text phrase refers to the card ITSELF rather than another permanent.
+ * Uses both the actual card name (as Scryfall API returns it) and the `~` convention.
+ *
+ * Example: Endbringer's "Untap Endbringer during each other player's untap step" → self-reference = true
+ * Example: Umbral Mantle's "Untap equipped creature" → no self-reference
+ */
+function isSelfTargeting(text: string, verb: string, candidateName: string | null): boolean {
+  const verbIdx = text.indexOf(verb);
+  if (verbIdx === -1) return false;
+  // Look at the 50 chars following the verb for context
+  const context = text.slice(verbIdx + verb.length, verbIdx + verb.length + 50);
+  if (context.includes('~')) return true;
+  if (candidateName && context.includes(candidateName)) return true;
+  return false;
+}
+
 export function scoreEngineInteraction(
   traits: CommanderEngineTraits,
   candidateOracle: string,
   candidateTypes: string,
+  /** The candidate card's own name (from Scryfall API). Used to detect self-referential abilities. */
+  candidateName?: string,
 ): EngineInteractionResult {
   const t = candidateOracle.toLowerCase();
   const ty = candidateTypes.toLowerCase();
+  const selfRef = candidateName ? candidateName.toLowerCase() : null;
   let bonus = 0;
   const reasons: string[] = [];
 
@@ -205,11 +225,21 @@ export function scoreEngineInteraction(
       bonus += 18;
       reasons.push('+18 creature-ETB/death trigger (commander floods board with tokens)');
     }
-    // Sac outlets that consume tokens
+    // Sac outlets that consume tokens — but not if the ONLY sacrifice is the card itself
+    const isSacOutlet =
+      t.includes('sacrifice a creature') ||
+      t.includes('sacrifice another creature') ||
+      t.includes('sacrifice any number') ||
+      t.includes('sacrifice up to');
+    // Self-sacrifice: "sacrifice {cardname}:" or "sacrifice ~:" as an additional cost / activated ability
+    const isSelfSacOnly =
+      !isSacOutlet &&
+      selfRef !== null &&
+      (t.includes(`sacrifice ${selfRef}`) || t.includes('sacrifice ~'));
     if (
-      (ty.includes('creature') || ty.includes('artifact') || ty.includes('enchantment')) &&
-      (t.includes('sacrifice a creature') || t.includes('sacrifice another creature') ||
-       t.includes('sacrifice any number') || t.includes('sacrifice up to'))) {
+      isSacOutlet && !isSelfSacOnly &&
+      (ty.includes('creature') || ty.includes('artifact') || ty.includes('enchantment'))
+    ) {
       bonus += 15;
       reasons.push('+15 sac outlet (converts commander tokens into value)');
     }
@@ -263,15 +293,40 @@ export function scoreEngineInteraction(
   }
 
   // ── Tap-ability synergies ─────────────────────────────────────────────────
+  // Only reward cards that ENABLE THE COMMANDER's tap cost, i.e. untap FRIENDLY permanents.
+  // Exclude:
+  //   • Self-untap ("Untap Endbringer during each other player's untap step")
+  //   • Opponent-targeting untap ("untap target creature an opponent controls")
+  //   • Generic "untap target permanent" with no ownership qualifier (too broad)
   if (traits.needs_tap) {
+    const untapsFriendly =
+      t.includes('untap target creature you control') ||
+      t.includes('untap target permanent you control') ||
+      t.includes('untap another target') ||
+      t.includes('untap another creature') ||
+      t.includes('untap all creatures you control') ||
+      t.includes('untap each creature you control') ||
+      t.includes('untap up to') ||
+      // "equipped creature" / "enchanted creature" untap (equipment/aura with untap)
+      t.includes('untap equipped') ||
+      t.includes('untap enchanted');
+
+    // Detect self-untap (e.g. Endbringer): "untap {cardname}" at the start of a sentence
+    const selfUntap = selfRef !== null && isSelfTargeting(t, 'untap ', selfRef);
+
+    if (untapsFriendly && !selfUntap) {
+      bonus += 15;
+      reasons.push('+15 untap enabler (commander uses tap abilities, card untaps friendly permanents)');
+    }
+
+    // Tap-payoff cards (benefit from things being tapped, regardless of who taps them)
     if (
-      t.includes('untap') && (t.includes('target creature') || t.includes('each creature')) ||
       t.includes('for each tapped') ||
       t.includes('whenever a creature becomes tapped') ||
-      t.includes('tap: add') ||
-      (t.includes('untap') && t.includes('at the beginning of'))) {
-      bonus += 15;
-      reasons.push('+15 untap/tap enabler (commander uses tap abilities)');
+      t.includes('tap: add')
+    ) {
+      bonus += 10;
+      reasons.push('+10 tap-payoff (rewards tapping permanents)');
     }
   }
 

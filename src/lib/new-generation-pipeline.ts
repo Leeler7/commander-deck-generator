@@ -1,4 +1,4 @@
-import { ScryfallCard, DeckCard, GeneratedDeck, GenerationConstraints, CardTypeWeights, BracketEstimate } from './types';
+import { ScryfallCard, DeckCard, GeneratedDeck, GenerationConstraints, CardTypeWeights, BracketEstimate, ComboResult } from './types';
 import { scryfallClient } from './scryfall';
 import {
   isColorIdentityValid,
@@ -37,6 +37,17 @@ export interface ScoredCard extends ScryfallCard {
   price_source?: string;
 }
 
+/** A combo line with the non-commander card names pre-extracted for the completeness check */
+interface TrackedCombo {
+  combo: ComboResult;
+  /** Card names that are NOT the commander — these must all land in the deck */
+  nonCommanderPieces: string[];
+  /** 2-card or 3-card combo (4+ are ignored) */
+  size: 2 | 3;
+  /** Does this combo produce an infinite result? */
+  isInfinite: boolean;
+}
+
 export class NewDeckGenerator {
   private scryfallClient = scryfallClient;
   private verbose = process.env.NODE_ENV === 'development';
@@ -45,6 +56,9 @@ export class NewDeckGenerator {
   private edhrecRecs: Map<string, EDHRECCardRecommendation> = new Map();
   private edhrecTotalDecks = 0;
   private _currentCommanderName: string | null = null;
+
+  /** Combos detected in step2b — used by the post-assembly completeness check */
+  private earlyComboData: TrackedCombo[] = [];
 
   private log(message: string, ...args: any[]): void {
     // Reduce logging in production to avoid Railway rate limits
@@ -99,10 +113,10 @@ export class NewDeckGenerator {
       const synergyScored = await this.step2_ScoreSynergy(supplementedPool, commander);
       this.log(`✅ Scored ${synergyScored.length} cards for synergy`);
 
-      // STEP 2b: Boost combo-completing cards discovered in the scored pool
-      this.log('🔗 STEP 2b: Combo-aware scoring boost');
-      const comboScored = await this.step2b_ComboAwareScoring(synergyScored, commander);
-      this.log(`✅ Combo scoring done`);
+      // STEP 2b: Combo-first scoring — boosts combo pieces, fetches missing pieces, stores combo data
+      this.log('🔗 STEP 2b: Combo-aware scoring (top-100 pool, size-based bonuses)');
+      const comboScored = await this.step2b_ComboAwareScoring(synergyScored, commander, constraints);
+      this.log(`✅ Combo scoring done (${this.earlyComboData.length} eligible combos tracked)`);
 
       // STEP 3: Consider additional keywords from user and increase synergy score
       this.log('🏷️ STEP 3: Applying user theme bonuses');
@@ -406,6 +420,12 @@ export class NewDeckGenerator {
           console.log(`💰 BUDGET: $${currentCost.toFixed(2)} vs target $${constraints.total_budget} (${(overFraction * 100).toFixed(0)}% over) — within tolerance, keeping deck quality`);
         }
       }
+
+      // ── Post-assembly combo completeness check ─────────────────────────────
+      // If a tracked combo is exactly 1 piece short, swap in the missing piece
+      // from themeEnhanced for the weakest non-combo card of the same type.
+      this.log('🔗 Combo completeness check');
+      finalNonlands = this.step_ComboCompleteness(finalNonlands, themeEnhanced, constraints);
 
       // Analyze mana curve
       const curveAnalysis = performManaCurveAnalysis(finalNonlands, commander);
@@ -1000,6 +1020,7 @@ export class NewDeckGenerator {
         engineTraits,
         card.oracle_text || '',
         card.type_line || '',
+        card.name,  // pass name so self-referential abilities are excluded
       );
       if (engineResult.bonus !== 0) {
         synergyScore = Math.max(0, synergyScore + engineResult.bonus);
@@ -1035,19 +1056,19 @@ export class NewDeckGenerator {
     // Debug: print top 5 penalized cards for diagnostics
     const penalized = [...scoredCards]
       .filter(c => {
-        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '');
+        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '', c.name);
         return r.bonus < 0;
       })
       .sort((a, b) => {
-        const ra = scoreEngineInteraction(engineTraits, a.oracle_text || '', a.type_line || '');
-        const rb = scoreEngineInteraction(engineTraits, b.oracle_text || '', b.type_line || '');
+        const ra = scoreEngineInteraction(engineTraits, a.oracle_text || '', a.type_line || '', a.name);
+        const rb = scoreEngineInteraction(engineTraits, b.oracle_text || '', b.type_line || '', b.name);
         return ra.bonus - rb.bonus; // most penalized first
       })
       .slice(0, 5);
     if (penalized.length > 0) {
       console.log(`\n⚠️  TOP 5 ENGINE-PENALIZED CARDS for ${commander.name}:`);
       penalized.forEach((c, i) => {
-        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '');
+        const r = scoreEngineInteraction(engineTraits, c.oracle_text || '', c.type_line || '', c.name);
         console.log(`  ${i + 1}. ${c.name.padEnd(40)} penalty=${r.bonus}  (${r.reasons.join('; ')})`);
       });
       console.log();
@@ -1057,50 +1078,164 @@ export class NewDeckGenerator {
   }
 
   /**
-   * STEP 2b: Combo-aware scoring boost.
-   * Finds combos that can assemble from the top-30 pool, then boosts any combo-completing
-   * cards that are present in the wider pool but scored low.
+   * STEP 2b: Combo-first scoring.
+   *
+   * Key improvements over the old approach:
+   * - Searches the top 100 cards (not 30) for more combo coverage
+   * - Fetches missing combo pieces from Scryfall if they aren't in the pool
+   * - Differentiates bonus by combo size: 2-card = +30, 3-card = +20
+   * - Adds +10 "completeness bonus" when the partner piece is already high-scored
+   * - Stores combo data for the post-assembly completeness check (step_ComboCompleteness)
+   * - Respects bracket constraints (no infinite combos for bracket 1-2)
    */
-  private async step2b_ComboAwareScoring(cards: ScoredCard[], commander: ScryfallCard): Promise<ScoredCard[]> {
-    try {
-      const top30Names = [...cards]
-        .sort((a, b) => b.synergyScore - a.synergyScore)
-        .slice(0, 30)
-        .map(c => c.name);
+  private async step2b_ComboAwareScoring(
+    cards: ScoredCard[],
+    commander: ScryfallCard,
+    constraints?: GenerationConstraints,
+  ): Promise<ScoredCard[]> {
+    // Reset combo tracking for this run
+    this.earlyComboData = [];
 
-      const combos = await spellbookClient.findCombos(commander.name, top30Names);
-      if (combos.length === 0) {
-        this.log(`🔗 STEP2b: No combos found in top-30 pool`);
+    try {
+      // Use top 100 by synergy score to maximise combo discovery surface
+      const top100 = [...cards]
+        .sort((a, b) => b.synergyScore - a.synergyScore)
+        .slice(0, 100);
+      const top100Names = top100.map(c => c.name);
+
+      const rawCombos = await spellbookClient.findCombos(commander.name, top100Names);
+      if (rawCombos.length === 0) {
+        this.log(`🔗 STEP2b: No combos found in top-100 pool`);
         return cards;
       }
 
-      this.log(`🔗 STEP2b: Found ${combos.length} potential combos — boosting combo pieces`);
+      this.log(`🔗 STEP2b: Found ${rawCombos.length} raw combos — processing`);
 
-      // Build a set of all combo card names that are present anywhere in the pool
+      const targetBracket = constraints?.targetBracket;
+      const noInfinite = constraints?.no_infinite_combos ?? false;
+      const cmdNameLower = commander.name.toLowerCase();
+
+      // Filter and classify combos
+      const eligibleCombos: TrackedCombo[] = [];
+      for (const combo of rawCombos) {
+        // Only keep 2- and 3-card combos (4+ are too fragile outside cEDH)
+        if (combo.cards.length < 2 || combo.cards.length > 3) continue;
+        const isInfinite = combo.results.some(r =>
+          r.toLowerCase().includes('infinite') || r.toLowerCase().includes('unlimited'),
+        );
+        // Bracket 1-2: no infinite combos
+        if (isInfinite && (noInfinite || (targetBracket !== undefined && targetBracket <= 2))) continue;
+
+        const nonCommanderPieces = combo.cards.filter(
+          n => n.toLowerCase() !== cmdNameLower,
+        );
+        if (nonCommanderPieces.length === 0) continue;
+
+        eligibleCombos.push({
+          combo,
+          nonCommanderPieces,
+          size: combo.cards.length as 2 | 3,
+          isInfinite,
+        });
+      }
+
+      if (eligibleCombos.length === 0) {
+        this.log(`🔗 STEP2b: No eligible combos after bracket/infinite filter`);
+        return cards;
+      }
+
+      this.log(
+        `🔗 STEP2b: ${eligibleCombos.length} eligible combos (${
+          eligibleCombos.filter(c => c.isInfinite).length
+        } infinite, ${eligibleCombos.filter(c => !c.isInfinite).length} finite)`,
+      );
+
+      // ── Fetch missing combo pieces from Scryfall ──────────────────────────
       const poolNames = new Set(cards.map(c => c.name));
-      const boostMap = new Map<string, { bonus: number; note: string }>();
-
-      for (const combo of combos) {
-        const result = combo.results[0] ?? 'combo';
-        for (const pieceName of combo.cards) {
-          if (poolNames.has(pieceName)) {
-            const existing = boostMap.get(pieceName);
-            const note = `Completes combo: ${combo.cards.join(' + ')} → ${result}`;
-            if (!existing || existing.bonus < 25) {
-              boostMap.set(pieceName, { bonus: 25, note });
-            }
+      const missingPieces: string[] = [];
+      for (const tc of eligibleCombos) {
+        for (const piece of tc.nonCommanderPieces) {
+          if (!poolNames.has(piece) && !missingPieces.includes(piece)) {
+            missingPieces.push(piece);
           }
         }
       }
 
-      if (boostMap.size === 0) {
-        this.log(`🔗 STEP2b: Combo pieces not found in card pool`);
-        return cards;
+      let augmentedCards = cards;
+      if (missingPieces.length > 0) {
+        this.log(`🔗 STEP2b: Fetching ${missingPieces.length} missing combo pieces from Scryfall`);
+        const fetched: ScoredCard[] = [];
+        for (const pieceName of missingPieces.slice(0, 20)) { // safety cap
+          try {
+            const result = await this.scryfallClient.searchCards(`!"${pieceName}" f:commander`);
+            if (result.data.length > 0) {
+              const card = result.data[0];
+              // Quick colour check — don't add cards outside colour identity
+              const cmdColors = new Set(commander.color_identity.map((c: string) => c.toLowerCase()));
+              const cardColors = card.color_identity.map((c: string) => c.toLowerCase());
+              const colourOk = cardColors.every(c => cmdColors.has(c));
+              if (colourOk) {
+                fetched.push({
+                  ...card,
+                  synergyScore: 2,
+                  finalScore: 2,
+                  priceScore: 5,
+                  isAffordable: true,
+                });
+                poolNames.add(card.name);
+                this.log(`  ➕ Fetched missing combo piece: ${card.name}`);
+              }
+            }
+          } catch {
+            // Scryfall fetch is optional — fail silently per piece
+          }
+        }
+        if (fetched.length > 0) {
+          augmentedCards = [...cards, ...fetched];
+        }
       }
 
-      this.log(`🔗 STEP2b: Boosting ${boostMap.size} combo pieces by +25`);
+      // ── Build score boost map ─────────────────────────────────────────────
+      // score all pooled cards to know if "partner piece" is already high-scored
+      const poolScoreMap = new Map<string, number>(
+        augmentedCards.map(c => [c.name, c.synergyScore]),
+      );
 
-      return cards.map(card => {
+      const boostMap = new Map<string, { bonus: number; note: string }>();
+
+      for (const tc of eligibleCombos) {
+        const baseBonus = tc.size === 2 ? 30 : 20;
+        const result = tc.combo.results[0] ?? 'combo';
+        const note = `${tc.size}-card combo: ${tc.combo.cards.join(' + ')} → ${result}`;
+
+        for (const piece of tc.nonCommanderPieces) {
+          if (!poolNames.has(piece)) continue;
+          let bonus = baseBonus;
+          // Completeness bonus: all other pieces are already high-scored (likely to be selected)
+          const otherPieces = tc.nonCommanderPieces.filter(p => p !== piece);
+          const allPartnersHighScored = otherPieces.every(
+            p => (poolScoreMap.get(p) ?? 0) >= 50,
+          );
+          if (allPartnersHighScored) bonus += 10;
+
+          const existing = boostMap.get(piece);
+          if (!existing || existing.bonus < bonus) {
+            boostMap.set(piece, { bonus, note });
+          }
+        }
+      }
+
+      // ── Store combo data for post-assembly completeness check ─────────────
+      this.earlyComboData = eligibleCombos;
+
+      if (boostMap.size === 0) {
+        this.log(`🔗 STEP2b: No combo pieces found in pool to boost`);
+        return augmentedCards;
+      }
+
+      this.log(`🔗 STEP2b: Boosting ${boostMap.size} combo piece(s)`);
+
+      return augmentedCards.map(card => {
         const boost = boostMap.get(card.name);
         if (!boost) return card;
         const newScore = card.synergyScore + boost.bonus;
@@ -1112,10 +1247,104 @@ export class NewDeckGenerator {
           synergy_notes: boost.note,
         };
       });
-    } catch {
-      // Combos are optional — fail silently
+    } catch (err) {
+      console.error('[STEP2b] Combo scoring error (non-fatal):', err);
       return cards;
     }
+  }
+
+  /**
+   * POST-ASSEMBLY: Combo completeness check.
+   *
+   * For each combo detected in step2b, check if ALL non-commander pieces made it into the deck.
+   * If exactly 1 piece is missing and it exists in the pool, swap it in for the lowest-scored
+   * non-combo card of the same type.
+   */
+  private step_ComboCompleteness(
+    nonlandsIn: DeckCard[],
+    pool: ScoredCard[],
+    constraints: GenerationConstraints,
+  ): DeckCard[] {
+    if (this.earlyComboData.length === 0) return nonlandsIn;
+
+    let nonlands = [...nonlandsIn];
+    const deckNames = new Set(nonlands.map(c => c.name.toLowerCase()));
+    const poolByName = new Map(pool.map(c => [c.name.toLowerCase(), c]));
+    const maxCardPrice = constraints.max_card_price ?? 50;
+    const preferCheap = constraints.prefer_cheapest;
+    const comboCardNames = new Set(
+      this.earlyComboData.flatMap(tc => tc.nonCommanderPieces.map(p => p.toLowerCase())),
+    );
+
+    let swapped = 0;
+
+    for (const tc of this.earlyComboData) {
+      const missing = tc.nonCommanderPieces.filter(p => !deckNames.has(p.toLowerCase()));
+      if (missing.length !== 1) continue; // Skip if 0 (complete) or 2+ (too far off)
+
+      const missingName = missing[0];
+      const missingCard = poolByName.get(missingName.toLowerCase());
+      if (!missingCard) continue; // Not in pool
+
+      const price = extractCardPrice(missingCard as any, preferCheap);
+      if (price > maxCardPrice) continue; // Too expensive for the constraint
+
+      // Find the lowest-scored non-combo nonland card of the same broad type
+      const missingType = (missingCard.type_line || '').toLowerCase();
+      const broadType = missingType.includes('creature') ? 'creature'
+        : missingType.includes('artifact') ? 'artifact'
+        : missingType.includes('enchantment') ? 'enchantment'
+        : missingType.includes('instant') ? 'instant'
+        : missingType.includes('sorcery') ? 'sorcery'
+        : 'other';
+
+      const candidates = nonlands.filter(c => {
+        if (comboCardNames.has(c.name.toLowerCase())) return false; // Don't swap combo pieces
+        const cType = (c.type_line || '').toLowerCase();
+        const cBroadType = cType.includes('creature') ? 'creature'
+          : cType.includes('artifact') ? 'artifact'
+          : cType.includes('enchantment') ? 'enchantment'
+          : cType.includes('instant') ? 'instant'
+          : cType.includes('sorcery') ? 'sorcery'
+          : 'other';
+        return cBroadType === broadType;
+      });
+
+      if (candidates.length === 0) continue;
+
+      // Sort by score ascending, pick the weakest card to replace
+      const weakest = candidates.sort((a, b) =>
+        ((a as any).finalScore ?? 0) - ((b as any).finalScore ?? 0)
+      )[0];
+
+      // Perform the swap
+      nonlands = nonlands.filter(c => c.name !== weakest.name);
+      nonlands.push({
+        ...missingCard,
+        quantity: 1,
+        role: 'synergy',
+        tags: [],
+        price_used: price,
+        price_source: 'Scryfall',
+      } as DeckCard);
+      deckNames.delete(weakest.name.toLowerCase());
+      deckNames.add(missingName.toLowerCase());
+      swapped++;
+
+      const resultStr = tc.combo.results[0] ?? 'combo';
+      console.log(
+        `🔗 COMBO COMPLETE: Swapped "${weakest.name}" → "${missingCard.name}" ` +
+        `to complete ${tc.size}-card combo (${tc.combo.cards.join(' + ')} → ${resultStr})`,
+      );
+    }
+
+    if (swapped > 0) {
+      console.log(`🔗 Completed ${swapped} combo line(s) via post-assembly swap`);
+    } else {
+      console.log(`🔗 Combo completeness: all combos already complete or missing pieces not swappable`);
+    }
+
+    return nonlands;
   }
 
   /**
