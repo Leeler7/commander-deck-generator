@@ -48,6 +48,15 @@ export async function POST(request: NextRequest) {
       ...(constraints.no_extra_turns ? { no_extra_turns: true } : {}),
       ...(constraints.no_stax ? { no_stax: true } : {}),
       ...(constraints.no_fast_mana ? { no_fast_mana: true } : {}),
+      ...(constraints.landCount ? { landCount: constraints.landCount } : {}),
+      ...(constraints.nonBasicLandCount !== undefined ? { nonBasicLandCount: constraints.nonBasicLandCount } : {}),
+      ...(constraints.pacing ? { pacing: constraints.pacing } : {}),
+      ...(constraints.gameChangerLimit !== undefined ? { gameChangerLimit: constraints.gameChangerLimit } : {}),
+      ...(constraints.hyperFocus !== undefined ? { hyperFocus: constraints.hyperFocus } : {}),
+      ...(constraints.mustIncludeCards ? { mustIncludeCards: constraints.mustIncludeCards } : {}),
+      ...(constraints.excludedCards ? { excludedCards: constraints.excludedCards } : {}),
+      ...(constraints.maxRarity !== undefined ? { maxRarity: constraints.maxRarity } : {}),
+      ...(constraints.comboCount !== undefined ? { comboCount: constraints.comboCount } : {}),
     };
 
     // Step 1: Fetch commander card from Scryfall

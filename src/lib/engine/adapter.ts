@@ -29,11 +29,19 @@ export function bdeToCustomization(
 ): EngineCustomization {
   const bracket = bdeConstraints.targetBracket ?? 3;
 
+  // Map game changer limit from BDE format
+  let gcLimit: GameChangerLimit;
+  if (bdeConstraints.gameChangerLimit !== undefined) {
+    gcLimit = bdeConstraints.gameChangerLimit;
+  } else {
+    gcLimit = getGameChangerLimit(bracket);
+  }
+
   const custom: EngineCustomization = {
     deckFormat: 99,
-    landCount: 36,
-    nonBasicLandCount: 20,
-    bannedCards: [],
+    landCount: bdeConstraints.landCount ?? 36,
+    nonBasicLandCount: bdeConstraints.nonBasicLandCount ?? 20,
+    bannedCards: bdeConstraints.excludedCards || [],
     banLists: [{
       id: 'default',
       name: 'Commander Banlist',
@@ -41,23 +49,23 @@ export function bdeToCustomization(
       isPreset: true,
       enabled: true,
     }],
-    mustIncludeCards: [],
+    mustIncludeCards: bdeConstraints.mustIncludeCards || [],
     tempBannedCards: [],
     tempMustIncludeCards: [],
     maxCardPrice: bdeConstraints.max_card_price || 50,
     deckBudget: bdeConstraints.total_budget || 100,
     budgetOption: 'any' as const,
-    gameChangerLimit: getGameChangerLimit(bracket),
+    gameChangerLimit: gcLimit,
     bracketLevel: (bracket <= 5 && bracket >= 1 ? bracket : 'all') as BracketLevel,
-    maxRarity: null,
+    maxRarity: bdeConstraints.maxRarity ?? null,
     tinyLeaders: false,
     collectionMode: false,
     collectionStrategy: 'full' as const,
     collectionOwnedPercent: 100,
     arenaOnly: false,
     scryfallQuery: '',
-    comboCount: bdeConstraints.no_infinite_combos ? 0 : 1,
-    hyperFocus: (bdeConstraints.random_tag_count ?? 0) >= 7,
+    comboCount: bdeConstraints.comboCount ?? (bdeConstraints.no_infinite_combos ? 0 : 1),
+    hyperFocus: bdeConstraints.hyperFocus ?? false,
     balancedRoles: true,
     ignoreOwnedBudget: false,
     ignoreOwnedRarity: false,
@@ -65,8 +73,8 @@ export function bdeToCustomization(
     appliedExcludeLists: [],
     appliedIncludeLists: [],
     advancedTargets: buildAdvancedTargets(bdeConstraints),
-    tempoAutoDetect: true,
-    tempoPacing: 'balanced' as const,
+    tempoAutoDetect: !bdeConstraints.pacing,
+    tempoPacing: bdeConstraints.pacing ?? 'balanced',
   };
   return custom;
 }

@@ -126,6 +126,25 @@ export interface GenerationConstraints {
   no_fast_mana?: boolean;
   /** Target power bracket (1–5): 1=Exhibition, 2=Core, 3=Upgraded, 4=Optimized, 5=cEDH. Generator will try not to exceed this. */
   targetBracket?: number;
+  // ── New engine controls ───────────────────────────────────────────────────
+  /** Total land count (default 36) */
+  landCount?: number;
+  /** Non-basic land count (default 20) */
+  nonBasicLandCount?: number;
+  /** Tempo/speed pacing */
+  pacing?: 'aggressive-early' | 'fast-tempo' | 'balanced' | 'midrange' | 'late-game';
+  /** Game changer limit: 'none' = 0, 'unlimited' = no cap, or a number */
+  gameChangerLimit?: 'none' | 'unlimited' | number;
+  /** Hyper focus mode — boost unique theme cards, penalize generic multi-theme cards */
+  hyperFocus?: boolean;
+  /** Must-include card names */
+  mustIncludeCards?: string[];
+  /** Excluded card names */
+  excludedCards?: string[];
+  /** Max card rarity filter */
+  maxRarity?: 'common' | 'uncommon' | 'rare' | 'mythic' | null;
+  /** Combo count: 0=none, 1=normal, 2=extra, 3=many */
+  comboCount?: number;
 }
 
 export interface DeckComposition {
