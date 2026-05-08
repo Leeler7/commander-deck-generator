@@ -72,6 +72,8 @@ export default function DeckList({ deck }: DeckListProps) {
     'Tutor': 'bg-indigo-100 text-indigo-800 border-indigo-200',
     'Protection': 'bg-emerald-100 text-emerald-800 border-emerald-200',
     'Synergy/Wincon': 'bg-pink-100 text-pink-800 border-pink-200',
+    'Creature': 'bg-amber-100 text-amber-800 border-amber-200',
+    'Utility': 'bg-teal-100 text-teal-800 border-teal-200',
     'Land': 'bg-yellow-100 text-yellow-800 border-yellow-200'
   };
 

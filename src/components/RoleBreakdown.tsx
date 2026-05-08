@@ -29,6 +29,8 @@ export default function RoleBreakdown({ roleBreakdown, totalCards }: RoleBreakdo
     'Protection': { bg: 'bg-emerald-500', border: 'border-emerald-500' },
     'synergy': { bg: 'bg-pink-500', border: 'border-pink-500' },
     'Synergy/Wincon': { bg: 'bg-pink-500', border: 'border-pink-500' },
+    'Creature': { bg: 'bg-amber-500', border: 'border-amber-500' },
+    'Utility': { bg: 'bg-teal-500', border: 'border-teal-500' },
     'wincon': { bg: 'bg-pink-600', border: 'border-pink-600' },
     'artifact': { bg: 'bg-gray-500', border: 'border-gray-500' },
     'creature': { bg: 'bg-green-600', border: 'border-green-600' },

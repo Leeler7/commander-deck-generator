@@ -54,7 +54,7 @@ export interface DeckCard extends ScryfallCard {
   price_source?: string;
 }
 
-export type CardRole = 
+export type CardRole =
   | 'Commander'
   | 'Ramp'
   | 'Draw/Advantage'
@@ -63,6 +63,8 @@ export type CardRole =
   | 'Tutor'
   | 'Protection'
   | 'Synergy/Wincon'
+  | 'Creature'
+  | 'Utility'
   | 'Land';
 
 export interface CardTypeWeights {

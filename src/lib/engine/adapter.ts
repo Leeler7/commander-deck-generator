@@ -179,9 +179,9 @@ export function engineDeckToBde(
     'Board Wipe': (engineDeck.categories.boardWipes || []).length,
     'Tutor': 0,
     'Protection': 0,
-    'Synergy/Wincon': (engineDeck.categories.synergy || []).length +
-      (engineDeck.categories.creatures || []).length +
-      (engineDeck.categories.utility || []).length,
+    'Synergy/Wincon': (engineDeck.categories.synergy || []).length,
+    'Creature': (engineDeck.categories.creatures || []).length,
+    'Utility': (engineDeck.categories.utility || []).length,
     'Land': (engineDeck.categories.lands || []).length,
   };
 
@@ -211,17 +211,28 @@ export function engineDeckToBde(
   if (engineDeck.bracketEstimation) {
     const be = engineDeck.bracketEstimation;
     const gameChangersInDeck = (engineDeck.gameChangerNames || []).filter(name => deckCardNames.has(name));
+    const actualInfiniteComboCount = combos.filter(c => c.results.some(r => r.toLowerCase().includes('infinite') || r.toLowerCase().includes('unlimited'))).length;
+
+    // Filter out combo-related reasons that came from unfiltered engine data
+    const reasons = (be.hardFloors?.map(f => f.reason || '') || []).filter(r => !r.toLowerCase().includes('infinite combo'));
+    // Re-add combo reason based on actual filtered count
+    if (actualInfiniteComboCount >= 2) {
+      reasons.push(`${actualInfiniteComboCount} early-game infinite combos`);
+    } else if (actualInfiniteComboCount === 1) {
+      reasons.push('1 early-game infinite combo');
+    }
+
     bracketEstimate = {
       bracket: be.bracket,
       combos,
       gameChangersFound: gameChangersInDeck,
       gameChangerCount: gameChangersInDeck.length,
-      reasons: be.hardFloors?.map(f => f.reason || '') || [],
+      reasons,
       diagnostics: {
         tutorCount: be.breakdown?.tutorCount ?? 0,
         fastManaCount: be.breakdown?.fastManaCount ?? 0,
         averageCMC: be.breakdown?.averageCmc ?? engineDeck.stats?.averageCmc ?? 0,
-        infiniteComboCount: be.breakdown?.earlyComboCount ?? 0,
+        infiniteComboCount: actualInfiniteComboCount,
         gameChangerCount: be.breakdown?.gameChangerCount ?? 0,
         tutorNames: be.breakdown?.tutorNames ?? [],
         fastManaNames: be.breakdown?.fastManaNames ?? [],
@@ -330,6 +341,8 @@ function categoryToRole(category: string): BDECardRole {
     case 'cardDraw': return 'Draw/Advantage';
     case 'singleRemoval': return 'Removal/Interaction';
     case 'boardWipes': return 'Board Wipe';
+    case 'creatures': return 'Creature';
+    case 'utility': return 'Utility';
     case 'lands': return 'Land';
     default: return 'Synergy/Wincon';
   }

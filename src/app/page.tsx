@@ -529,36 +529,38 @@ export default function Home() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-2xl text-black mb-4" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>GENERATION SETTINGS</h3>
                 <div className="space-y-4">
-                  {/* Card Type Weights */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Card Type Balance</h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Creatures:</span>
-                        <span className="font-medium">{constraints.card_type_weights?.creatures || 5}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Artifacts:</span>
-                        <span className="font-medium">{constraints.card_type_weights?.artifacts || 5}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Enchantments:</span>
-                        <span className="font-medium">{constraints.card_type_weights?.enchantments || 5}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Instants:</span>
-                        <span className="font-medium">{constraints.card_type_weights?.instants || 5}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Sorceries:</span>
-                        <span className="font-medium">{constraints.card_type_weights?.sorceries || 5}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Planeswalkers:</span>
-                        <span className="font-medium">{constraints.card_type_weights?.planeswalkers || 5}</span>
+                  {/* Card Type Weights — only show when custom weights are active */}
+                  {constraints.card_type_weights && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Card Type Balance</h4>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Creatures:</span>
+                          <span className="font-medium">{constraints.card_type_weights.creatures}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Artifacts:</span>
+                          <span className="font-medium">{constraints.card_type_weights.artifacts}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Enchantments:</span>
+                          <span className="font-medium">{constraints.card_type_weights.enchantments}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Instants:</span>
+                          <span className="font-medium">{constraints.card_type_weights.instants}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Sorceries:</span>
+                          <span className="font-medium">{constraints.card_type_weights.sorceries}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Planeswalkers:</span>
+                          <span className="font-medium">{constraints.card_type_weights.planeswalkers}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Target Bracket */}
                   {constraints.targetBracket && (
@@ -650,7 +652,7 @@ export default function Home() {
                         )}
                       </div>
                       <p className="text-xs text-gray-600 mt-2 italic">
-                        Keywords and tags matching these themes receive very strong synergy bonuses (+500 to +5000+ points) with high selection priority.
+                        Keywords and tags matching these themes receive very strong synergy bonuses with high selection priority.
                       </p>
                     </div>
                   )}
