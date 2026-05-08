@@ -195,7 +195,7 @@ export default function CommanderInput({ value, onChange, onCommanderSelect, err
       )}
       
       <p className="mt-2 text-sm text-gray-500">
-        Search for a legal commander by typing their name. Only legendary creatures and planeswalkers that can be commanders will appear.
+        Search for a legal commander by typing their name. Only legendary creatures and planeswalkers that can be commanders will appear. Impact-Site-Verification: 0b40634e-1b4b-41e7-b6c3-c8c0eb8dd087
       </p>
     </div>
   );
