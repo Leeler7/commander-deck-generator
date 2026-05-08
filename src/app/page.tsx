@@ -254,16 +254,16 @@ export default function Home() {
       {/* Header - Fixed/Non-scrollable */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center relative">
+          <div className="text-center">
             <h1 className="text-5xl text-black dark:text-white" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
               BIG DECK ENERGY
             </h1>
             <p className="mt-2 text-2xl text-black dark:text-gray-200" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               FREE MTG COMMANDER DECK GENERATOR. BUILD A MEDIOCRE DECK AT INSTANT SPEED.
             </p>
-            
+
             {/* Navigation Menu */}
-            <div className="absolute top-0 right-0" ref={menuRef}>
+            <div className="mt-3 inline-block relative" ref={menuRef}>
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
