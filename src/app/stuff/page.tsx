@@ -12,28 +12,36 @@ export default function StuffPage() {
       name: "Kabinka Commander Deck Box (6-Deck Modular)",
       description: "Modular deck box that holds up to 6 Commander decks. Perfect for bringing your whole collection to game night.",
       url: "https://amzn.to/49AA9Iq",
+      asin: "B0FP4KKSL1",
     },
     {
       name: "Kabinka Commander Sideboard Box",
       description: "Sideboard companion to the Kabinka deck box. Extra storage for tokens, dice, and sideboard cards.",
       url: "https://amzn.to/4niM3MZ",
+      asin: "B0G4WC8VK7",
     },
     {
       name: "Dragon Shield Standard Sleeves",
       description: "The gold standard for card sleeves. Durable, shuffleable, and available in every color imaginable.",
       url: "https://amzn.to/4db7YAX",
+      asin: "B0777MQF5Z",
     },
     {
       name: "Dragon Shield Card Codex Portfolio",
       description: "Premium binder-style portfolio for displaying and protecting your favorite cards.",
       url: "https://amzn.to/4u2a1yB",
+      asin: "B0BZ6D93MC",
     },
     {
       name: "Monster 3200-Count Card Storage Box",
       description: "Sturdy cardboard storage box for your bulk collection. Holds up to 3200 cards with dividers.",
       url: "https://amzn.to/3Ph13y6",
+      asin: "B09TY7B2XL",
     },
   ];
+
+  const getImageUrl = (asin: string) =>
+    `https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=${asin}&Format=_SL250_&ID=AsinImage&MarketPlace=US&ServiceVersion=20070822&WS=1&tag=bigdeckenergy-20`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -59,37 +67,46 @@ export default function StuffPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="mb-8">
           <h2 className="text-4xl text-black mb-4"
               style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
             Stuff We Like
           </h2>
-          <p className="text-gray-600 mb-8">
+          <p className="text-gray-600">
             Gear we use and recommend for Commander nights. These are affiliate links — they help support the site at no extra cost to you.
           </p>
+        </div>
 
-          <div className="space-y-4">
-            {products.map((product, index) => (
-              <a
-                key={index}
-                href={product.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block border border-gray-200 rounded-lg p-5 hover:border-blue-400 hover:shadow-md transition-all"
-              >
-                <h3 className="text-lg font-semibold text-blue-600 mb-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map((product, index) => (
+            <a
+              key={index}
+              href={product.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg hover:border-blue-400 transition-all flex flex-col"
+            >
+              <div className="bg-white p-4 flex items-center justify-center h-56">
+                <img
+                  src={getImageUrl(product.asin)}
+                  alt={product.name}
+                  className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                />
+              </div>
+              <div className="p-4 flex-1 flex flex-col border-t border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
                   {product.name}
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs text-gray-500 flex-1">
                   {product.description}
                 </p>
-                <span className="inline-block mt-2 text-xs text-gray-400">
-                  Amazon
+                <span className="inline-block mt-3 text-xs font-medium text-blue-600">
+                  View on Amazon →
                 </span>
-              </a>
-            ))}
-          </div>
+              </div>
+            </a>
+          ))}
         </div>
       </main>
 
