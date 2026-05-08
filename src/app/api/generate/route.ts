@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { NewDeckGenerator } from '@/lib/new-generation-pipeline';
 import { GenerationConstraints } from '@/lib/types';
+import { generateDeck } from '@/lib/engine/deckGenerator';
+import { getCardByName } from '@/lib/engine/scryfall-client';
+import { fetchCommanderThemes } from '@/lib/engine/edhrec-client';
+import { bdeToCustomization, buildGenerationContext, engineDeckToBde } from '@/lib/engine/adapter';
+import type { ThemeResult } from '@/lib/engine/types';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    // Validate request body
+
     const { commander, constraints } = body;
-    
+
     if (!commander || typeof commander !== 'string') {
       return NextResponse.json(
         { error: 'Commander name is required and must be a string' },
@@ -38,30 +41,92 @@ export async function POST(request: NextRequest) {
         sorceries: 5,
         planeswalkers: 5
       },
-      random_tag_count: Math.max(0, Math.min(10, constraints.random_tag_count || 0)), // Clamp to 0-10
-      ...(constraints.targetBracket ? { targetBracket: Math.min(4, Math.max(1, constraints.targetBracket)) } : {})
+      random_tag_count: Math.max(0, Math.min(10, constraints.random_tag_count || 0)),
+      ...(constraints.targetBracket ? { targetBracket: Math.min(5, Math.max(1, constraints.targetBracket)) } : {}),
+      ...(constraints.no_infinite_combos ? { no_infinite_combos: true } : {}),
+      ...(constraints.no_land_destruction ? { no_land_destruction: true } : {}),
+      ...(constraints.no_extra_turns ? { no_extra_turns: true } : {}),
+      ...(constraints.no_stax ? { no_stax: true } : {}),
+      ...(constraints.no_fast_mana ? { no_fast_mana: true } : {}),
     };
 
-    // Debug: Check if card type weights are being passed (uncomment for debugging)
-    // console.log('Card type weights received:', validatedConstraints.card_type_weights);
+    // Step 1: Fetch commander card from Scryfall
+    console.log(`[Generate] Fetching commander: ${commander.trim()}`);
+    const commanderCard = await getCardByName(commander.trim());
 
-    // Generate deck using NEW PIPELINE
-    const generator = new NewDeckGenerator();
-    const deck = await generator.generateDeck(commander.trim(), validatedConstraints);
-    
+    if (!commanderCard) {
+      return NextResponse.json(
+        { error: `Could not find card: ${commander}` },
+        { status: 400 }
+      );
+    }
+
+    // Step 2: Convert BDE constraints to 20q2 Customization
+    const customization = bdeToCustomization(validatedConstraints);
+
+    // Step 3: Fetch themes from EDHREC and map keywords to theme selections
+    let selectedThemes: ThemeResult[] | undefined;
+    try {
+      const edhrecThemes = await fetchCommanderThemes(commanderCard.name);
+      if (edhrecThemes.length > 0) {
+        const keywords = validatedConstraints.keywords || validatedConstraints.keyword_focus || [];
+        selectedThemes = edhrecThemes
+          .filter(t => {
+            // Auto-select themes that match user keywords, or use top themes
+            if (keywords.length > 0) {
+              return keywords.some(k =>
+                t.name.toLowerCase().includes(k.toLowerCase()) ||
+                k.toLowerCase().includes(t.name.toLowerCase())
+              );
+            }
+            return false;
+          })
+          .map(t => ({
+            name: t.name,
+            source: 'edhrec' as const,
+            slug: t.slug,
+            deckCount: t.count,
+            isSelected: true,
+          }));
+
+        // If no keyword match, select the most popular theme
+        if (selectedThemes.length === 0 && edhrecThemes.length > 0) {
+          const topTheme = edhrecThemes[0];
+          selectedThemes = [{
+            name: topTheme.name,
+            source: 'edhrec' as const,
+            slug: topTheme.slug,
+            deckCount: topTheme.count,
+            isSelected: true,
+          }];
+        }
+      }
+    } catch (err) {
+      console.log(`[Generate] EDHREC themes fetch failed (non-fatal):`, err);
+    }
+
+    // Step 4: Build context and generate
+    console.log(`[Generate] Starting deck generation for ${commanderCard.name}`);
+    const context = buildGenerationContext(commanderCard, customization, selectedThemes);
+    const engineDeck = await generateDeck(context);
+
+    // Step 5: Convert engine output to BDE format
+    const bdeDeck = engineDeckToBde(engineDeck, commanderCard);
+
+    console.log(`[Generate] Deck generated: ${bdeDeck.nonland_cards.length} nonland cards, ${bdeDeck.lands.length} lands, $${bdeDeck.total_price}`);
+
     return NextResponse.json({
       success: true,
-      deck,
+      deck: bdeDeck,
       generated_at: new Date().toISOString()
     });
 
   } catch (error) {
     console.error('Deck generation error:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    
-    // Return appropriate error response
+
     if (error instanceof Error) {
-      if (error.message.includes('Invalid commander') || 
+      if (error.message.includes('Invalid commander') ||
           error.message.includes('not legal') ||
           error.message.includes('Could not find card')) {
         return NextResponse.json(
@@ -69,16 +134,15 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
-      if (error.message.includes('Rate limit') || 
+
+      if (error.message.includes('Rate limit') ||
           error.message.includes('429')) {
         return NextResponse.json(
           { error: 'External API rate limit exceeded. Please try again in a moment.' },
           { status: 429 }
         );
       }
-      
-      // Include actual error message in development
+
       if (process.env.NODE_ENV === 'development') {
         return NextResponse.json(
           { error: `Generation failed: ${error.message}`, stack: error.stack },
@@ -86,7 +150,7 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    
+
     return NextResponse.json(
       { error: 'An error occurred while generating the deck. Please try again.', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
