@@ -150,6 +150,26 @@ export default function FAQPage() {
               <a href="/contact" className="text-blue-600 hover:text-blue-500">Contact</a>
             </p>
             <p className="mt-2">
+              Deck engine by{' '}
+              <a
+                href="https://github.com/20q2/mtg-commander-deck-generator"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-500"
+              >
+                20q2
+              </a>
+              {' '}(MIT licensed) •{' '}
+              <a
+                href="https://www.patreon.com/cw/ShadowMonk598"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-500"
+              >
+                Support the engine developer on Patreon
+              </a>
+            </p>
+            <p className="mt-2">
               This tool is not affiliated with Wizards of the Coast. Magic: The Gathering is a trademark of Wizards of the Coast LLC.
             </p>
           </div>

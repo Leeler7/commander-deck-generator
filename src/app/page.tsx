@@ -131,12 +131,12 @@ export default function Home() {
   const handleRandomCommander = async () => {
     setIsRandomizing(true);
     setError(null);
-    
+
     try {
       // Get a random commander
       const response = await fetch('/api/commanders/random');
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to get random commander');
       }
@@ -145,9 +145,43 @@ export default function Home() {
       setSelectedCommander(data.commander);
       setCommanderName(data.commander.name);
 
-      // Auto-generate deck with the random commander
+      // Build fully randomized constraints for a random deck
+      const pacingOptions: GenerationConstraints['pacing'][] = [
+        'aggressive-early', 'fast-tempo', 'balanced', 'midrange', 'late-game'
+      ];
+      const gameChangerOptions: GenerationConstraints['gameChangerLimit'][] = [
+        'none', 3, 6, 'unlimited'
+      ];
+      const budgetOptions = [25, 50, 100, 200, 500];
+      const bracketOptions = [1, 2, 3, 4, 5];
+
+      const randomConstraints: GenerationConstraints = {
+        total_budget: 500,
+        max_card_price: 25,
+        prefer_cheapest: Math.random() > 0.5,
+        card_type_weights: {
+          creatures: Math.floor(Math.random() * 9) + 1,
+          artifacts: Math.floor(Math.random() * 9) + 1,
+          enchantments: Math.floor(Math.random() * 9) + 1,
+          instants: Math.floor(Math.random() * 9) + 1,
+          sorceries: Math.floor(Math.random() * 9) + 1,
+          planeswalkers: Math.floor(Math.random() * 9) + 1,
+        },
+        random_tag_count: Math.floor(Math.random() * 11),
+        targetBracket: bracketOptions[Math.floor(Math.random() * bracketOptions.length)],
+        pacing: pacingOptions[Math.floor(Math.random() * pacingOptions.length)],
+        gameChangerLimit: gameChangerOptions[Math.floor(Math.random() * gameChangerOptions.length)],
+        hyperFocus: Math.random() > 0.7,
+        landCount: 33 + Math.floor(Math.random() * 7), // 33-39
+        nonBasicLandCount: 10 + Math.floor(Math.random() * 21), // 10-30
+      };
+
+      // Update UI to show randomized settings
+      setConstraints(randomConstraints);
+
+      // Auto-generate deck with the random commander and random constraints
       console.log(`🎲 Auto-generating deck for random commander: ${data.commander.name}`);
-      await generateDeckForCommander(data.commander);
+      await generateDeckForCommander(data.commander, randomConstraints);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -157,29 +191,30 @@ export default function Home() {
   };
 
   // Helper function to generate deck for a given commander
-  const generateDeckForCommander = async (commander: ScryfallCard) => {
+  const generateDeckForCommander = async (commander: ScryfallCard, overrideConstraints?: GenerationConstraints) => {
     setIsGenerating(true);
     setError(null);
-    
+
     try {
-      // Apply randomize type balance if checked
-      let finalConstraints = constraints;
-      if (randomizeTypeBalance) {
+      // Use override constraints (from random deck) or current constraints
+      let finalConstraints = overrideConstraints || constraints;
+
+      // Apply randomize type balance if checked and no overrides provided
+      if (!overrideConstraints && randomizeTypeBalance) {
         const randomWeights = {
           creatures: Math.floor(Math.random() * 9) + 1,
           artifacts: Math.floor(Math.random() * 9) + 1,
           enchantments: Math.floor(Math.random() * 9) + 1,
           instants: Math.floor(Math.random() * 9) + 1,
           sorceries: Math.floor(Math.random() * 9) + 1,
-          planeswalkers: Math.floor(Math.random() * 9) + 1
+          planeswalkers: Math.floor(Math.random() * 9) + 1,
         };
-        
+
         finalConstraints = {
           ...constraints,
-          card_type_weights: randomWeights
+          card_type_weights: randomWeights,
         };
-        
-        // Update UI to show the random weights
+
         setConstraints(finalConstraints);
       }
 
@@ -190,12 +225,12 @@ export default function Home() {
         },
         body: JSON.stringify({
           commander: commander.name,
-          constraints: finalConstraints
-        })
+          constraints: finalConstraints,
+        }),
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to generate deck');
       }
@@ -780,11 +815,31 @@ export default function Home() {
                 Commander/EDH rules
               </a>
               {' '}•{' '}
-              <a 
-                href="/faq" 
+              <a
+                href="/faq"
                 className="text-blue-600 hover:text-blue-500"
               >
                 FAQ
+              </a>
+            </p>
+            <p className="mt-2">
+              Deck engine by{' '}
+              <a
+                href="https://github.com/20q2/mtg-commander-deck-generator"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-500"
+              >
+                20q2
+              </a>
+              {' '}(MIT licensed) •{' '}
+              <a
+                href="https://www.patreon.com/cw/ShadowMonk598"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-500"
+              >
+                Support the engine developer on Patreon
               </a>
             </p>
             <p className="mt-2">
