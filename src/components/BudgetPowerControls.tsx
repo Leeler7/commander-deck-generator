@@ -498,25 +498,32 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
         </div>
       </div>
 
-      {/* ── Advanced: Card Type Weights (collapsible) ─────────────────── */}
+      {/* ── Advanced: Card Type Weights (opt-in toggle) ────────────────── */}
       <div>
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-900"
-        >
-          <svg
-            className={`w-4 h-4 mr-1 transition-transform ${showAdvanced ? 'rotate-90' : ''}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          Advanced: Card Type Weights
-        </button>
-        {showAdvanced && (
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!constraints.card_type_weights}
+            onChange={(e) => {
+              if (e.target.checked) {
+                updateConstraint('card_type_weights', defaultCardTypeWeights);
+                setShowAdvanced(true);
+              } else {
+                updateConstraint('card_type_weights', undefined);
+                setShowAdvanced(false);
+              }
+            }}
+            className="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500"
+          />
+          <span className="ml-2 text-sm font-medium text-gray-700">Use custom Card Type Weights</span>
+        </label>
+        <p className="text-xs text-gray-500 mt-1 ml-6">
+          Off = engine decides type distribution automatically. On = you control how many creatures, artifacts, etc.
+        </p>
+        {constraints.card_type_weights && (
           <div className="mt-3">
             <CardTypeWeightsComponent
-              weights={constraints.card_type_weights || defaultCardTypeWeights}
+              weights={constraints.card_type_weights}
               onChange={handleCardTypeWeightsChange}
             />
           </div>

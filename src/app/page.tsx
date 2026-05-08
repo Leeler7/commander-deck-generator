@@ -64,14 +64,6 @@ export default function Home() {
     total_budget: 100,
     max_card_price: 20,
     prefer_cheapest: false,
-    card_type_weights: {
-      creatures: 8,
-      artifacts: 2,
-      enchantments: 2,
-      instants: 3,
-      sorceries: 3,
-      planeswalkers: 2
-    }
   });
   
   const [generatedDeck, setGeneratedDeck] = useState<GeneratedDeck | null>(null);
@@ -362,16 +354,18 @@ export default function Home() {
               {/* Random Commander Section */}
               <div className="pt-6 border-t border-gray-200">
                 <div className="flex items-center justify-center space-x-4 mb-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={randomizeTypeBalance}
-                      onChange={(e) => setRandomizeTypeBalance(e.target.checked)}
-                      className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Randomize Type Balance?</span>
-                  </label>
-                  
+                  {constraints.card_type_weights && (
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={randomizeTypeBalance}
+                        onChange={(e) => setRandomizeTypeBalance(e.target.checked)}
+                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Randomize Type Balance?</span>
+                    </label>
+                  )}
+
                   <button
                     onClick={handleRandomCommander}
                     disabled={isRandomizing || isGenerating}
