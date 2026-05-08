@@ -289,6 +289,13 @@ export default function Home() {
                       FAQ
                     </a>
                     <a
+                      href="/stuff"
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
+                    >
+                      STUFF
+                    </a>
+                    <a
                       href="/contact"
                       className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
@@ -828,6 +835,13 @@ export default function Home() {
                 className="text-blue-600 hover:text-blue-500"
               >
                 FAQ
+              </a>
+              {' '}•{' '}
+              <a
+                href="/stuff"
+                className="text-blue-600 hover:text-blue-500"
+              >
+                Stuff
               </a>
             </p>
             <p className="mt-2">

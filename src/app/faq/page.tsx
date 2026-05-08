@@ -143,6 +143,8 @@ export default function FAQPage() {
               {' '}•{' '}
               <a href="/faq" className="text-blue-600 hover:text-blue-500">FAQ</a>
               {' '}•{' '}
+              <a href="/stuff" className="text-blue-600 hover:text-blue-500">Stuff</a>
+              {' '}•{' '}
               <a href="/contact" className="text-blue-600 hover:text-blue-500">Contact</a>
             </p>
             <p className="mt-2">
