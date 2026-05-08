@@ -66,6 +66,7 @@ export default function Home() {
     total_budget: 100,
     max_card_price: 20,
     prefer_cheapest: false,
+    maxRarity: 'mythic',
   });
   
   const [generatedDeck, setGeneratedDeck] = useState<GeneratedDeck | null>(null);
@@ -255,11 +256,11 @@ export default function Home() {
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
-            <h1 className="text-5xl text-black dark:text-white" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
+            <h1 className="text-4xl text-black dark:text-white" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
               BIG DECK ENERGY
             </h1>
-            <p className="mt-2 text-2xl text-black dark:text-gray-200" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
-              FREE MTG COMMANDER DECK GENERATOR. BUILD A MEDIOCRE DECK AT INSTANT SPEED.
+            <p className="mt-2 text-xl text-black dark:text-gray-200" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+              BUILD A MEDIOCRE DECK FOR FREE AT INSTANT SPEED.
             </p>
 
             {/* Navigation Menu */}

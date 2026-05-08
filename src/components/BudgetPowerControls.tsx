@@ -339,9 +339,8 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
       {/* ── Max Rarity ────────────────────────────────────────────────── */}
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-2">Max Rarity</h3>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {[
-            { value: null, label: 'Any' },
             { value: 'common' as const, label: 'Common' },
             { value: 'uncommon' as const, label: 'Uncommon' },
             { value: 'rare' as const, label: 'Rare' },
@@ -352,7 +351,7 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
               type="button"
               onClick={() => updateConstraint('maxRarity', value)}
               className={`px-3 py-2 rounded-md border text-sm transition-colors ${
-                (constraints.maxRarity ?? null) === value
+                constraints.maxRarity === value
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
               }`}
