@@ -192,21 +192,24 @@ export function engineDeckToBde(
     return sum + (isNaN(price) ? 0 : price);
   }, 0);
 
-  // Map combos — DetectedCombo has: comboId, cards, results, isComplete, missingCards, deckCount, bracket
-  const combos = (engineDeck.detectedCombos || []).map(combo => ({
-    comboId: combo.comboId,
-    cards: combo.cards,
-    prerequisites: [] as string[],
-    steps: [] as string[],
-    results: combo.results || [],
-  }));
+  // Build set of card names actually in the deck (used for filtering combos and game changers)
+  const deckCardNames = new Set(allCards.map(c => c.name));
+
+  // Map combos — only include combos where ALL cards are actually in the deck
+  const combos = (engineDeck.detectedCombos || [])
+    .filter(combo => combo.cards.every(card => deckCardNames.has(card)))
+    .map(combo => ({
+      comboId: combo.comboId,
+      cards: combo.cards,
+      prerequisites: [] as string[],
+      steps: [] as string[],
+      results: combo.results || [],
+    }));
 
   // Map bracket estimation
   let bracketEstimate: BDEBracketEstimate | undefined;
   if (engineDeck.bracketEstimation) {
     const be = engineDeck.bracketEstimation;
-    // Filter game changers to only those actually in the deck
-    const deckCardNames = new Set(allCards.map(c => c.name));
     const gameChangersInDeck = (engineDeck.gameChangerNames || []).filter(name => deckCardNames.has(name));
     bracketEstimate = {
       bracket: be.bracket,
