@@ -594,21 +594,34 @@ export default function Home() {
                   {generatedDeck.functionalCoverage && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Deck Functions</h4>
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {[
-                          { label: 'Ramp', key: 'ramp', min: 10 },
-                          { label: 'Card Draw', key: 'card_draw', min: 8 },
-                          { label: 'Removal', key: 'removal', min: 7 },
-                          { label: 'Board Wipes', key: 'board_wipe', min: 2 },
-                          { label: 'Protection', key: 'protection', min: 3 },
-                          { label: 'Tutors', key: 'tutor', min: 0 },
-                        ].map(({ label, key, min }) => {
+                          { label: 'Ramp', key: 'ramp', min: 10, subtypeKey: 'ramp' as const },
+                          { label: 'Card Draw', key: 'card_draw', min: 8, subtypeKey: 'cardDraw' as const },
+                          { label: 'Removal', key: 'removal', min: 7, subtypeKey: 'removal' as const },
+                          { label: 'Board Wipes', key: 'board_wipe', min: 2, subtypeKey: 'boardwipe' as const },
+                          { label: 'Protection', key: 'protection', min: 3, subtypeKey: null },
+                          { label: 'Tutors', key: 'tutor', min: 0, subtypeKey: null },
+                        ].map(({ label, key, min, subtypeKey }) => {
                           const count = generatedDeck.functionalCoverage![key as keyof typeof generatedDeck.functionalCoverage];
                           const color = min === 0 ? 'text-gray-600' : count >= min ? 'text-green-600' : count >= Math.ceil(min * 0.7) ? 'text-yellow-600' : 'text-red-600';
+                          const subtypes = subtypeKey ? generatedDeck.subtypeCounts?.[subtypeKey] : undefined;
+                          const hasSubtypes = subtypes && Object.keys(subtypes).length > 0;
                           return (
-                            <div key={key} className="flex justify-between text-xs">
-                              <span className="text-gray-600">{label}:</span>
-                              <span className={`font-medium ${color}`}>{count}{min > 0 ? `/${min}` : ''}</span>
+                            <div key={key}>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-600">{label}:</span>
+                                <span className={`font-medium ${color}`}>{count}{min > 0 ? `/${min}` : ''}</span>
+                              </div>
+                              {hasSubtypes && (
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {Object.entries(subtypes!).map(([subtype, subCount]) => (
+                                    <span key={subtype} className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                      {subCount} {subtype.replace(/-/g, ' ')}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

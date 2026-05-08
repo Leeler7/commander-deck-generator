@@ -251,6 +251,23 @@ export function engineDeckToBde(
     payoff: 0,
   } : undefined;
 
+  // Build subtype breakdowns from actual categorized cards (not enricher totals,
+  // which overcount because creatures with roles get sorted into 'creatures' not the role category)
+  const countSubtypes = (cards: EngineScryfallCard[], field: 'rampSubtype' | 'removalSubtype' | 'boardwipeSubtype' | 'cardDrawSubtype') => {
+    const counts: Record<string, number> = {};
+    for (const card of cards) {
+      const sub = card[field] as string | undefined;
+      if (sub) counts[sub] = (counts[sub] || 0) + 1;
+    }
+    return Object.keys(counts).length > 0 ? counts : undefined;
+  };
+  const subtypeCounts = {
+    ramp: countSubtypes(engineDeck.categories.ramp || [], 'rampSubtype'),
+    removal: countSubtypes(engineDeck.categories.singleRemoval || [], 'removalSubtype'),
+    boardwipe: countSubtypes(engineDeck.categories.boardWipes || [], 'boardwipeSubtype'),
+    cardDraw: countSubtypes(engineDeck.categories.cardDraw || [], 'cardDrawSubtype'),
+  };
+
   // Build warnings
   const warnings: string[] = [];
   if (engineDeck.gapAnalysis && engineDeck.gapAnalysis.length > 0) {
@@ -291,6 +308,7 @@ export function engineDeckToBde(
     deck_explanation: buildDeckExplanation(engineDeck, commanderCard),
     bracketEstimate,
     functionalCoverage,
+    subtypeCounts,
   };
 }
 

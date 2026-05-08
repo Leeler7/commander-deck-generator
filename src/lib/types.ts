@@ -186,6 +186,13 @@ export interface GeneratedDeck {
     producesDescription: string[];
     activationDescription: string;
   };
+  /** Subtype breakdowns per role (e.g., ramp: { 'mana-rock': 5, 'mana-dork': 3 }) */
+  subtypeCounts?: {
+    ramp?: Record<string, number>;
+    removal?: Record<string, number>;
+    boardwipe?: Record<string, number>;
+    cardDraw?: Record<string, number>;
+  };
 }
 
 export interface PowerLevelConfig {

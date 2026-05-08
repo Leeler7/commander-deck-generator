@@ -1,4 +1,8 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 const TAG_REPO_URL = process.env.TAG_REPO_URL as string | undefined;
+const TAG_LOCAL_FILE = path.join(process.cwd(), 'data', 'tagger-tags.json');
 
 export interface TaggerData {
   generatedAt: string;
@@ -19,16 +23,29 @@ let tagSets: Record<string, Set<string>> | null = null;
 export async function loadTaggerData(): Promise<TaggerData | null> {
   if (cached) return cached;
   if (fetchPromise) return fetchPromise;
-  if (!TAG_REPO_URL) {
-    console.warn('[Tagger] No TAG_REPO_URL configured, skipping tagger data');
+  if (!TAG_REPO_URL && !fs.existsSync(TAG_LOCAL_FILE)) {
+    console.warn('[Tagger] No TAG_REPO_URL configured and no local file, skipping tagger data');
     return null;
   }
 
   fetchPromise = (async () => {
     try {
-      const res = await fetch(TAG_REPO_URL, { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: TaggerData = await res.json();
+      let data: TaggerData;
+
+      // Prefer local file if it exists (from tools/fetch-tagger-tags.js)
+      if (fs.existsSync(TAG_LOCAL_FILE)) {
+        const raw = fs.readFileSync(TAG_LOCAL_FILE, 'utf-8');
+        data = JSON.parse(raw);
+        console.log(`[Tagger] Loaded from local file: ${TAG_LOCAL_FILE}`);
+      } else if (TAG_REPO_URL) {
+        const res = await fetch(TAG_REPO_URL, { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        data = await res.json();
+        console.log(`[Tagger] Loaded from remote: ${TAG_REPO_URL}`);
+      } else {
+        console.warn('[Tagger] No local file or TAG_REPO_URL — skipping');
+        return null;
+      }
       cached = data;
       // Build Set lookups
       tagSets = {};

@@ -5,7 +5,8 @@
   "scripts": {
     "retag": "node retag-database.js",
     "fetch": "node fetch-new-cards.js",
-    "help": "echo \"Available commands:\\n  npm run retag [-- options]   - Re-tag all cards with comprehensive system\\n  npm run fetch [-- options]   - Fetch new cards from Scryfall\\n\\nFor detailed options, run:\\n  node retag-database.js --help\\n  node fetch-new-cards.js --help\""
+    "fetch-tags": "node fetch-tagger-tags.js",
+    "help": "echo \"Available commands:\\n  npm run retag [-- options]        - Re-tag all cards with comprehensive system\\n  npm run fetch [-- options]        - Fetch new cards from Scryfall\\n  npm run fetch-tags [-- options]   - Fetch Scryfall tagger tags for role classification\\n\\nFor detailed options, run:\\n  node retag-database.js --help\\n  node fetch-new-cards.js --help\\n  node fetch-tagger-tags.js --help\""
   },
   "dependencies": {
     "node-fetch": "^3.3.2"
