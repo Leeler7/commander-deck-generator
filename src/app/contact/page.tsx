@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import HeaderMenu from '@/components/HeaderMenu';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -55,12 +56,15 @@ export default function ContactPage() {
         <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="text-center">
-              <h1 className="text-5xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
-                BIG DECK ENERGY
-              </h1>
-              <p className="mt-2 text-2xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+              <a href="/" className="inline-block">
+                <h1 className="text-4xl text-black hover:text-blue-600 transition-colors" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
+                  BIG DECK ENERGY
+                </h1>
+              </a>
+              <p className="mt-2 text-xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
                 CONTACT SENT SUCCESSFULLY
               </p>
+              <HeaderMenu />
             </div>
           </div>
         </header>
@@ -108,12 +112,15 @@ export default function ContactPage() {
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
-            <h1 className="text-5xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
-              BIG DECK ENERGY
-            </h1>
-            <p className="mt-2 text-2xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+            <a href="/" className="inline-block">
+              <h1 className="text-4xl text-black hover:text-blue-600 transition-colors" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
+                BIG DECK ENERGY
+              </h1>
+            </a>
+            <p className="mt-2 text-xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               CONTACT TARGET ADMIN
             </p>
+            <HeaderMenu />
           </div>
         </div>
       </header>

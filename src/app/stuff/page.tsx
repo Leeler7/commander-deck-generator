@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DarkModeToggle from "@/components/DarkModeToggle";
+import HeaderMenu from "@/components/HeaderMenu";
 
 export const metadata: Metadata = {
   title: "Stuff We Like | Big Deck Energy",
@@ -12,43 +12,83 @@ export default function StuffPage() {
       name: "Kabinka Commander Deck Box (6-Deck Modular)",
       description: "Modular deck box that holds up to 6 Commander decks. Perfect for bringing your whole collection to game night.",
       url: "https://amzn.to/49AA9Iq",
-      asin: "B0FP4KKSL1",
+      image: "https://m.media-amazon.com/images/I/71QfPq5CXbL._AC_SX300_.jpg",
     },
     {
       name: "Kabinka Commander Sideboard Box",
       description: "Sideboard companion to the Kabinka deck box. Extra storage for tokens, dice, and sideboard cards.",
       url: "https://amzn.to/4niM3MZ",
-      asin: "B0G4WC8VK7",
+      image: "https://m.media-amazon.com/images/I/919j9aN-EaL._AC_SX300_.jpg",
     },
     {
       name: "Dragon Shield Standard Sleeves",
       description: "The gold standard for card sleeves. Durable, shuffleable, and available in every color imaginable.",
       url: "https://amzn.to/4db7YAX",
-      asin: "B0777MQF5Z",
+      image: "https://m.media-amazon.com/images/I/91jlkFZ3EnL._AC_SX300_.jpg",
     },
     {
       name: "Dragon Shield Card Codex Portfolio",
       description: "Premium binder-style portfolio for displaying and protecting your favorite cards.",
       url: "https://amzn.to/4u2a1yB",
-      asin: "B0BZ6D93MC",
+      image: "https://m.media-amazon.com/images/I/61JudwyD9ZL._AC_SX300_.jpg",
     },
     {
       name: "Monster 3200-Count Card Storage Box",
       description: "Sturdy cardboard storage box for your bulk collection. Holds up to 3200 cards with dividers.",
       url: "https://amzn.to/3Ph13y6",
-      asin: "B09TY7B2XL",
+      image: "https://m.media-amazon.com/images/I/51MMZg4dqFL._AC_SX300_.jpg",
+    },
+    {
+      name: "MTG Dice Counters & Keyword Tokens (78 Pieces)",
+      description: "Bulk set of +1/+1 counters, keyword counters, and ability tokens. Essential for any Commander game with lots of counters.",
+      url: "https://amzn.to/4d05vuu",
+      image: "https://m.media-amazon.com/images/I/81NVbgTHkKL._AC_SX300_.jpg",
+    },
+    {
+      name: "C4 Energy Drink (Strawberry Blast, 12 Pack)",
+      description: "Zero sugar preworkout energy with 200mg caffeine. Fuel for those long Commander nights.",
+      url: "https://amzn.to/3P6rl6o",
+      image: "https://m.media-amazon.com/images/I/81rRSIKm2TL._AC_SX300_.jpg",
+    },
+    {
+      name: "Gas-X Total Relief Chewable Tablets",
+      description: "Maximum strength bloating and heartburn relief. For when the game store pizza hits different.",
+      url: "https://amzn.to/4uFCv15",
+      image: "https://m.media-amazon.com/images/I/71EIRvILAlL._AC_SX300_.jpg",
+    },
+    {
+      name: "MTG Lost Caverns of Ixalan Commander Deck — Explorers of the Deep",
+      description: "Precon Commander deck featuring merfolk and exploration themes. Great out-of-the-box fun.",
+      url: "https://amzn.to/4uHS48x",
+      image: "https://m.media-amazon.com/images/I/81KkdtE3smL._AC_SX300_.jpg",
+    },
+    {
+      name: "MTG Dominaria United Commander Deck — Legends' Legacy",
+      description: "Legendary-matters Commander precon. Packed with iconic legends and solid value.",
+      url: "https://amzn.to/4tUqi8A",
+      image: "https://m.media-amazon.com/images/I/81O7rd9RVDL._AC_SX300_.jpg",
+    },
+    {
+      name: "MTG Murders at Karlov Manor Commander Deck — Revenant Recon",
+      description: "Surveil and graveyard-themed Commander precon. Spy on your opponents and reanimate threats.",
+      url: "https://amzn.to/4wAWNdZ",
+      image: "https://m.media-amazon.com/images/I/71nNXGx47hL._AC_SX300_.jpg",
+    },
+    {
+      name: "MTG x TMNT Commander Deck — Turtle Power!",
+      description: "Teenage Mutant Ninja Turtles crossover Commander deck. Cowabunga into your next game night.",
+      url: "https://amzn.to/4eGz0CR",
+      image: "https://m.media-amazon.com/images/I/71ORUC529bL._AC_SX300_.jpg",
     },
   ];
 
-  const getImageUrl = (asin: string) =>
-    `https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=${asin}&Format=_SL250_&ID=AsinImage&MarketPlace=US&ServiceVersion=20070822&WS=1&tag=bigdeckenergy-20`;
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center relative">
+          <div className="text-center">
             <a href="/" className="inline-block">
               <h1 className="text-4xl text-black hover:text-blue-600 transition-colors"
                   style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
@@ -59,9 +99,7 @@ export default function StuffPage() {
               style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               BUILD A MEDIOCRE DECK FOR FREE AT INSTANT SPEED.
             </p>
-            <div className="absolute top-0 right-0">
-              <DarkModeToggle />
-            </div>
+            <HeaderMenu />
           </div>
         </div>
       </header>
@@ -89,7 +127,7 @@ export default function StuffPage() {
             >
               <div className="bg-white p-4 flex items-center justify-center h-56">
                 <img
-                  src={getImageUrl(product.asin)}
+                  src={product.image}
                   alt={product.name}
                   className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
                 />
