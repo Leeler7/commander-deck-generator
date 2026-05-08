@@ -600,7 +600,6 @@ export default function Home() {
                           { label: 'Card Draw', key: 'card_draw', min: 8, subtypeKey: 'cardDraw' as const },
                           { label: 'Removal', key: 'removal', min: 7, subtypeKey: 'removal' as const },
                           { label: 'Board Wipes', key: 'board_wipe', min: 2, subtypeKey: 'boardwipe' as const },
-                          { label: 'Protection', key: 'protection', min: 3, subtypeKey: null },
                           { label: 'Tutors', key: 'tutor', min: 0, subtypeKey: null },
                         ].map(({ label, key, min, subtypeKey }) => {
                           const count = generatedDeck.functionalCoverage![key as keyof typeof generatedDeck.functionalCoverage];

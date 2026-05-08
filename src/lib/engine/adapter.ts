@@ -240,15 +240,16 @@ export function engineDeckToBde(
     };
   }
 
+  // Count tutors from all deck cards (tutors are a cardDraw subtype)
+  const tutorCount = allCards.filter((c: EngineScryfallCard) => c.cardDrawSubtype === 'tutor').length;
+
   // Build functional coverage from role counts
   const functionalCoverage = engineDeck.roleCounts ? {
     ramp: engineDeck.roleCounts.ramp || 0,
     card_draw: engineDeck.roleCounts.cardDraw || 0,
     removal: engineDeck.roleCounts.removal || 0,
     board_wipe: engineDeck.roleCounts.boardwipe || 0,
-    protection: 0,
-    tutor: 0,
-    payoff: 0,
+    tutor: tutorCount,
   } : undefined;
 
   // Build subtype breakdowns from actual categorized cards (not enricher totals,

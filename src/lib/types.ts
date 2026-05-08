@@ -176,9 +176,7 @@ export interface GeneratedDeck {
     card_draw: number;
     removal: number;
     board_wipe: number;
-    protection: number;
     tutor: number;
-    payoff: number;
   };
   /** Structured commander mechanical analysis — computed by parseCommanderMechanics */
   commanderAnalysis?: {
