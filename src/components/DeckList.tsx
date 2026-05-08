@@ -8,7 +8,26 @@ interface DeckListProps {
   deck: GeneratedDeck;
 }
 
+interface ConsolidatedCard {
+  card: DeckCard;
+  count: number;
+}
+
+function consolidateCards(cards: DeckCard[]): ConsolidatedCard[] {
+  const map = new Map<string, ConsolidatedCard>();
+  for (const card of cards) {
+    const existing = map.get(card.name);
+    if (existing) {
+      existing.count++;
+    } else {
+      map.set(card.name, { card, count: 1 });
+    }
+  }
+  return Array.from(map.values());
+}
+
 export default function DeckList({ deck }: DeckListProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const [selectedRole, setSelectedRole] = useState<CardRole | 'all'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'cmc' | 'price' | 'role'>('role');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -16,10 +35,10 @@ export default function DeckList({ deck }: DeckListProps) {
   // Separate commander from other cards
   const nonCommanderCards = [...deck.nonland_cards, ...deck.lands];
   const allCards = [deck.commander, ...nonCommanderCards];
-  
-  const filteredCards = selectedRole === 'all' 
-    ? nonCommanderCards 
-    : selectedRole === 'Commander' 
+
+  const filteredCards = selectedRole === 'all'
+    ? nonCommanderCards
+    : selectedRole === 'Commander'
     ? [deck.commander]
     : nonCommanderCards.filter(card => card.role === selectedRole);
 
@@ -41,6 +60,9 @@ export default function DeckList({ deck }: DeckListProps) {
     }
   });
 
+  // Consolidate duplicates
+  const consolidatedCards = consolidateCards(sortedCards);
+
   const roleColors: Record<string, string> = {
     'Commander': 'bg-purple-100 text-purple-800 border-purple-200',
     'Ramp': 'bg-green-100 text-green-800 border-green-200',
@@ -60,130 +82,144 @@ export default function DeckList({ deck }: DeckListProps) {
 
   // Helper function to extract subtypes from type line
   const getSubtypes = (typeLine: string): string => {
-    // Remove supertype and main type, keep only subtypes
-    // Format: "Supertype MainType — Subtypes" -> "Subtypes"
-    // Or: "MainType — Subtypes" -> "Subtypes"
     if (typeLine.includes('—')) {
       return typeLine.split('—')[1].trim();
     }
-    // If no subtypes (no em dash), return empty string
     return '';
   };
 
+  const uniqueCardCount = consolidatedCards.length + 1; // +1 for commander
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
+    <div className="space-y-4">
+      {/* Collapsible Header */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 hover:bg-gray-50 transition-colors"
+      >
+        <div className="text-left">
           <h2 className="text-2xl font-bold text-gray-900">
-            {deck.commander.name} - Generated Deck
+            {deck.commander.name} - Deck List
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            {allCards.length} cards • ${deck.total_price.toFixed(2)} total
+            {allCards.length} cards ({uniqueCardCount} unique) &bull; ${deck.total_price.toFixed(2)} total
           </p>
         </div>
-        
-        <div className="flex items-center space-x-2 mt-4 sm:mt-0">
-          <button
-            onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {viewMode === 'list' ? 'Grid View' : 'List View'}
-          </button>
-        </div>
-      </div>
+        <svg
+          className={`w-6 h-6 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <label htmlFor="role-filter" className="block text-sm font-medium text-gray-700 mb-1">
-            Filter by Role
-          </label>
-          <select
-            id="role-filter"
-            value={selectedRole}
-            onChange={(e) => setSelectedRole(e.target.value as CardRole | 'all')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">All Cards ({allCards.length})</option>
-            {Object.entries(deck.role_breakdown).map(([role, count]) => (
-              <option key={role} value={role}>
-                {role} ({count})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex-1">
-          <label htmlFor="sort-by" className="block text-sm font-medium text-gray-700 mb-1">
-            Sort by
-          </label>
-          <select
-            id="sort-by"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'name' | 'cmc' | 'price' | 'role')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="role">Role</option>
-            <option value="name">Name</option>
-            <option value="cmc">Mana Cost</option>
-            <option value="price">Price</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Commander Display */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Commander</h3>
-        {viewMode === 'list' ? (
-          <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <ul className="divide-y divide-gray-200">
-              <CardListItem key={deck.commander.id} card={deck.commander} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
-            </ul>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <CardGridItem key={deck.commander.id} card={deck.commander} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
-          </div>
-        )}
-      </div>
-
-      {/* Other Cards Display */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">
-          {selectedRole === 'all' ? 'Deck Cards' : 
-           selectedRole === 'Commander' ? 'Commander' : 
-           `${selectedRole} Cards`} ({selectedRole === 'Commander' ? 1 : sortedCards.length})
-        </h3>
-        {selectedRole !== 'Commander' && (
-          viewMode === 'list' ? (
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
-                {sortedCards.map((card, index) => (
-                  <CardListItem key={`${card.name}-${index}`} card={card} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+      {isExpanded && (
+        <div className="space-y-6">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label htmlFor="role-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                Filter by Role
+              </label>
+              <select
+                id="role-filter"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value as CardRole | 'all')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Cards ({allCards.length})</option>
+                {Object.entries(deck.role_breakdown).map(([role, count]) => (
+                  <option key={role} value={role}>
+                    {role} ({count})
+                  </option>
                 ))}
-              </ul>
+              </select>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {sortedCards.map((card, index) => (
-                <CardGridItem key={`${card.name}-${index}`} card={card} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
-              ))}
+
+            <div className="flex-1">
+              <label htmlFor="sort-by" className="block text-sm font-medium text-gray-700 mb-1">
+                Sort by
+              </label>
+              <select
+                id="sort-by"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'name' | 'cmc' | 'price' | 'role')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="role">Role</option>
+                <option value="name">Name</option>
+                <option value="cmc">Mana Cost</option>
+                <option value="price">Price</option>
+              </select>
             </div>
-          )
-        )}
-      </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {viewMode === 'list' ? 'Grid View' : 'List View'}
+              </button>
+            </div>
+          </div>
+
+          {/* Commander Display */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Commander</h3>
+            {viewMode === 'list' ? (
+              <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-gray-200">
+                  <CardListItem card={deck.commander} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                </ul>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <CardGridItem card={deck.commander} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+              </div>
+            )}
+          </div>
+
+          {/* Other Cards Display */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              {selectedRole === 'all' ? 'Deck Cards' :
+               selectedRole === 'Commander' ? 'Commander' :
+               `${selectedRole} Cards`} ({selectedRole === 'Commander' ? 1 : filteredCards.length})
+            </h3>
+            {selectedRole !== 'Commander' && (
+              viewMode === 'list' ? (
+                <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                  <ul className="divide-y divide-gray-200">
+                    {consolidatedCards.map(({ card, count }) => (
+                      <CardListItem key={card.name} card={card} count={count} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {consolidatedCards.map(({ card, count }) => (
+                    <CardGridItem key={card.name} card={card} count={count} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function CardListItem({ 
-  card, 
+function CardListItem({
+  card,
+  count,
   roleColors,
   getScryfallUrl,
   getSubtypes
-}: { 
-  card: DeckCard; 
+}: {
+  card: DeckCard;
+  count: number;
   roleColors: Record<string, string>;
   getScryfallUrl: (cardName: string) => string;
   getSubtypes: (typeLine: string) => string;
@@ -198,11 +234,11 @@ function CardListItem({
             className="w-12 h-12 rounded object-cover flex-shrink-0"
           />
         )}
-        
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2">
             <h3 className="text-sm font-medium text-gray-900 truncate">
-              <a 
+              <a
                 href={getScryfallUrl(card.name)}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -211,24 +247,27 @@ function CardListItem({
               >
                 {card.name}
               </a>
+              {count > 1 && (
+                <span className="ml-1 text-gray-500 font-bold">x{count}</span>
+              )}
             </h3>
             <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${roleColors[card.role]}`}>
               {card.role}
             </span>
           </div>
-          
+
           {getSubtypes(card.type_line) && (
             <p className="text-sm text-gray-500 truncate mt-1">
               {getSubtypes(card.type_line)}
             </p>
           )}
-          
+
           <div className="flex items-center space-x-4 mt-2">
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-600">Cost:</span>
               <ManaCost manaCost={card.mana_cost} />
             </div>
-            
+
             <div className="flex space-x-1">
               {card.color_identity.map((color) => (
                 <span
@@ -241,14 +280,14 @@ function CardListItem({
                 <span className="w-4 h-4 rounded-full border border-gray-400 bg-gray-200" title="Colorless" />
               )}
             </div>
-            
+
             {card.price_used !== undefined && (
               <span className="text-sm font-medium text-green-600">
-                ${card.price_used.toFixed(2)}
+                ${(card.price_used * count).toFixed(2)}{count > 1 && ` ($${card.price_used.toFixed(2)} ea)`}
               </span>
             )}
           </div>
-          
+
           {card.synergy_notes && (
             <p className="text-xs text-gray-500 mt-1 italic">
               {card.synergy_notes}
@@ -260,13 +299,15 @@ function CardListItem({
   );
 }
 
-function CardGridItem({ 
-  card, 
+function CardGridItem({
+  card,
+  count,
   roleColors,
   getScryfallUrl,
   getSubtypes
-}: { 
-  card: DeckCard; 
+}: {
+  card: DeckCard;
+  count: number;
   roleColors: Record<string, string>;
   getScryfallUrl: (cardName: string) => string;
   getSubtypes: (typeLine: string) => string;
@@ -280,11 +321,11 @@ function CardGridItem({
           className="w-full h-48 object-cover"
         />
       )}
-      
+
       <div className="p-4">
         <div className="flex items-start justify-between">
           <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
-            <a 
+            <a
               href={getScryfallUrl(card.name)}
               target="_blank"
               rel="noopener noreferrer"
@@ -293,10 +334,13 @@ function CardGridItem({
             >
               {card.name}
             </a>
+            {count > 1 && (
+              <span className="ml-1 text-gray-500 font-bold">x{count}</span>
+            )}
           </h3>
           <ManaCost manaCost={card.mana_cost} className="ml-2" />
         </div>
-        
+
         <div className="mt-2">
           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${roleColors[card.role]}`}>
             {card.role}
@@ -307,7 +351,7 @@ function CardGridItem({
             </p>
           )}
         </div>
-        
+
         <div className="flex items-center justify-between mt-3">
           <div className="flex space-x-1">
             {card.color_identity.map((color) => (
@@ -321,14 +365,14 @@ function CardGridItem({
               <span className="w-3 h-3 rounded-full border border-gray-400 bg-gray-200" title="Colorless" />
             )}
           </div>
-          
+
           {card.price_used !== undefined && (
             <span className="text-sm font-medium text-green-600">
-              ${card.price_used.toFixed(2)}
+              ${(card.price_used * count).toFixed(2)}{count > 1 && ` ($${card.price_used.toFixed(2)} ea)`}
             </span>
           )}
         </div>
-        
+
         {card.synergy_notes && (
           <p className="text-xs text-gray-500 mt-2 italic line-clamp-2">
             {card.synergy_notes}

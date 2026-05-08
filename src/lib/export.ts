@@ -1,39 +1,52 @@
 import { GeneratedDeck, DeckCard, ExportFormats } from './types';
 
+/** Strip the back face from dual-faced card names: "Khalni Ambush // Khalni Territory" → "Khalni Ambush" */
+function frontFace(name: string): string {
+  const idx = name.indexOf(' // ');
+  return idx !== -1 ? name.substring(0, idx) : name;
+}
+
 export class DeckExporter {
   exportToText(deck: GeneratedDeck): string {
     const lines: string[] = [];
-    
-    // Header
-    lines.push(`Commander: ${deck.commander.name}`);
-    lines.push(`Total Price: $${deck.total_price.toFixed(2)}`);
-    lines.push('');
-    
-    // Commander section
-    lines.push('COMMANDER:');
-    lines.push(`1 ${deck.commander.name}`);
-    lines.push('');
-    
-    // Group cards by role
-    const cardsByRole = this.groupCardsByRole([...deck.nonland_cards, ...deck.lands]);
-    
-    for (const [role, cards] of Object.entries(cardsByRole)) {
-      if (cards.length === 0) continue;
-      
-      lines.push(`${role.toUpperCase()}:`);
-      const sortedCards = cards.sort((a, b) => a.name.localeCompare(b.name));
-      
-      for (const card of sortedCards) {
-        lines.push(`1 ${card.name}`);
-      }
-      lines.push('');
+
+    // Commander first
+    lines.push(`1 ${frontFace(deck.commander.name)}`);
+
+    // Consolidate duplicates and sort alphabetically
+    const consolidated = this.consolidateCards([...deck.nonland_cards, ...deck.lands]);
+    const sorted = consolidated.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const { name, count } of sorted) {
+      lines.push(`${count} ${frontFace(name)}`);
     }
-    
-    // Total count
-    const totalCards = 1 + deck.nonland_cards.length + deck.lands.length;
-    lines.push(`Total: ${totalCards} cards`);
-    
+
     return lines.join('\n');
+  }
+
+  /** Export for TCGPlayer mass entry URL (uses || delimiter) */
+  exportForTCGPlayer(deck: GeneratedDeck): string {
+    const parts: string[] = [];
+    parts.push(`1 ${frontFace(deck.commander.name)}`);
+
+    const consolidated = this.consolidateCards([...deck.nonland_cards, ...deck.lands]);
+    for (const { name, count } of consolidated) {
+      parts.push(`${count} ${frontFace(name)}`);
+    }
+
+    return parts.join('||');
+  }
+
+  /** Build TCGPlayer mass entry URL */
+  buildTCGPlayerUrl(deck: GeneratedDeck): string {
+    const entries = this.exportForTCGPlayer(deck);
+    return `https://www.tcgplayer.com/massentry?productline=Magic&c=${encodeURIComponent(entries)}`;
+  }
+
+  /** Build Card Kingdom builder URL */
+  buildCardKingdomUrl(deck: GeneratedDeck): string {
+    const deckList = this.exportToText(deck);
+    return `https://www.cardkingdom.com/builder?partner=&deckcontents=${encodeURIComponent(deckList)}`;
   }
 
   exportToCSV(deck: GeneratedDeck): string {
@@ -231,20 +244,15 @@ export class DeckExporter {
   }
 
   private generateSimpleDecklist(deck: GeneratedDeck): string {
-    const lines: string[] = [];
-    
-    // Commander
-    lines.push(`1 ${deck.commander.name}`);
-    
-    // All other cards
-    const allCards = [...deck.nonland_cards, ...deck.lands];
-    const sortedCards = allCards.sort((a, b) => a.name.localeCompare(b.name));
-    
-    for (const card of sortedCards) {
-      lines.push(`1 ${card.name}`);
+    return this.exportToText(deck);
+  }
+
+  private consolidateCards(cards: DeckCard[]): { name: string; count: number }[] {
+    const map = new Map<string, number>();
+    for (const card of cards) {
+      map.set(card.name, (map.get(card.name) || 0) + 1);
     }
-    
-    return lines.join('\n');
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
   }
 
   private groupCardsByRole(cards: DeckCard[]): Record<string, DeckCard[]> {
@@ -297,15 +305,8 @@ export class PurchaseUrlGenerator {
    * TCGPlayer accepts a list in the format: "1 Card Name"
    */
   generateTCGPlayerUrl(deck: GeneratedDeck): string {
-    const cards = [
-      `1 ${deck.commander.name}`,
-      ...deck.nonland_cards.map(card => `1 ${card.name}`),
-      ...deck.lands.map(card => `1 ${card.name}`)
-    ];
-    
-    const deckList = cards.join('\n');
+    const deckList = deckExporter.exportToText(deck);
     const encodedList = encodeURIComponent(deckList);
-    
     return `https://www.tcgplayer.com/massentry?productline=magic&c=${encodedList}`;
   }
 
@@ -314,13 +315,8 @@ export class PurchaseUrlGenerator {
    * Card Kingdom uses a specific format for their cart
    */
   generateCardKingdomUrl(deck: GeneratedDeck): string {
-    const allCards = [deck.commander, ...deck.nonland_cards, ...deck.lands];
-    
-    // Card Kingdom uses a specific URL structure
-    // Format: https://www.cardkingdom.com/builder?partner=PARTNER&deckcontents=ENCODED_LIST
-    const deckList = allCards.map(card => `1 ${card.name}`).join('\n');
+    const deckList = deckExporter.exportToText(deck);
     const encodedList = encodeURIComponent(deckList);
-    
     return `https://www.cardkingdom.com/builder?deckcontents=${encodedList}`;
   }
 
@@ -344,16 +340,8 @@ export class PurchaseUrlGenerator {
    * Generate TCGPlayer Optimizer URL (tries to find cheapest versions)
    */
   generateTCGPlayerOptimizerUrl(deck: GeneratedDeck): string {
-    const cards = [
-      `1 ${deck.commander.name}`,
-      ...deck.nonland_cards.map(card => `1 ${card.name}`),
-      ...deck.lands.map(card => `1 ${card.name}`)
-    ];
-    
-    const deckList = cards.join('\n');
+    const deckList = deckExporter.exportToText(deck);
     const encodedList = encodeURIComponent(deckList);
-    
-    // Add optimizer flag to get best prices
     return `https://www.tcgplayer.com/massentry?productline=magic&optimized=true&c=${encodedList}`;
   }
 
@@ -361,20 +349,7 @@ export class PurchaseUrlGenerator {
    * Generate a shareable deck list that can be copied for any retailer
    */
   generateUniversalDeckList(deck: GeneratedDeck): string {
-    const lines: string[] = [];
-    
-    // Commander
-    lines.push(`1 ${deck.commander.name}`);
-    
-    // Sort other cards alphabetically for easy checking
-    const allOtherCards = [...deck.nonland_cards, ...deck.lands]
-      .sort((a, b) => a.name.localeCompare(b.name));
-    
-    for (const card of allOtherCards) {
-      lines.push(`1 ${card.name}`);
-    }
-    
-    return lines.join('\n');
+    return deckExporter.exportToText(deck);
   }
 
   /**

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import DarkModeToggle from "@/components/DarkModeToggle";
 
 export const metadata: Metadata = {
   title: "FAQ | Big Deck Energy - Free MTG Commander Deck Generator",
@@ -71,9 +72,9 @@ export default function FAQPage() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center">
+          <div className="text-center relative">
             <a href="/" className="inline-block">
-              <h1 className="text-5xl text-black hover:text-blue-600 transition-colors" 
+              <h1 className="text-5xl text-black hover:text-blue-600 transition-colors"
                   style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
                 BIG DECK ENERGY
               </h1>
@@ -82,6 +83,9 @@ export default function FAQPage() {
               style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               Free MTG Commander (EDH) Deck Generator
             </h2>
+            <div className="absolute top-0 right-0">
+              <DarkModeToggle />
+            </div>
           </div>
         </div>
       </header>

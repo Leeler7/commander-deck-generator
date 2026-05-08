@@ -304,6 +304,8 @@ export interface EDHRECTheme {
 // ─── Commander Spellbook / combo types ───────────────────────────────────────
 
 export interface ComboResult {
+  /** Commander Spellbook combo ID */
+  comboId?: string;
   /** Card names involved in the combo */
   cards: string[];
   /** Setup requirements before the combo goes off */

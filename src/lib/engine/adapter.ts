@@ -194,6 +194,7 @@ export function engineDeckToBde(
 
   // Map combos — DetectedCombo has: comboId, cards, results, isComplete, missingCards, deckCount, bracket
   const combos = (engineDeck.detectedCombos || []).map(combo => ({
+    comboId: combo.comboId,
     cards: combo.cards,
     prerequisites: [] as string[],
     steps: [] as string[],
@@ -204,11 +205,14 @@ export function engineDeckToBde(
   let bracketEstimate: BDEBracketEstimate | undefined;
   if (engineDeck.bracketEstimation) {
     const be = engineDeck.bracketEstimation;
+    // Filter game changers to only those actually in the deck
+    const deckCardNames = new Set(allCards.map(c => c.name));
+    const gameChangersInDeck = (engineDeck.gameChangerNames || []).filter(name => deckCardNames.has(name));
     bracketEstimate = {
       bracket: be.bracket,
       combos,
-      gameChangersFound: engineDeck.gameChangerNames || [],
-      gameChangerCount: (engineDeck.gameChangerNames || []).length,
+      gameChangersFound: gameChangersInDeck,
+      gameChangerCount: gameChangersInDeck.length,
       reasons: be.hardFloors?.map(f => f.reason || '') || [],
       diagnostics: {
         tutorCount: be.breakdown?.tutorCount ?? 0,

@@ -39,12 +39,14 @@ import DeckAnalysis from '@/components/DeckAnalysis';
 import CommanderAnalysis from '@/components/CommanderAnalysis';
 import ManaCost from '@/components/ManaCost';
 import BuyDeck from '@/components/BuyDeck';
+import { useTheme } from '@/components/ThemeProvider';
 
 export default function Home() {
   const [commanderName, setCommanderName] = useState('');
   const [selectedCommander, setSelectedCommander] = useState<ScryfallCard | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { theme, toggleTheme } = useTheme();
   
   // Close menu when clicking outside
   useEffect(() => {
@@ -248,15 +250,15 @@ export default function Home() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header - Fixed/Non-scrollable */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center relative">
-            <h1 className="text-5xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
+            <h1 className="text-5xl text-black dark:text-white" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
               BIG DECK ENERGY
             </h1>
-            <p className="mt-2 text-2xl text-black" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+            <p className="mt-2 text-2xl text-black dark:text-gray-200" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
               FREE MTG COMMANDER DECK GENERATOR. BUILD A MEDIOCRE DECK AT INSTANT SPEED.
             </p>
             
@@ -264,7 +266,7 @@ export default function Home() {
             <div className="absolute top-0 right-0" ref={menuRef}>
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 <span style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
                   MENU
@@ -276,22 +278,29 @@ export default function Home() {
 
               {/* Dropdown Menu */}
               {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50">
                   <div className="py-1">
                     <a
                       href="/faq"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
                     >
                       FAQ
                     </a>
                     <a
                       href="/contact"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
                     >
                       CONTACT
                     </a>
+                    <button
+                      onClick={toggleTheme}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors"
+                      style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
+                    >
+                      {theme === 'dark' ? 'LIGHT MODE' : 'DARK MODE'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -304,9 +313,9 @@ export default function Home() {
         {!generatedDeck ? (
           /* Generation Form */
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-8">
               <div>
-                <h2 className="text-3xl text-black mb-6" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+                <h2 className="text-3xl text-black dark:text-white mb-6" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
                   BUILD YOUR DECK
                 </h2>
                 
@@ -418,7 +427,7 @@ export default function Home() {
                         </span>
                       </div>
                     ) : (
-                      <span style={{fontFamily: 'Impact, "Arial Black", sans-serif'}}>🎲 RANDOM DECK</span>
+                      <span style={{fontFamily: 'Impact, "Arial Black", sans-serif'}}>🎲 BIG DECK ENERGY</span>
                     )}
                   </button>
                 </div>
@@ -733,20 +742,21 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Bracket Estimate */}
+            {/* Bracket Estimate + Detected Combos side by side */}
             {generatedDeck.bracketEstimate && (
-              <div className="max-w-md">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <BracketEstimate bracketEstimate={generatedDeck.bracketEstimate} targetBracket={constraints.targetBracket} />
+                {generatedDeck.bracketEstimate.combos.length > 0 && (
+                  <ComboDisplay
+                    combos={generatedDeck.bracketEstimate.combos}
+                    targetBracket={constraints.targetBracket}
+                  />
+                )}
               </div>
             )}
 
-            {/* Detected Combos */}
-            {generatedDeck.bracketEstimate && generatedDeck.bracketEstimate.combos.length > 0 && (
-              <ComboDisplay
-                combos={generatedDeck.bracketEstimate.combos}
-                targetBracket={constraints.targetBracket}
-              />
-            )}
+            {/* Deck Analysis (Cards by Type) */}
+            <DeckAnalysis deck={generatedDeck} />
 
             {/* Commander Analysis */}
             {generatedDeck.commanderAnalysis && (
@@ -777,9 +787,6 @@ export default function Home() {
             {/* Buy Deck Options */}
             <BuyDeck deck={generatedDeck} />
 
-            {/* Deck Analysis */}
-            <DeckAnalysis deck={generatedDeck} />
-
             {/* Deck List */}
             <DeckList deck={generatedDeck} />
           </div>
@@ -787,7 +794,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-16">
+      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-sm text-gray-600">
             <p className="mb-4 text-gray-700">
