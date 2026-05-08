@@ -41,6 +41,7 @@ next-env.d.ts
 
 # Database files (we'll keep the compressed versions in public/)
 data/
+!data/tagger-tags.json
 
 # Large dev files and downloads
 mtgjson/
