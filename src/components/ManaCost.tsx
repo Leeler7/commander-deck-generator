@@ -124,7 +124,7 @@ function ManaSymbolComponent({ symbol }: { symbol: ManaSymbol }) {
 
   if (symbol.type === 'generic') {
     return (
-      <div className="w-5 h-5 rounded-full bg-gray-300 text-gray-700 border border-gray-400 flex items-center justify-center text-xs font-medium">
+      <div className="w-5 h-5 rounded-full bg-gray-300 border border-gray-400 flex items-center justify-center text-xs font-medium" style={{ color: '#374151' }}>
         {symbol.value}
       </div>
     );
