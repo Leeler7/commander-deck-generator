@@ -355,6 +355,7 @@ export default function Home() {
                   <button
                     onClick={handleRandomCommander}
                     disabled={isRandomizing || isGenerating}
+                    title="Roll the dice. Random commander with random settings."
                     className={`px-6 py-2 rounded-lg font-medium transition-colors ${
                       isRandomizing || isGenerating
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -380,6 +381,7 @@ export default function Home() {
                 <button
                   onClick={handleGenerate}
                   disabled={!selectedCommander || isGenerating}
+                  title={!selectedCommander ? "You gotta pick a commander first." : "Generate a deck with your current settings."}
                   className={`px-8 py-3 rounded-lg font-medium transition-colors ${
                     !selectedCommander || isGenerating
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
