@@ -1,6 +1,7 @@
 'use client';
 
 import { GeneratedDeck, DeckCard, CardRole } from '@/lib/types';
+import { buildTCGPlayerCardUrl } from '@/lib/export';
 import { useState } from 'react';
 import ManaCost from './ManaCost';
 
@@ -284,9 +285,15 @@ function CardListItem({
             </div>
 
             {card.price_used !== undefined && (
-              <span className="text-sm font-medium text-green-600">
+              <a
+                href={buildTCGPlayerCardUrl(card.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-green-600 hover:text-green-800 hover:underline transition-colors"
+                title={`Buy ${card.name} on TCGPlayer`}
+              >
                 ${(card.price_used * count).toFixed(2)}{count > 1 && ` ($${card.price_used.toFixed(2)} ea)`}
-              </span>
+              </a>
             )}
           </div>
 
@@ -369,9 +376,15 @@ function CardGridItem({
           </div>
 
           {card.price_used !== undefined && (
-            <span className="text-sm font-medium text-green-600">
+            <a
+              href={buildTCGPlayerCardUrl(card.name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-green-600 hover:text-green-800 hover:underline transition-colors"
+              title={`Buy ${card.name} on TCGPlayer`}
+            >
               ${(card.price_used * count).toFixed(2)}{count > 1 && ` ($${card.price_used.toFixed(2)} ea)`}
-            </span>
+            </a>
           )}
         </div>
 

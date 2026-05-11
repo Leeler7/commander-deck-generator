@@ -37,10 +37,11 @@ export class DeckExporter {
     return parts.join('||');
   }
 
-  /** Build TCGPlayer mass entry URL */
+  /** Build TCGPlayer mass entry URL (routed through affiliate partner link) */
   buildTCGPlayerUrl(deck: GeneratedDeck): string {
     const entries = this.exportForTCGPlayer(deck);
-    return `https://www.tcgplayer.com/massentry?productline=Magic&c=${encodeURIComponent(entries)}`;
+    const directUrl = `https://www.tcgplayer.com/massentry?productline=Magic&c=${encodeURIComponent(entries)}`;
+    return buildTCGPlayerAffiliateUrl(directUrl);
   }
 
   /** Build Card Kingdom builder URL */
@@ -307,7 +308,8 @@ export class PurchaseUrlGenerator {
   generateTCGPlayerUrl(deck: GeneratedDeck): string {
     const deckList = deckExporter.exportToText(deck);
     const encodedList = encodeURIComponent(deckList);
-    return `https://www.tcgplayer.com/massentry?productline=magic&c=${encodedList}`;
+    const directUrl = `https://www.tcgplayer.com/massentry?productline=magic&c=${encodedList}`;
+    return buildTCGPlayerAffiliateUrl(directUrl);
   }
 
   /**
@@ -373,6 +375,20 @@ export class PurchaseUrlGenerator {
       disclaimer: 'Prices are estimates based on data at generation time. Actual prices may vary.'
     };
   }
+}
+
+/** TCGPlayer Partner affiliate base URL */
+const TCGPLAYER_AFFILIATE_BASE = 'https://partner.tcgplayer.com/c/7282730/1780961/21018';
+
+/** Wrap any TCGPlayer URL through the affiliate partner link */
+export function buildTCGPlayerAffiliateUrl(destinationUrl: string): string {
+  return `${TCGPLAYER_AFFILIATE_BASE}?u=${encodeURIComponent(destinationUrl)}`;
+}
+
+/** Build a TCGPlayer search URL for a single card (through affiliate link) */
+export function buildTCGPlayerCardUrl(cardName: string): string {
+  const searchUrl = `https://www.tcgplayer.com/search/magic/product?productLineName=magic&q=${encodeURIComponent(cardName)}&view=grid`;
+  return buildTCGPlayerAffiliateUrl(searchUrl);
 }
 
 export const deckExporter = new DeckExporter();

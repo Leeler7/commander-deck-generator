@@ -7,6 +7,15 @@ export const metadata: Metadata = {
 };
 
 export default function StuffPage() {
+  const partners = [
+    {
+      name: "TCGPlayer",
+      description: "Buy singles, sealed product, and more from the largest MTG marketplace. Great prices and huge selection.",
+      url: "https://partner.tcgplayer.com/c/7282730/1780961/21018",
+      cta: "Shop on TCGPlayer →",
+    },
+  ];
+
   const products = [
     {
       name: "Kabinka Commander Deck Box (6-Deck Modular)",
@@ -115,6 +124,42 @@ export default function StuffPage() {
             Gear we use and recommend for Commander nights. These are affiliate links — they help support the site at no extra cost to you.
           </p>
         </div>
+
+        {/* TCGPlayer Partner */}
+        <div className="mb-10">
+          {partners.map((partner, index) => (
+            <a
+              key={index}
+              href={partner.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block bg-white rounded-lg shadow-sm border-2 border-gray-200 overflow-hidden hover:shadow-lg hover:border-green-400 transition-all max-w-2xl mx-auto"
+            >
+              <div className="flex flex-col sm:flex-row items-center p-6 gap-6">
+                <div className="flex-shrink-0 bg-gray-900 rounded-lg px-5 py-3 group-hover:bg-gray-800 transition-colors">
+                  <span className="text-2xl font-black text-white tracking-tight">TCG</span>
+                  <span className="text-2xl font-black text-green-400 tracking-tight">player</span>
+                </div>
+                <div className="text-center sm:text-left flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1 group-hover:text-green-600 transition-colors">
+                    {partner.name} — Official Partner
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {partner.description}
+                  </p>
+                  <span className="inline-block mt-2 text-sm font-medium text-green-600">
+                    {partner.cta}
+                  </span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+
+        <h3 className="text-2xl text-black mb-4"
+            style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+          Gear & Accessories
+        </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product, index) => (
