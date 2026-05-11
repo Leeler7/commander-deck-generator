@@ -142,6 +142,12 @@ export default function BuyDeck({ deck }: BuyDeckProps) {
           <li>&bull; Consider buying played condition cards to save money</li>
         </ul>
       </div>
+
+      {/* Affiliate Disclosure */}
+      <p className="mt-3 text-xs text-gray-400 text-center">
+        As a TCGPlayer affiliate, we earn from qualifying purchases.{' '}
+        <a href="/disclosure" className="underline hover:text-gray-600">Learn more</a>
+      </p>
     </div>
   );
 }

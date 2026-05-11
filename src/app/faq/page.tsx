@@ -144,6 +144,8 @@ export default function FAQPage() {
               <a href="/stuff" className="text-blue-600 hover:text-blue-500">Stuff</a>
               {' '}•{' '}
               <a href="/contact" className="text-blue-600 hover:text-blue-500">Contact</a>
+              {' '}&bull;{' '}
+              <a href="/disclosure" className="text-blue-600 hover:text-blue-500">Disclosure</a>
             </p>
             <p className="mt-2">
               Deck engine by{' '}

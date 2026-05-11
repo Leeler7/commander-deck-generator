@@ -121,7 +121,9 @@ export default function StuffPage() {
             Stuff We Like
           </h2>
           <p className="text-gray-600">
-            Gear we use and recommend for Commander nights. These are affiliate links — they help support the site at no extra cost to you.
+            Gear we use and recommend for Commander nights. Links on this page are affiliate links —
+            we earn a small commission on purchases at no extra cost to you.{' '}
+            <a href="/disclosure" className="text-blue-600 hover:text-blue-500 underline">Full disclosure</a>
           </p>
         </div>
 
@@ -209,6 +211,8 @@ export default function StuffPage() {
               <a href="/stuff" className="text-blue-600 hover:text-blue-500">Stuff</a>
               {' '}&bull;{' '}
               <a href="/contact" className="text-blue-600 hover:text-blue-500">Contact</a>
+              {' '}&bull;{' '}
+              <a href="/disclosure" className="text-blue-600 hover:text-blue-500">Disclosure</a>
             </p>
             <p className="mt-2">
               Deck engine by{' '}

@@ -108,6 +108,10 @@ export default function DeckList({ deck }: DeckListProps) {
           <p className="text-sm text-gray-600 mt-1">
             {allCards.length} cards ({uniqueCardCount} unique) &bull; ${deck.total_price.toFixed(2)} total
           </p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Prices link to TCGPlayer (affiliate).{' '}
+            <a href="/disclosure" className="underline hover:text-gray-600" onClick={(e) => e.stopPropagation()}>Disclosure</a>
+          </p>
         </div>
         <svg
           className={`w-6 h-6 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}

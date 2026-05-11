@@ -791,6 +791,13 @@ export default function Home() {
               >
                 Stuff
               </a>
+              {' '}•{' '}
+              <a
+                href="/disclosure"
+                className="text-blue-600 hover:text-blue-500"
+              >
+                Disclosure
+              </a>
             </p>
             <p className="mt-2">
               Deck engine by{' '}
