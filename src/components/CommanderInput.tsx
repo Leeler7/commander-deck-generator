@@ -13,9 +13,10 @@ interface CommanderInputProps {
   onChange: (value: string) => void;
   onCommanderSelect: (commander: ScryfallCard | null) => void;
   error?: string;
+  includeUnreleased?: boolean;
 }
 
-export default function CommanderInput({ value, onChange, onCommanderSelect, error }: CommanderInputProps) {
+export default function CommanderInput({ value, onChange, onCommanderSelect, error, includeUnreleased = false }: CommanderInputProps) {
   const [suggestions, setSuggestions] = useState<ScryfallCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -33,7 +34,8 @@ export default function CommanderInput({ value, onChange, onCommanderSelect, err
 
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/commanders/search?q=${encodeURIComponent(value)}`);
+        const unreleasedParam = includeUnreleased ? '&unreleased=1' : '';
+        const response = await fetch(`/api/commanders/search?q=${encodeURIComponent(value)}${unreleasedParam}`);
         if (response.ok) {
           const data = await response.json();
           setSuggestions(data.commanders || []);
@@ -50,7 +52,7 @@ export default function CommanderInput({ value, onChange, onCommanderSelect, err
 
     const debounceTimer = setTimeout(searchCommanders, 300);
     return () => clearTimeout(debounceTimer);
-  }, [value]);
+  }, [value, includeUnreleased]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showSuggestions || suggestions.length === 0) return;

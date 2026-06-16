@@ -58,6 +58,7 @@ export default function Home() {
   const [isRandomizing, setIsRandomizing] = useState(false);
   const [randomizeTypeBalance, setRandomizeTypeBalance] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [includeUnreleased, setIncludeUnreleased] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -65,6 +66,7 @@ export default function Home() {
     if (!cmdr) return;
 
     setCommanderName(cmdr);
+    if (params.get('unreleased') === '1') setIncludeUnreleased(true);
 
     const parsed: Partial<GenerationConstraints> = {};
     if (params.has('budget')) parsed.total_budget = Number(params.get('budget'));
@@ -126,9 +128,16 @@ export default function Home() {
     window.history.replaceState({}, '', window.location.pathname);
   }, []);
 
+  const isUnreleasedCommander = selectedCommander && selectedCommander.legalities?.commander !== 'legal';
+
   const handleGenerate = async () => {
     if (!selectedCommander) {
       setError('Please select a valid commander first.');
+      return;
+    }
+
+    if (!includeUnreleased && isUnreleasedCommander) {
+      setError(`${selectedCommander.name} is not yet legal in Commander. Enable "Include unreleased cards" to use this commander.`);
       return;
     }
 
@@ -188,7 +197,7 @@ export default function Home() {
 
     try {
       // Get a random commander
-      const response = await fetch('/api/commanders/random');
+      const response = await fetch(`/api/commanders/random${includeUnreleased ? '?unreleased=1' : ''}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -328,7 +337,22 @@ export default function Home() {
                 <h2 className="text-3xl text-black dark:text-white mb-6" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
                   BUILD YOUR DECK
                 </h2>
-                
+
+                <div className="mb-6">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeUnreleased}
+                      onChange={(e) => setIncludeUnreleased(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Include unreleased cards</span>
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 ml-6">
+                    Allow upcoming cards that aren&apos;t released yet. Prices may be missing or inaccurate.
+                  </p>
+                </div>
+
                 {/* Commander Input */}
                 <div className="mb-8">
                   <CommanderInput
@@ -336,6 +360,7 @@ export default function Home() {
                     onChange={setCommanderName}
                     onCommanderSelect={setSelectedCommander}
                     error={error && !selectedCommander ? 'Please select a valid commander' : undefined}
+                    includeUnreleased={includeUnreleased}
                   />
                 </div>
 
@@ -384,6 +409,14 @@ export default function Home() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {!includeUnreleased && isUnreleasedCommander && (
+                  <div className="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      <strong>{selectedCommander?.name}</strong> is not yet legal in Commander. Enable &quot;Include unreleased cards&quot; above to generate a deck with this commander.
+                    </p>
                   </div>
                 )}
 
@@ -497,7 +530,7 @@ export default function Home() {
 
             {/* Share Button */}
             <div>
-              <ShareButton commanderName={generatedDeck.commander.name} constraints={constraints} />
+              <ShareButton commanderName={generatedDeck.commander.name} constraints={constraints} includeUnreleased={includeUnreleased} />
             </div>
 
             {/* Warnings and Notes */}

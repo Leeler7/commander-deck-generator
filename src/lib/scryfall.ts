@@ -128,10 +128,10 @@ export class ScryfallClient {
     });
   }
 
-  async searchLegalCommanders(query = ''): Promise<ScryfallCard[]> {
-    const baseQuery = 'is:commander legal:commander';
+  async searchLegalCommanders(query = '', includeUnreleased = false): Promise<ScryfallCard[]> {
+    const baseQuery = includeUnreleased ? 'is:commander' : 'is:commander legal:commander';
     const fullQuery = query ? `${baseQuery} ${query}` : baseQuery;
-    
+
     try {
       const response = await this.searchCards(fullQuery, 1, 'edhrec');
       return response.data;
@@ -224,12 +224,12 @@ export class ScryfallClient {
     }
   }
 
-  async getRandomCommander(): Promise<ScryfallCard | null> {
+  async getRandomCommander(includeUnreleased = false): Promise<ScryfallCard | null> {
     return rateLimiter.executeRequest(async () => {
       console.log('🎲 Fetching random commander from Scryfall...');
-      
-      // Use Scryfall's random card endpoint with commander constraints
-      const url = `${SCRYFALL_API_BASE}/cards/random?q=is%3Acommander+legal%3Acommander`;
+
+      const legalityFilter = includeUnreleased ? '' : '+legal%3Acommander';
+      const url = `${SCRYFALL_API_BASE}/cards/random?q=is%3Acommander${legalityFilter}`;
       const response = await fetchWithRetry(url);
       
       if (!response.ok) {

@@ -3,10 +3,11 @@ import { scryfallClient } from '@/lib/scryfall';
 
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const includeUnreleased = searchParams.get('unreleased') === '1';
     console.log('🎲 Random commander endpoint called');
-    
-    // Use Scryfall API for fast random commander selection
-    const randomCommander = await scryfallClient.getRandomCommander();
+
+    const randomCommander = await scryfallClient.getRandomCommander(includeUnreleased);
     
     if (!randomCommander) {
       return NextResponse.json(

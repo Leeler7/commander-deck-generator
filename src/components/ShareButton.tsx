@@ -6,9 +6,10 @@ import { GenerationConstraints } from '@/lib/types';
 interface ShareButtonProps {
   commanderName: string;
   constraints: GenerationConstraints;
+  includeUnreleased?: boolean;
 }
 
-function buildShareUrl(commanderName: string, constraints: GenerationConstraints): string {
+function buildShareUrl(commanderName: string, constraints: GenerationConstraints, includeUnreleased = false): string {
   const params = new URLSearchParams();
   params.set('commander', commanderName);
   params.set('budget', String(constraints.total_budget));
@@ -32,15 +33,16 @@ function buildShareUrl(commanderName: string, constraints: GenerationConstraints
   if (constraints.no_stax) params.set('noStax', '1');
   if (constraints.no_fast_mana) params.set('noFastMana', '1');
   if (constraints.card_type_weights) params.set('weights', JSON.stringify(constraints.card_type_weights));
+  if (includeUnreleased) params.set('unreleased', '1');
   return `https://www.bigdeckenergy.org/?${params.toString()}`;
 }
 
 export { buildShareUrl };
 
-export default function ShareButton({ commanderName, constraints }: ShareButtonProps) {
+export default function ShareButton({ commanderName, constraints, includeUnreleased }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = buildShareUrl(commanderName, constraints);
+  const shareUrl = buildShareUrl(commanderName, constraints, includeUnreleased);
   const shareText = `I generated a chaos Commander deck for ${commanderName} on bigdeckenergy.org — generate your own with the same settings!`;
 
   const copyToClipboard = async () => {

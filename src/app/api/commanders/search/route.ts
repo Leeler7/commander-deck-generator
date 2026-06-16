@@ -4,6 +4,7 @@ import { scryfallClient } from '@/lib/scryfall';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
+  const includeUnreleased = searchParams.get('unreleased') === '1';
 
   try {
     
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Search for commanders using Scryfall
-    const commanders = await scryfallClient.searchLegalCommanders(query);
+    const commanders = await scryfallClient.searchLegalCommanders(query, includeUnreleased);
     
     // Limit results to prevent overwhelming the UI
     const limitedCommanders = commanders.slice(0, 20);
