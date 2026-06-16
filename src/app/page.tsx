@@ -94,15 +94,32 @@ export default function Home() {
       try { parsed.card_type_weights = JSON.parse(params.get('weights')!) as CardTypeWeights; } catch {}
     }
 
-    setConstraints(prev => ({ ...prev, ...parsed }));
+    const mergedConstraints = { total_budget: 100, max_card_price: 20, prefer_cheapest: false, maxRarity: 'mythic' as const, ...parsed };
+    setConstraints(mergedConstraints);
 
     fetch(`/api/commanders/search?q=${encodeURIComponent(cmdr)}`)
       .then(res => res.json())
-      .then(data => {
+      .then(async (data) => {
         const match = data.commanders?.find(
           (c: ScryfallCard) => c.name.toLowerCase() === cmdr.toLowerCase()
         );
-        if (match) setSelectedCommander(match);
+        if (!match) return;
+        setSelectedCommander(match);
+        setIsGenerating(true);
+        try {
+          const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ commander: match.name, constraints: mergedConstraints }),
+          });
+          const deck = await response.json();
+          if (!response.ok) throw new Error(deck.error || 'Failed to generate deck');
+          setGeneratedDeck(deck.deck);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+        } finally {
+          setIsGenerating(false);
+        }
       })
       .catch(() => {});
 
