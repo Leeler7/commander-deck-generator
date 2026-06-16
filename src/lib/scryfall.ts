@@ -229,7 +229,7 @@ export class ScryfallClient {
       console.log('🎲 Fetching random commander from Scryfall...');
       
       // Use Scryfall's random card endpoint with commander constraints
-      const url = `${SCRYFALL_API_BASE}/cards/random?q=is%3Acommander`;
+      const url = `${SCRYFALL_API_BASE}/cards/random?q=is%3Acommander+legal%3Acommander`;
       const response = await fetchWithRetry(url);
       
       if (!response.ok) {
