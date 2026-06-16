@@ -128,7 +128,7 @@ export async function searchCards(
   } = {}
 ): Promise<ScryfallSearchResponse> {
   const { order = 'edhrec', page = 1, skipFormatFilter = false } = options;
-  const colorFilter = colorIdentity.length > 0 ? `id<=${colorIdentity.join('')}` : '';
+  const colorFilter = colorIdentity.length > 0 ? `id<=${colorIdentity.join('')}` : 'id<=c';
   const formatFilter = skipFormatFilter ? '' : 'f:commander';
   // Wrap query in parentheses so color filter applies to entire query (including OR clauses)
   const fullQuery = `${colorFilter} (${query}) ${formatFilter}`;
