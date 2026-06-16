@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ScryfallCard, GeneratedDeck, GenerationConstraints } from '@/lib/types';
+import { useState, useEffect } from 'react';
+import { ScryfallCard, GeneratedDeck, GenerationConstraints, CardTypeWeights } from '@/lib/types';
 
 // Helper function to create Scryfall URL
 const getScryfallUrl = (cardName: string): string => {
@@ -34,6 +34,7 @@ import DeckList from '@/components/DeckList';
 import RoleBreakdown from '@/components/RoleBreakdown';
 import PriceBar from '@/components/PriceBar';
 import Warnings from '@/components/Warnings';
+import ShareButton from '@/components/ShareButton';
 import ExportOptions from '@/components/ExportOptions';
 import DeckAnalysis from '@/components/DeckAnalysis';
 import CommanderAnalysis from '@/components/CommanderAnalysis';
@@ -57,6 +58,56 @@ export default function Home() {
   const [isRandomizing, setIsRandomizing] = useState(false);
   const [randomizeTypeBalance, setRandomizeTypeBalance] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cmdr = params.get('commander');
+    if (!cmdr) return;
+
+    setCommanderName(cmdr);
+
+    const parsed: Partial<GenerationConstraints> = {};
+    if (params.has('budget')) parsed.total_budget = Number(params.get('budget'));
+    if (params.has('maxCard')) parsed.max_card_price = Number(params.get('maxCard'));
+    if (params.get('cheap') === '1') parsed.prefer_cheapest = true;
+    if (params.has('bracket')) parsed.targetBracket = Number(params.get('bracket'));
+    if (params.has('lands')) parsed.landCount = Number(params.get('lands'));
+    if (params.has('nonBasic')) parsed.nonBasicLandCount = Number(params.get('nonBasic'));
+    if (params.has('spice')) parsed.random_tag_count = Number(params.get('spice'));
+    if (params.has('pacing')) parsed.pacing = params.get('pacing') as GenerationConstraints['pacing'];
+    if (params.get('hyperFocus') === '1') parsed.hyperFocus = true;
+    if (params.has('gameChangers')) {
+      const gc = params.get('gameChangers')!;
+      parsed.gameChangerLimit = gc === 'none' || gc === 'unlimited' ? gc : Number(gc);
+    }
+    if (params.has('rarity')) parsed.maxRarity = params.get('rarity') as GenerationConstraints['maxRarity'];
+    if (params.has('combos')) parsed.comboCount = Number(params.get('combos'));
+    if (params.has('keywords')) parsed.keywords = params.get('keywords')!.split(',');
+    if (params.has('include')) parsed.mustIncludeCards = params.get('include')!.split(',');
+    if (params.has('exclude')) parsed.excludedCards = params.get('exclude')!.split(',');
+    if (params.get('noInfinite') === '1') parsed.no_infinite_combos = true;
+    if (params.get('noLandDestroy') === '1') parsed.no_land_destruction = true;
+    if (params.get('noExtraTurns') === '1') parsed.no_extra_turns = true;
+    if (params.get('noStax') === '1') parsed.no_stax = true;
+    if (params.get('noFastMana') === '1') parsed.no_fast_mana = true;
+    if (params.has('weights')) {
+      try { parsed.card_type_weights = JSON.parse(params.get('weights')!) as CardTypeWeights; } catch {}
+    }
+
+    setConstraints(prev => ({ ...prev, ...parsed }));
+
+    fetch(`/api/commanders/search?q=${encodeURIComponent(cmdr)}`)
+      .then(res => res.json())
+      .then(data => {
+        const match = data.commanders?.find(
+          (c: ScryfallCard) => c.name.toLowerCase() === cmdr.toLowerCase()
+        );
+        if (match) setSelectedCommander(match);
+      })
+      .catch(() => {});
+
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []);
 
   const handleGenerate = async () => {
     if (!selectedCommander) {
@@ -427,8 +478,13 @@ export default function Home() {
               </button>
             </div>
 
+            {/* Share Button */}
+            <div>
+              <ShareButton commanderName={generatedDeck.commander.name} constraints={constraints} />
+            </div>
+
             {/* Warnings and Notes */}
-            <Warnings 
+            <Warnings
               warnings={generatedDeck.warnings} 
               notes={generatedDeck.generation_notes} 
             />
