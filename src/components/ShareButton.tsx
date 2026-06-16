@@ -43,32 +43,36 @@ export default function ShareButton({ commanderName, constraints }: ShareButtonP
   const shareUrl = buildShareUrl(commanderName, constraints);
   const shareText = `I generated a chaos Commander deck for ${commanderName} on bigdeckenergy.org — generate your own with the same settings!`;
 
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+    (window as any).gtag?.('event', 'deck_shared', { method: 'clipboard' });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleShare = async () => {
-    if (navigator.share) {
+    const isMobile = navigator.maxTouchPoints > 0 && window.innerWidth < 768;
+    if (isMobile && navigator.share) {
       try {
         await navigator.share({ title: 'My Chaos Deck', text: shareText, url: shareUrl });
         (window as any).gtag?.('event', 'deck_shared', { method: 'mobile' });
       } catch {
-        // User cancelled
+        // User cancelled — fall back to clipboard
+        await copyToClipboard();
       }
     } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        (window as any).gtag?.('event', 'deck_shared', { method: 'desktop' });
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch {
-        const textArea = document.createElement('textarea');
-        textArea.value = shareUrl;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
+      await copyToClipboard();
     }
   };
 
