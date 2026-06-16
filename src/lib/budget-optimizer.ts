@@ -21,11 +21,15 @@ interface BudgetOptimizationResult {
 }
 
 export class BudgetOptimizer {
-  private constraints: GenerationConstraints;
+  private constraints: GenerationConstraints & { total_budget: number; max_card_price: number };
   private commanderPrice: number;
 
   constructor(constraints: GenerationConstraints, commanderPrice: number) {
-    this.constraints = constraints;
+    this.constraints = {
+      ...constraints,
+      total_budget: constraints.total_budget ?? Infinity,
+      max_card_price: constraints.max_card_price ?? Infinity,
+    };
     this.commanderPrice = commanderPrice;
   }
 

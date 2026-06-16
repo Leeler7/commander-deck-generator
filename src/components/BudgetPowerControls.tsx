@@ -186,12 +186,15 @@ export default function BudgetPowerControls({ constraints, onChange, commanderCo
             <input
               id="total-budget"
               type="number"
-              min="10"
+              min="0"
               max="10000"
               step="10"
               value={constraints.total_budget ?? ''}
-              placeholder="e.g. 100"
-              onChange={(e) => updateConstraint('total_budget', parseFloat(e.target.value) || 100)}
+              placeholder="No limit"
+              onChange={(e) => {
+                const val = e.target.value;
+                updateConstraint('total_budget', val === '' ? undefined : parseFloat(val));
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
@@ -202,12 +205,15 @@ export default function BudgetPowerControls({ constraints, onChange, commanderCo
             <input
               id="max-card-price"
               type="number"
-              min="1"
+              min="0"
               max="1000"
               step="1"
               value={constraints.max_card_price ?? ''}
-              placeholder="e.g. 20"
-              onChange={(e) => updateConstraint('max_card_price', parseFloat(e.target.value) || 20)}
+              placeholder="No limit"
+              onChange={(e) => {
+                const val = e.target.value;
+                updateConstraint('max_card_price', val === '' ? undefined : parseFloat(val));
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>

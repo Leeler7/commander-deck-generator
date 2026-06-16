@@ -201,7 +201,7 @@ export async function fitCardsIntoBudget(
     }
     
     // Check if adding this card would exceed total budget
-    if (result.total_cost + price > constraints.total_budget) {
+    if (constraints.total_budget != null && result.total_cost + price > constraints.total_budget) {
       // Try to find a cheaper alternative if we haven't filled this role quota
       const cardRole = determineCardRole(card);
       const currentRoleCount = roleCount[cardRole] || 0;
@@ -249,7 +249,7 @@ export async function fitCardsIntoBudget(
     }
   }
   
-  result.over_budget = result.total_cost > constraints.total_budget;
+  result.over_budget = constraints.total_budget != null && result.total_cost > constraints.total_budget;
   
   return result;
 }

@@ -111,8 +111,8 @@ export interface DeckWeightingSystem {
 }
 
 export interface GenerationConstraints {
-  total_budget: number;
-  max_card_price: number; // Maximum price per individual card
+  total_budget?: number;
+  max_card_price?: number; // Maximum price per individual card
   per_card_cap?: number; // Legacy field, use max_card_price instead
   prefer_cheapest: boolean;
   keywords?: string[]; // User-specified keywords/themes to emphasize
