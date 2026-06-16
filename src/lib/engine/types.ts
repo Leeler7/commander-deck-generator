@@ -399,6 +399,7 @@ export interface RoleTargetBreakdown {
 export interface AdvancedTargets {
   curvePercentages: Record<number, number> | null;   // CMC bucket → percentage of non-land cards
   typePercentages: Record<string, number> | null;    // card type → percentage of non-land cards
+  planeswalkerExactCount?: number;                   // exact number of planeswalkers (0-20), separate from percentage weights
   roleTargets: Record<string, number> | null;        // role → absolute count target (still wins outright when set)
   edhrecBlendWeight: number | null;                  // 0..1, null = default (0.6). 0 = archetype only, 1 = EDHREC only.
   edhrecInclusionThreshold: number | null;           // percent, null = default (25). Dev-only tuning knob.

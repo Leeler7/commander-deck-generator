@@ -103,10 +103,11 @@ function buildAdvancedTargets(bde: BDEConstraints): EngineCustomization['advance
     };
   }
 
-  // Normalize 0-10 sliders to percentages
-  const total = weights.creatures + weights.artifacts + weights.enchantments +
-    weights.instants + weights.sorceries + weights.planeswalkers;
-  if (total === 0) {
+  // Planeswalkers use an exact count (0-20), not a relative weight.
+  // Normalize only the 0-10 sliders against each other for percentage distribution.
+  const nonPwTotal = weights.creatures + weights.artifacts + weights.enchantments +
+    weights.instants + weights.sorceries;
+  if (nonPwTotal === 0 && weights.planeswalkers === 0) {
     return {
       curvePercentages: null,
       typePercentages: null,
@@ -116,15 +117,20 @@ function buildAdvancedTargets(bde: BDEConstraints): EngineCustomization['advance
     };
   }
 
+  // Planeswalker percentage is special: it's an exact count that gets converted
+  // to a percentage of non-land cards in applyAdvancedOverrides. We use -1 as a
+  // sentinel meaning "exact count" and store the count in a separate field.
+  // For the other types, distribute the remaining deck percentage proportionally.
   return {
     typePercentages: {
-      creature: Math.round((weights.creatures / total) * 100),
-      artifact: Math.round((weights.artifacts / total) * 100),
-      enchantment: Math.round((weights.enchantments / total) * 100),
-      instant: Math.round((weights.instants / total) * 100),
-      sorcery: Math.round((weights.sorceries / total) * 100),
-      planeswalker: Math.round((weights.planeswalkers / total) * 100),
+      creature: nonPwTotal > 0 ? Math.round((weights.creatures / nonPwTotal) * 100) : 0,
+      artifact: nonPwTotal > 0 ? Math.round((weights.artifacts / nonPwTotal) * 100) : 0,
+      enchantment: nonPwTotal > 0 ? Math.round((weights.enchantments / nonPwTotal) * 100) : 0,
+      instant: nonPwTotal > 0 ? Math.round((weights.instants / nonPwTotal) * 100) : 0,
+      sorcery: nonPwTotal > 0 ? Math.round((weights.sorceries / nonPwTotal) * 100) : 0,
+      planeswalker: weights.planeswalkers,
     },
+    planeswalkerExactCount: weights.planeswalkers,
     curvePercentages: null,
     roleTargets: null,
     edhrecBlendWeight: null,

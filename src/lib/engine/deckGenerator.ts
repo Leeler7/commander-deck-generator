@@ -86,15 +86,39 @@ function applyAdvancedOverrides(
 
   if (adv?.typePercentages) {
     const pcts = adv.typePercentages;
-    const total = Object.values(pcts).reduce((s, v) => s + v, 0) || 100;
-    let allocated = 0;
-    for (const type of Object.keys(pcts)) {
-      typeTargets[type] = Math.round((pcts[type] / total) * nonLandCards);
-      allocated += typeTargets[type];
-    }
-    const diff = nonLandCards - allocated;
-    if (diff !== 0) {
-      typeTargets.creature = (typeTargets.creature ?? 0) + diff;
+
+    // Handle planeswalkers as exact count (separate from percentage weights)
+    const pwExact = adv.planeswalkerExactCount ?? 0;
+    const pwSlots = Math.min(pwExact, nonLandCards);
+    typeTargets.planeswalker = pwSlots;
+    const remainingSlots = nonLandCards - pwSlots;
+
+    // Distribute remaining slots among non-planeswalker types by percentage
+    const nonPwPcts = { ...pcts };
+    delete nonPwPcts.planeswalker;
+    const nonPwTotal = Object.values(nonPwPcts).reduce((s, v) => s + v, 0);
+
+    if (nonPwTotal > 0) {
+      let allocated = pwSlots;
+      for (const type of Object.keys(nonPwPcts)) {
+        typeTargets[type] = Math.round((nonPwPcts[type] / nonPwTotal) * remainingSlots);
+        allocated += typeTargets[type];
+      }
+      const diff = nonLandCards - allocated;
+      if (diff !== 0) {
+        // Only adjust types that have positive targets — never add to types the user set to 0
+        const positiveTypes = Object.keys(nonPwPcts).filter(t => (typeTargets[t] ?? 0) > 0);
+        if (positiveTypes.length > 0) {
+          const largestType = positiveTypes.reduce((best, t) =>
+            (typeTargets[t] ?? 0) > (typeTargets[best] ?? 0) ? t : best, positiveTypes[0]);
+          typeTargets[largestType] = (typeTargets[largestType] ?? 0) + diff;
+        }
+      }
+    } else {
+      // All non-planeswalker types set to 0 — set them explicitly
+      for (const type of Object.keys(nonPwPcts)) {
+        typeTargets[type] = 0;
+      }
     }
   }
 }
@@ -2739,6 +2763,34 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       for (const card of planeswalkers) { const role = cardRoleMap.get(card.name); if (role) { currentRoleCounts[role]++; card.deckRole = role; stampRoleSubtypes(card); const st = cardSubtypeMap.get(card.name); if (st) currentSubtypeCounts[st] = (currentSubtypeCounts[st] ?? 0) + 1; } }
     }
 
+    // Fill remaining planeswalkers from Scryfall if needed
+    const currentPwCount = categories.utility.filter(c => getFrontFaceTypeLine(c).toLowerCase().includes('planeswalker')).length
+      + (preFilledTypeCounts.planeswalker ?? 0);
+    if (currentPwCount < planeswalkerTarget) {
+      const pwNeeded = planeswalkerTarget - currentPwCount;
+      console.log(`[DeckGen] FALLBACK: Need ${pwNeeded} more planeswalkers from Scryfall`);
+      const morePw = await fillWithScryfall(
+        't:planeswalker',
+        colorIdentity,
+        pwNeeded,
+        usedNames,
+        bannedCards,
+        maxCardPrice,
+        maxRarity,
+        maxCmc,
+        budgetTracker,
+        context.collectionNames,
+        currency,
+        arenaOnly,
+        scryfallQuery,
+        collectionStrategy,
+        ignoreOwnedBudget,
+        ignoreOwnedRarity
+      );
+      categories.utility.push(...morePw);
+      console.log(`[DeckGen] FALLBACK: Got ${morePw.length} planeswalkers from Scryfall`);
+    }
+
     // Log balanced roles result
     if (roleTargets) {
       console.log(`[DeckGen] Balanced Roles: final counts:`, { ...currentRoleCounts }, 'vs targets:', roleTargets);
@@ -3039,6 +3091,30 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       categorizeCards(scryfallSorceries, categories);
     }
 
+    const scryfallPlaneswalkerTarget = Math.max(0, (typeTargets.planeswalker ?? 0) - (preFilledTypeCounts.planeswalker ?? 0));
+    if (scryfallPlaneswalkerTarget > 0) {
+      onProgress?.('Calling upon planeswalker allies...', 76);
+      const scryfallPlaneswalkers = await fillWithScryfall(
+        't:planeswalker',
+        colorIdentity,
+        scryfallPlaneswalkerTarget,
+        usedNames,
+        bannedCards,
+        maxCardPrice,
+        maxRarity,
+        maxCmc,
+        budgetTracker,
+        context.collectionNames,
+        currency,
+        arenaOnly,
+        scryfallQuery,
+        collectionStrategy,
+        ignoreOwnedBudget,
+        ignoreOwnedRarity
+      );
+      categories.utility.push(...scryfallPlaneswalkers);
+    }
+
     onProgress?.('Surveying the mana base...', 80);
     // Preserve must-include lands added earlier
     const fallbackMustIncludeLands = categories.lands.filter(c => c.isMustInclude);
@@ -3331,8 +3407,10 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
         filled++;
       }
 
-      // If we still have shortage after type-respecting fill, do a second pass without type filter
+      // If we still have shortage after type-respecting fill, do a second pass
+      // Still respect type weights: skip types the user explicitly set to 0
       if (filled < shortage) {
+        const hasTypeOverrides = !!customization.advancedTargets?.typePercentages;
         for (const edhrecCard of remainingEdhrecCards) {
           if (filled >= shortage) break;
           if (usedNames.has(edhrecCard.name)) continue;
@@ -3347,6 +3425,19 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
             if (exceedsMaxRarity(scryfallCard, maxRarity)) continue;
           }
           if (exceedsCmcCap(scryfallCard, maxCmc)) continue;
+
+          // When the user has set type weights, never add cards of types set to 0
+          if (hasTypeOverrides) {
+            const tl = getFrontFaceTypeLine(scryfallCard).toLowerCase();
+            const cardType = tl.includes('creature') ? 'creature'
+              : tl.includes('instant') ? 'instant'
+              : tl.includes('sorcery') ? 'sorcery'
+              : tl.includes('artifact') ? 'artifact'
+              : tl.includes('enchantment') ? 'enchantment'
+              : tl.includes('planeswalker') ? 'planeswalker'
+              : null;
+            if (cardType && (typeTargets[cardType] ?? 0) === 0) continue;
+          }
 
           categories.synergy.push(scryfallCard);
           usedNames.add(edhrecCard.name);
@@ -3408,18 +3499,32 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       }
 
       // If still short after typed fills, use generic query as absolute last resort
+      // Respect type weights: only include types the user hasn't set to 0
       if (filled < stillNeeded) {
         const remaining = stillNeeded - filled;
-        console.warn(`[DeckGen] FALLBACK: Typed shortfall fills not enough (got ${filled}/${stillNeeded}), using generic query for ${remaining} remaining`);
-        const moreCards = await fillWithScryfall(
-          '(t:artifact OR t:enchantment OR t:creature)',
-          colorIdentity, remaining, usedNames, bannedCards,
-          shortagePriceCap, maxRarity, maxCmc, null,
-          context.collectionNames, currency, arenaOnly, scryfallQuery,
-          collectionStrategy, ignoreOwnedBudget, ignoreOwnedRarity
-        );
-        categories.synergy.push(...moreCards);
-        filled += moreCards.length;
+        const hasTypeOverrides = !!customization.advancedTargets?.typePercentages;
+        const allowedTypes: string[] = [];
+        if (!hasTypeOverrides || (typeTargets.artifact ?? 1) > 0) allowedTypes.push('t:artifact');
+        if (!hasTypeOverrides || (typeTargets.enchantment ?? 1) > 0) allowedTypes.push('t:enchantment');
+        if (!hasTypeOverrides || (typeTargets.creature ?? 1) > 0) allowedTypes.push('t:creature');
+        if (!hasTypeOverrides || (typeTargets.instant ?? 1) > 0) allowedTypes.push('t:instant');
+        if (!hasTypeOverrides || (typeTargets.sorcery ?? 1) > 0) allowedTypes.push('t:sorcery');
+
+        if (allowedTypes.length > 0) {
+          const fallbackQuery = `(${allowedTypes.join(' OR ')})`;
+          console.warn(`[DeckGen] FALLBACK: Typed shortfall fills not enough (got ${filled}/${stillNeeded}), using filtered query for ${remaining} remaining: ${fallbackQuery}`);
+          const moreCards = await fillWithScryfall(
+            fallbackQuery,
+            colorIdentity, remaining, usedNames, bannedCards,
+            shortagePriceCap, maxRarity, maxCmc, null,
+            context.collectionNames, currency, arenaOnly, scryfallQuery,
+            collectionStrategy, ignoreOwnedBudget, ignoreOwnedRarity
+          );
+          categories.synergy.push(...moreCards);
+          filled += moreCards.length;
+        } else {
+          console.warn(`[DeckGen] FALLBACK: All non-land types set to 0, cannot fill ${remaining} remaining slots`);
+        }
       }
 
       console.log(`[DeckGen] Filled ${filled} cards from Scryfall shortfall`);
