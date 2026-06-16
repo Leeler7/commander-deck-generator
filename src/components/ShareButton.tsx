@@ -32,7 +32,7 @@ function buildShareUrl(commanderName: string, constraints: GenerationConstraints
   if (constraints.no_stax) params.set('noStax', '1');
   if (constraints.no_fast_mana) params.set('noFastMana', '1');
   if (constraints.card_type_weights) params.set('weights', JSON.stringify(constraints.card_type_weights));
-  return `https://bigdeckenergy.org?${params.toString()}`;
+  return `https://www.bigdeckenergy.org/?${params.toString()}`;
 }
 
 export { buildShareUrl };
