@@ -2,6 +2,7 @@ import { ScryfallCard, ScryfallSearchResponse } from './types';
 
 const SCRYFALL_API_BASE = 'https://api.scryfall.com';
 const RATE_LIMIT_DELAY = 100; // 100ms between requests as per Scryfall guidelines
+const USER_AGENT = 'BigDeckEnergy/1.0 (MTG Commander Deck Generator; https://bigdeckenergy.com)';
 
 class RateLimiter {
   private lastRequestTime = 0;
@@ -51,17 +52,21 @@ class RateLimiter {
 const rateLimiter = new RateLimiter();
 
 async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
+  const headers = new Headers(options.headers);
+  if (!headers.has('User-Agent')) {
+    headers.set('User-Agent', USER_AGENT);
+  }
+
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(url, options);
-      
+      const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+
       if (response.status === 429) {
-        // Rate limited, implement exponential backoff
         const delay = Math.pow(2, i) * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }

@@ -29,7 +29,10 @@ class ScryfallPricingService {
     }
     
     this.lastRequestTime = Date.now();
-    return fetch(url);
+    return fetch(url, {
+      headers: { 'User-Agent': 'BigDeckEnergy/1.0 (MTG Commander Deck Generator; https://bigdeckenergy.com)' },
+      cache: 'no-store',
+    });
   }
 
   async getCardPrice(card: ScryfallCard, preferCheapest = false): Promise<number> {

@@ -4,6 +4,7 @@ import { getPartnerType, getPartnerWithName } from './partnerUtils';
 const BASE_URL = 'https://api.scryfall.com';
 const MIN_REQUEST_DELAY = 100; // 100ms between requests (Scryfall allows 10/sec)
 const COLLECTION_BATCH_SIZE = 75; // Scryfall /cards/collection max per request
+const USER_AGENT = 'BigDeckEnergy/1.0 (MTG Commander Deck Generator; https://bigdeckenergy.com)';
 
 // In-memory cache for fetched cards
 const cardCache = new Map<string, ScryfallCard>();
@@ -85,7 +86,9 @@ async function scryfallFetch<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     headers: {
       'Accept': 'application/json',
+      'User-Agent': USER_AGENT,
     },
+    cache: 'no-store',
   });
 
   if (!response.ok) {
@@ -268,8 +271,10 @@ export async function getCardsByNames(
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'User-Agent': USER_AGENT,
         },
         body: JSON.stringify({ identifiers }),
+        cache: 'no-store',
       });
 
       if (response.ok) {
@@ -327,8 +332,10 @@ export async function getCardsByNames(
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'User-Agent': USER_AGENT,
           },
           body: JSON.stringify({ identifiers }),
+          cache: 'no-store',
         });
 
         if (response.ok) {
@@ -450,7 +457,8 @@ export async function upgradeCardPrintings(
 
     try {
       const response = await fetch(`${BASE_URL}/cards/search?q=${encodedQuery}&unique=prints&order=released&dir=desc`, {
-        headers: { 'Accept': 'application/json' },
+        headers: { 'Accept': 'application/json', 'User-Agent': USER_AGENT },
+        cache: 'no-store',
       });
 
       if (response.ok) {
