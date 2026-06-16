@@ -334,6 +334,7 @@ export default function Home() {
                 <BudgetPowerControls
                   constraints={constraints}
                   onChange={setConstraints}
+                  commanderColorIdentity={selectedCommander?.color_identity}
                 />
               </div>
 

@@ -3,10 +3,12 @@
 import { GenerationConstraints, CardTypeWeights } from '@/lib/types';
 import { useState } from 'react';
 import CardTypeWeightsComponent from './CardTypeWeights';
+import CardAutocomplete from './CardAutocomplete';
 
 interface BudgetPowerControlsProps {
   constraints: GenerationConstraints;
   onChange: (constraints: GenerationConstraints) => void;
+  commanderColorIdentity?: string[];
 }
 
 const defaultCardTypeWeights: CardTypeWeights = {
@@ -18,10 +20,8 @@ const defaultCardTypeWeights: CardTypeWeights = {
   planeswalkers: 2
 };
 
-export default function BudgetPowerControls({ constraints, onChange }: BudgetPowerControlsProps) {
+export default function BudgetPowerControls({ constraints, onChange, commanderColorIdentity }: BudgetPowerControlsProps) {
   const [keywordInput, setKeywordInput] = useState('');
-  const [mustIncludeInput, setMustIncludeInput] = useState('');
-  const [excludeInput, setExcludeInput] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const updateConstraint = <K extends keyof GenerationConstraints>(
@@ -58,7 +58,6 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
     if (!current.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
       updateConstraint('mustIncludeCards', [...current, trimmed]);
     }
-    setMustIncludeInput('');
   };
 
   const removeMustInclude = (index: number) => {
@@ -73,7 +72,6 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
     if (!current.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
       updateConstraint('excludedCards', [...current, trimmed]);
     }
-    setExcludeInput('');
   };
 
   const removeExclude = (index: number) => {
@@ -387,24 +385,14 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
             ))}
           </div>
         )}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={mustIncludeInput}
-            onChange={(e) => setMustIncludeInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMustInclude(mustIncludeInput); } }}
-            placeholder="e.g. Sol Ring, Demonic Tutor..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-          />
-          <button
-            onClick={() => addMustInclude(mustIncludeInput)}
-            disabled={!mustIncludeInput.trim()}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
-            type="button"
-          >
-            Add
-          </button>
-        </div>
+        <CardAutocomplete
+          onAdd={addMustInclude}
+          placeholder="e.g. Sol Ring, Demonic Tutor..."
+          existingCards={constraints.mustIncludeCards || []}
+          colorIdentity={commanderColorIdentity}
+          disabled={!commanderColorIdentity}
+          disabledMessage="Select a commander first"
+        />
       </div>
 
       {/* ── Excluded Cards ────────────────────────────────────────────── */}
@@ -432,24 +420,14 @@ export default function BudgetPowerControls({ constraints, onChange }: BudgetPow
             ))}
           </div>
         )}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={excludeInput}
-            onChange={(e) => setExcludeInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addExclude(excludeInput); } }}
-            placeholder="e.g. Cyclonic Rift, Rhystic Study..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-          />
-          <button
-            onClick={() => addExclude(excludeInput)}
-            disabled={!excludeInput.trim()}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
-            type="button"
-          >
-            Add
-          </button>
-        </div>
+        <CardAutocomplete
+          onAdd={addExclude}
+          placeholder="e.g. Cyclonic Rift, Rhystic Study..."
+          existingCards={constraints.excludedCards || []}
+          colorIdentity={commanderColorIdentity}
+          disabled={!commanderColorIdentity}
+          disabledMessage="Select a commander first"
+        />
       </div>
 
       {/* ── Add Keywords ──────────────────────────────────────────────── */}
