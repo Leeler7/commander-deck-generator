@@ -299,6 +299,7 @@ export interface GeneratedDeck {
   bracketEstimation?: import('./bracketEstimator').BracketEstimation;
   gameChangerNames?: string[]; // Cached for bracket re-estimation on swap (avoids async)
   deckGrade?: { letter: string; headline: string }; // Overall grade computed at end of generation
+  bracketRestrictions?: string[];
 }
 
 export interface DeckStats {
@@ -405,6 +406,30 @@ export interface AdvancedTargets {
   edhrecInclusionThreshold: number | null;           // percent, null = default (25). Dev-only tuning knob.
 }
 
+// Bracket generation targets — read from engine-config.json, not hardcoded
+export interface BracketGenerationTargets {
+  fastManaRocks: number;
+  freeInteraction: number;
+  compactWinLines: number;
+  gameChangerCount: number;
+  avgManaValue: number;
+  landCount: number;
+  cardAdvantageEngines: number;
+  tutorCount?: number;
+}
+
+// Posture for high-bracket decks (B4-B5)
+export type DeckPosture = 'turbo' | 'control' | 'stax' | 'midrange' | 'adaptive';
+
+// Generation shaping metadata — tells the output what actually shaped the deck
+export interface GenerationShaping {
+  shapedBy: string[];
+  confidenceNotes: string[];
+  posture?: DeckPosture;
+  b3SubTarget?: 'casual' | 'high';
+  metagameTuning: boolean;
+}
+
 // User customization
 export interface Customization {
   deckFormat: DeckFormat;
@@ -438,6 +463,14 @@ export interface Customization {
   advancedTargets: AdvancedTargets; // Advanced framework overrides (null = use defaults)
   tempoAutoDetect: boolean;
   tempoPacing: Pacing;
+  // Bracket-driven generation targets (from engine-config.json)
+  bracketTargets?: BracketGenerationTargets | null;
+  // Deck posture for B4-B5 (hidden at B1-B3)
+  posture?: DeckPosture;
+  // B3 sub-target: 'casual' (0 rocks, 0 GC) vs 'high' (2 rocks, 3 GC)
+  b3SubTarget?: 'casual' | 'high';
+  // B5 metagame tuning flag — the ONLY differentiator between B4 and B5
+  metagameTuning?: boolean;
 }
 
 // Store state

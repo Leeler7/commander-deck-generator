@@ -147,6 +147,10 @@ export interface GenerationConstraints {
   maxRarity?: 'common' | 'uncommon' | 'rare' | 'mythic' | null;
   /** Combo count: 0=none, 1=normal, 2=extra, 3=many */
   comboCount?: number;
+  /** Deck posture for B4-B5: turbo/control/stax/midrange/adaptive */
+  posture?: 'turbo' | 'control' | 'stax' | 'midrange' | 'adaptive';
+  /** B3 sub-target: casual (0 rocks, 0 GC) vs high (2 rocks, 3 GC) */
+  b3SubTarget?: 'casual' | 'high';
 }
 
 export interface DeckComposition {
@@ -326,6 +330,8 @@ export interface ComboResult {
 export interface BracketEstimate {
   /** Estimated power bracket (1-5): 1=Exhibition, 2=Core, 3=Upgraded, 4=Optimized, 5=cEDH */
   bracket: number;
+  /** Two-band classification: 'low' (B1-B3) or 'high' (B4-B5) */
+  band?: 'low' | 'high';
   /** Combos found in the deck */
   combos: ComboResult[];
   /** Game Changer cards found in the deck */
@@ -334,14 +340,29 @@ export interface BracketEstimate {
   gameChangerCount?: number;
   /** Human-readable reasons for bracket assignment */
   reasons?: string[];
+  /** Which dimensions actually shaped the deck (bracket/theme/posture) — silent fallback prohibited */
+  shapedBy?: string[];
+  /** Notes when a cell is undersampled or absent */
+  confidenceNotes?: string[];
   /** Detailed diagnostics for bracket verification */
   diagnostics?: {
     tutorCount: number;
     fastManaCount: number;
+    fastManaRockCount: number;
+    manaDorkCount: number;
+    freeInteractionCount: number;
+    compactWinLines: number;
     averageCMC: number;
     infiniteComboCount: number;
     gameChangerCount: number;
     tutorNames: string[];
     fastManaNames: string[];
+    fastManaRockNames: string[];
+    manaDorkNames: string[];
+    freeInteractionNames: string[];
   };
+  /** What's restricting the deck from reaching the target bracket */
+  bracketRestrictions?: string[];
+  /** Card data snapshot version used for this classification */
+  snapshotVersion?: string;
 }

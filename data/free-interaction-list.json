@@ -1,0 +1,26 @@
+{
+  "snapshot_version": "2026-07-07",
+  "description": "0-generic-mana interaction via alternative cost (pitch, pact, evoke, flare). BRACKET SIGNAL.",
+  "cards": [
+    "Force of Will",
+    "Force of Negation",
+    "Fierce Guardianship",
+    "Pact of Negation",
+    "Mental Misstep",
+    "Deflecting Swat",
+    "Deadly Rollick",
+    "Misdirection",
+    "Mindbreak Trap",
+    "Subtlety",
+    "Solitude",
+    "Grief",
+    "Endurance",
+    "Fury",
+    "Force of Vigor",
+    "Flare of Denial",
+    "Flare of Fortitude",
+    "Flare of Malice",
+    "Flare of Duplication",
+    "Flare of Cultivation"
+  ]
+}

@@ -20,6 +20,75 @@ const defaultCardTypeWeights: CardTypeWeights = {
   planeswalkers: 2
 };
 
+// Best-practice defaults per bracket, derived from engine-config.json generation_targets
+// and cross-bracket analysis. Applied when the user switches brackets.
+const BRACKET_DEFAULTS: Record<number, Partial<GenerationConstraints>> = {
+  1: {
+    landCount: 38,
+    nonBasicLandCount: 11,
+    total_budget: 100,
+    max_card_price: 10,
+    gameChangerLimit: 'none' as const,
+    pacing: 'late-game' as const,
+    no_infinite_combos: true,
+    no_land_destruction: true,
+    no_extra_turns: true,
+    no_fast_mana: true,
+  },
+  2: {
+    landCount: 37,
+    nonBasicLandCount: 11,
+    total_budget: 200,
+    max_card_price: 25,
+    gameChangerLimit: 'none' as const,
+    pacing: 'balanced' as const,
+    no_infinite_combos: true,
+    no_land_destruction: true,
+    no_extra_turns: false,
+    no_fast_mana: false,
+  },
+  3: {
+    landCount: 35,
+    nonBasicLandCount: 11,
+    total_budget: 500,
+    max_card_price: 50,
+    comboCount: 1,
+    gameChangerLimit: 3,
+    pacing: 'balanced' as const,
+    no_infinite_combos: false,
+    no_land_destruction: true,
+    no_extra_turns: false,
+    no_fast_mana: false,
+  },
+  4: {
+    landCount: 32,
+    nonBasicLandCount: 24,
+    total_budget: 1000,
+    max_card_price: 125,
+    comboCount: 2,
+    gameChangerLimit: 'unlimited' as const,
+    pacing: 'fast-tempo' as const,
+    no_infinite_combos: false,
+    no_land_destruction: false,
+    no_extra_turns: false,
+    no_fast_mana: false,
+  },
+  5: {
+    landCount: 28,
+    nonBasicLandCount: 24,
+    total_budget: 2500,
+    max_card_price: 300,
+    comboCount: 3,
+    gameChangerLimit: 'unlimited' as const,
+    pacing: 'aggressive-early' as const,
+    random_tag_count: 0,
+    no_infinite_combos: false,
+    no_land_destruction: false,
+    no_extra_turns: false,
+    no_fast_mana: false,
+  },
+};
+
 export default function BudgetPowerControls({ constraints, onChange, commanderColorIdentity }: BudgetPowerControlsProps) {
   const [keywordInput, setKeywordInput] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -244,7 +313,14 @@ export default function BudgetPowerControls({ constraints, onChange, commanderCo
             <button
               key={label}
               type="button"
-              onClick={() => updateConstraint('targetBracket', value as GenerationConstraints['targetBracket'])}
+              onClick={() => {
+                const defaults = value ? BRACKET_DEFAULTS[value] : {};
+                onChange({
+                  ...constraints,
+                  ...defaults,
+                  targetBracket: value as GenerationConstraints['targetBracket'],
+                });
+              }}
               className={`px-3 py-2 rounded-md border text-sm transition-colors ${
                 constraints.targetBracket === value
                   ? 'bg-blue-600 text-white border-blue-600'
@@ -266,6 +342,78 @@ export default function BudgetPowerControls({ constraints, onChange, commanderCo
           </div>
         )}
       </div>
+
+      {/* ── B3 Sub-Target ──────────────────────────────────────────────── */}
+      {constraints.targetBracket === 3 && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Bracket 3 Flavor</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            B3 spans a wide range — choose where on the spectrum
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { value: 'casual' as const, label: 'Casual B3', tip: 'Minimal fast mana, few Game Changers. Focused upgrades over a precon.' },
+              { value: 'high' as const, label: 'High B3', tip: 'Up to 3 Game Changers, 2 fast rocks. Tuned but no combos before turn 6.' },
+            ]).map(({ value, label, tip }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => updateConstraint('b3SubTarget', value)}
+                className={`px-3 py-2 rounded-md border text-sm transition-colors ${
+                  (constraints.b3SubTarget ?? 'high') === value
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                }`}
+              >
+                <span className="font-medium">{label}</span>
+                <span className="block text-xs opacity-70 mt-0.5">{tip}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Deck Posture (B4-B5 only) ─────────────────────────────────── */}
+      {(constraints.targetBracket === 4 || constraints.targetBracket === 5) && (
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Deck Posture</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            How the deck wins — shapes card selection for high-bracket decks
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
+            {([
+              { value: 'adaptive', label: 'Adaptive', tip: 'Plays to the table' },
+              { value: 'turbo', label: 'Turbo', tip: 'Wins fast' },
+              { value: 'midrange', label: 'Midrange', tip: 'Grinds value' },
+              { value: 'control', label: 'Control', tip: 'Answers everything' },
+              { value: 'stax', label: 'Stax', tip: 'Slows opponents' },
+            ] as const).map(({ value, label, tip }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => updateConstraint('posture', value)}
+                title={tip}
+                className={`px-1.5 sm:px-3 py-2 rounded-md border text-xs sm:text-sm transition-colors truncate ${
+                  constraints.posture === value
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {constraints.posture && (
+            <div className="mt-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-xs text-gray-600">
+              {constraints.posture === 'adaptive' && 'Balanced across strategies. Includes answers, threats, and card advantage — adjusts to whatever the table throws at you.'}
+              {constraints.posture === 'turbo' && 'All-in on speed. Maximizes fast mana, tutors, and compact win combos to close the game before opponents can set up.'}
+              {constraints.posture === 'midrange' && 'Grinds value over time. Prioritizes card advantage engines, resilient threats, and flexible answers to out-resource the table.'}
+              {constraints.posture === 'control' && 'Reactive and patient. Heavy on counterspells, removal, and board wipes — wins after neutralizing all threats.'}
+              {constraints.posture === 'stax' && 'Locks the table down. Tax effects, resource denial, and asymmetric hate pieces slow opponents while you pull ahead.'}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Game Changers ─────────────────────────────────────────────── */}
       <div>

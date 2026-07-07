@@ -1,0 +1,78 @@
+{
+  "snapshot_version": "2026-07-07",
+  "rocks": {
+    "description": "0-2 MV mana rocks that net-positive on cast turn. BRACKET SIGNAL.",
+    "cards": [
+      "Sol Ring",
+      "Mana Crypt",
+      "Mana Vault",
+      "Grim Monolith",
+      "Chrome Mox",
+      "Mox Diamond",
+      "Lion's Eye Diamond",
+      "Lotus Petal",
+      "Mox Opal",
+      "Mox Amber",
+      "Jeweled Lotus",
+      "Ancient Tomb",
+      "Arcane Signet",
+      "Fellwar Stone",
+      "Talisman of Creativity",
+      "Talisman of Conviction",
+      "Talisman of Curiosity",
+      "Talisman of Dominance",
+      "Talisman of Hierarchy",
+      "Talisman of Impulse",
+      "Talisman of Indulgence",
+      "Talisman of Progress",
+      "Talisman of Resilience",
+      "Talisman of Unity",
+      "Basalt Monolith"
+    ]
+  },
+  "rituals": {
+    "description": "One-shot mana burst spells. Counted as rocks for bracket scoring.",
+    "cards": [
+      "Dark Ritual",
+      "Cabal Ritual",
+      "Rite of Flame",
+      "Pyretic Ritual",
+      "Desperate Ritual",
+      "Jeska's Will",
+      "Culling the Weak",
+      "Simian Spirit Guide",
+      "Elvish Spirit Guide"
+    ]
+  },
+  "dorks": {
+    "description": "1-2 MV creatures that tap for mana. THEME/POSTURE signal, NOT bracket signal.",
+    "cards": [
+      "Birds of Paradise",
+      "Llanowar Elves",
+      "Elvish Mystic",
+      "Fyndhorn Elves",
+      "Arbor Elf",
+      "Avacyn's Pilgrim",
+      "Elves of Deep Shadow",
+      "Bloom Tender",
+      "Priest of Titania",
+      "Deathrite Shaman",
+      "Noble Hierarch",
+      "Ignoble Hierarch",
+      "Boreal Druid",
+      "Wild Growth",
+      "Utopia Sprawl",
+      "Carpet of Flowers",
+      "Joraga Treespeaker",
+      "Devoted Druid",
+      "Incubation Druid",
+      "Sylvan Caryatid",
+      "Kinnan, Bonder Prodigy",
+      "Rofellos, Llanowar Emissary",
+      "Somberwald Sage",
+      "Selvala, Heart of the Wilds",
+      "Orcish Lumberjack",
+      "Delighted Halfling"
+    ]
+  }
+}

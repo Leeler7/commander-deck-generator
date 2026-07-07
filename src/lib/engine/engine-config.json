@@ -1,0 +1,187 @@
+{
+  "config_version": "1.0-measured-2026-07-07",
+  "purpose": "Bracket-targeting parameters for the BDE recommendation engine, derived from the measured cross-bracket analysis. Consumed by both the deck CLASSIFIER (deck -> bracket) and the GENERATOR (target tuple -> deck).",
+  "confidence": {
+    "structure": "HIGH — two-band step function, GC gate, four discriminators, B4=B5 collapse are robust even at current n.",
+    "exact_thresholds": "PROVISIONAL — numeric medians/cutoffs rest on n=1-4 per bracket (MEASURED_UNDERSAMPLED). Re-fit against the n>=8 Topdeck.gg backfill before hardening.",
+    "drift": "All soft values re-fit on each ban-list / major-set update. WHICH metrics matter is stable; their target values are not."
+  },
+
+  "metric_definitions": {
+    "_change": "SPLIT the old combined fast_mana metric. See reference/category-definitions.md v2.",
+    "fast_mana_rocks": "0-2 MV mana rocks that net-positive + rituals (Sol Ring, Mana Crypt, Mana Vault, Grim Monolith, the Moxen, Lotus Petal, Chrome Mox, Mox Diamond, signets/talismans that net, Dark/Cabal/Pyretic/Rite-of-Flame rituals, Jeska's Will). THIS IS A BRACKET SIGNAL.",
+    "mana_dork_count": "1-2 MV creatures that tap for mana (Birds, Elves, Bloom Tender, etc.). THIS IS A THEME/POSTURE SIGNAL, NOT A BRACKET SIGNAL — do not feed into the bracket score.",
+    "free_interaction": "0-generic-mana interaction via alt cost (FoW, Force of Negation, Fierce Guardianship, Pact of Negation, Mental Misstep, Deflecting Swat, Deadly Rollick, pitch elementals). BRACKET SIGNAL.",
+    "compact_win_lines": "distinct <=2-card infinite/game-ending combos, via Commander Spellbook intersection; cite the pairs. BRACKET SIGNAL.",
+    "game_changer_count": "cards on the current 53-card Game Changers list (Scryfall is:gamechanger). PRIMARY GATE + BRACKET SIGNAL.",
+    "card_advantage_engines": "DROPPED as a bracket signal (measured flat 5/4/5/4). Keep only as a deck-completeness quality check (~4 desired at any bracket).",
+    "tutor_count": "DROPPED as a bracket gate (WotC removed the tutor rule 2025-10-21). Soft consistency signal only."
+  },
+
+  "bracket_classifier": {
+    "model": "two_band_step_function",
+    "note": "Do NOT interpolate bracket linearly 1..5. There is a discontinuity at the B3->B4 seam. Classify band first, then place within band.",
+    "primary_hard_gate": {
+      "metric": "game_changer_count",
+      "rules": [
+        {"if_gc": 0, "band": "low", "candidate_brackets": [1, 2]},
+        {"if_gc": "1-3", "band": "low", "candidate_brackets": [3]},
+        {"if_gc": ">=4", "band": "high", "candidate_brackets": [4, 5]}
+      ],
+      "also_forces_high_band": ["mass_land_denial present", "any fast (pre-turn-6) two-card infinite combo present"]
+    },
+    "power_package_score": {
+      "purpose": "refine placement + confidence near band edges; NOT the primary gate (GC is).",
+      "inputs_and_weights": {
+        "fast_mana_rocks": 0.35,
+        "free_interaction": 0.30,
+        "compact_win_lines": 0.25,
+        "game_changer_count": 0.10
+      },
+      "zero_weight": ["card_advantage_engines", "tutor_count", "mana_dork_count"],
+      "low_weight_context_only": ["avg_mana_value", "land_count", "total_interaction_count"]
+    },
+    "within_band": {
+      "low_band": "Distinguish B1/B2/B3 primarily by game_changer_count (0 & thematic -> B1; 0 -> B2; 1-3 -> B3) and secondarily by curve/quality (avg_mv, finisher tier). B2 vs B3 is NOT soft-metric separable — lean on the GC gate.",
+      "high_band": "Do NOT attempt to separate B4 from B5 by deck contents (metrically identical). Split ONLY by user-supplied intent flag (see b4_b5_policy)."
+    }
+  },
+
+  "generation_targets": {
+    "_note": "Median targets from analysis/measured-baselines.md (MEASURED_UNDERSAMPLED n=1-4). Use as centers; widen tolerance until n>=8 backfill.",
+    "1": {"quantitative": false, "note": "Exhibition: definitions-only, theme-driven. No metric target. GC=0, no combos/MLD/extra-turns."},
+    "2": {"fast_mana_rocks": 1, "mana_dork_count": "per theme", "free_interaction": 0, "compact_win_lines": 0, "game_changer_count": 0, "avg_mana_value": 3.2, "land_count": 37, "card_advantage_engines": 4, "hard": {"game_changers_max": 0, "mass_land_denial": false, "intentional_two_card_combos": false}},
+    "3": {"fast_mana_rocks": 2, "free_interaction": 0, "compact_win_lines": "0-1 (late only)", "game_changer_count": 1, "game_changers_max": 3, "avg_mana_value": 3.0, "land_count": 35, "card_advantage_engines": 4, "width": "WIDE — offer casual-B3 (fast_rocks ~0, GC 0) vs high-B3 (fast_rocks ~2, GC ~3) sub-target", "hard": {"game_changers_max": 3, "mass_land_denial": false, "early_two_card_combos": false}},
+    "4_5_shared": {"fast_mana_rocks": 12, "free_interaction": 4, "compact_win_lines": 3, "game_changer_count": 14, "avg_mana_value": 2.2, "land_count": 28, "tutor_count": 8, "card_advantage_engines": 4, "hard": {"game_changers_max": null, "mass_land_denial": true, "combos": "unrestricted"}}
+  },
+
+  "b4_b5_policy": {
+    "rule": "B4 and B5 share ONE generation profile (generation_targets.4_5_shared). They are not machine-separable by contents.",
+    "differentiator": "user intent flag only",
+    "b4": "shared profile, no metagame tuning ('best version of a fun strategy').",
+    "b5": "shared profile PLUS metagame tuning: bias card choices toward answers for the current top-conversion commanders (see rubrics/bracket5.json meta_performance_verified).",
+    "engine_must_not": "spend model capacity trying to make a deck 'B4 not B5' or vice-versa from card contents."
+  },
+
+  "ui_contract": {
+    "selectable_posture_map": {
+      "1": {"posture_selector": "hidden", "reason": "N/A at Exhibition"},
+      "2": {"posture_selector": "hidden_or_locked_midrange", "reason": "degenerate — measured uniformly midrange"},
+      "3": {"posture_selector": "hidden_or_locked_midrange", "reason": "degenerate in sample; casual B3 all midrange"},
+      "4": {"posture_selector": "full", "options": ["turbo", "control", "stax", "midrange", "adaptive"], "confidence": "measured — posture resolves at B4"},
+      "5": {"posture_selector": "full", "options": ["turbo", "control", "stax", "midrange", "adaptive"], "confidence": "measured"}
+    },
+    "posture_labels_user_facing": {"turbo": "Wins fast", "control": "Answers everything, wins late", "stax": "Slows opponents down", "midrange": "Grinds value", "adaptive": "Plays to the table"},
+    "surfaced_fallback": "If a requested posture/theme cell is UNDERSAMPLED or absent, disclose in output which requested dimensions actually shaped the deck (shaped_by + confidence_notes). Silent fallback prohibited.",
+    "tuple_coherence_disable": ["group-hug+turbo", "group-hug+stax", "any non-midrange posture at B1-B3"],
+    "tuple_coherence_warn": ["voltron+control", "tokens+turbo", "stax at B3 (MLD barred -> tax-only)"]
+  },
+
+  "retune_policy": {
+    "trigger": ["each WotC ban-list / Game-Changers update", "each major set release"],
+    "action": "regenerate soft thresholds + generation targets from a fresh harvest; regenerate the selectable_posture_map (posture deltas drift fastest). Never freeze soft values into the UI.",
+    "hard_constraints_source": "reference/foundations.md + reference/game-changers.md (VERIFIED WotC text). Stable; change only on official rule updates.",
+    "coverage_guard": {
+      "purpose": "After each set release or tag update, flag decklist cards that have ZERO oracle tags from any source. These cards fall through the classifier and must get an oracle-text heuristic fallback.",
+      "untagged_threshold_warn": 0.05,
+      "untagged_threshold_block": 0.20
+    }
+  },
+
+  "data_sources": {
+    "_note": "Multi-source ensemble. No single tag source covers all bracket metrics. Each metric reads from its declared source; the coverage_guard flags gaps.",
+    "card_snapshot": {
+      "source": "scryfall_bulk",
+      "endpoint": "https://api.scryfall.com/bulk-data/default-cards",
+      "fields": ["name", "type_line", "cmc", "oracle_text", "color_identity", "keywords", "legalities", "prices", "edhrec_rank"],
+      "local_store": "public/database/chunks/",
+      "manifest": "public/database/chunks/manifest.json",
+      "refresh": "weekly or on set release"
+    },
+    "game_changers": {
+      "source": "scryfall_native",
+      "tier": 1,
+      "query": "is:gamechanger",
+      "frozen_fallback": "reference/game-changers.md",
+      "snapshot_file": "data/game-changers-snapshot.json",
+      "refresh": "on WotC Game Changers update"
+    },
+    "fast_mana_rocks_dorks_rituals": {
+      "source": "curated_list",
+      "tier": 3,
+      "list_file": "data/fast-mana-lists.json",
+      "oracle_text_test": "net-positive mana on cast turn for rocks; mana ability for dorks; one-shot for rituals",
+      "seed_from": "bracket calculator premium + common fast mana lists (ScrollVault/Moxfield/Archidekt)",
+      "refresh": "on set release — check new 0-2 MV artifacts with mana abilities"
+    },
+    "free_interaction": {
+      "source": "curated_list",
+      "tier": 3,
+      "list_file": "data/free-interaction-list.json",
+      "definition": "0-generic-mana interaction via alternative cost (pitch, pact, evoke, flare)",
+      "refresh": "on set release — check new alt-cost interaction"
+    },
+    "combos": {
+      "source": "commander_spellbook",
+      "tier": 3,
+      "endpoint_find": "https://backend.commanderspellbook.com/find-my-combos",
+      "endpoint_bracket": "https://backend.commanderspellbook.com/estimate-bracket",
+      "schema": "https://backend.commanderspellbook.com/schema/swagger/",
+      "cache_ttl_minutes": 60,
+      "fallback": "mark compact_win_lines as unknown, surface in confidence_notes"
+    },
+    "interaction_tags": {
+      "source": "scryfall_otag",
+      "tier": 2,
+      "local_store": "data/tagger-tags.json",
+      "refresh": "weekly or on tagger data update"
+    },
+    "edhrec_meta": {
+      "source": "edhrec",
+      "tier": "meta",
+      "endpoint": "https://json.edhrec.com/pages/commanders/{slug}.json",
+      "use_for": ["theme_tags", "synergy_scores", "salt_score", "inclusion_rate", "meta_prevalence"],
+      "do_not_use_for": ["fast_mana_count", "interaction_count", "bracket_score"],
+      "reason": "EDHREC Ramp bucket conflates rocks+dorks; not granular enough for bracket metrics"
+    }
+  },
+
+  "tag_rollup_map": {
+    "_note": "Maps tagger-tags.json tag names to bracket metrics. Tags listed here are verified present in the local tagger data (2026-07-07). De-dup rule: a card with multiple tags is counted ONCE per target metric.",
+    "total_interaction": {
+      "tags": ["counterspell", "removal", "bounce", "spot-removal", "boardwipe"],
+      "dedup": "per-card: count each card at most once toward total_interaction"
+    },
+    "free_interaction": {
+      "tags": [],
+      "supplement": "curated list data/free-interaction-list.json — no tagger tag for free/alt-cost interaction exists"
+    },
+    "stax_piece_count": {
+      "tags": [],
+      "supplement": "oracle-text heuristic or future curated list — no stax/tax/lock tags in current tagger data",
+      "note": "PROVISIONAL — stax detection deferred until tagger adds these tags or a curated list is built"
+    },
+    "card_advantage": {
+      "tags": ["card-advantage", "draw", "tutor", "cantrip", "wheel"],
+      "note": "DROPPED as bracket signal; quality check only"
+    },
+    "available_tags": {
+      "_note": "All tags in tagger-tags.json as of 2026-07-07 with card counts",
+      "boardwipe": 912, "bounce": 740, "cantrip": 603, "card-advantage": 5999,
+      "cost-reducer": 330, "counterspell": 535, "draw": 4020, "extra-turn": 57,
+      "looting": 0, "mana-dork": 414, "mana-rock": 369, "mass-land-denial": 108,
+      "ramp": 2115, "removal": 6258, "spot-removal": 4761, "tapland": 477,
+      "tutor": 1121, "utility-land": 619, "wheel": 135
+    }
+  },
+
+  "bracket_ground_truth": {
+    "_note": "Regression fixtures for cross-validation. Each deck's bracket was verified against Moxfield, Archidekt, and ScrollVault bracket outputs.",
+    "regression_fixtures": [
+      {"commander": "Kinnan, Bonder Prodigy", "expected_bracket": [4, 5], "expected_band": "high", "notes": "cEDH staple, infinite mana combos, 13+ GC"},
+      {"commander": "Bristly Bill, Spine Sower", "expected_bracket": [3], "expected_band": "low", "notes": "Upgraded, landfall synergy, 0 fast rocks, 6 dorks"},
+      {"commander": "Shorikai, Genesis Engine", "expected_bracket": [4, 5], "expected_band": "high", "notes": "Artifact combo, high interaction, multiple win lines"},
+      {"commander": "Brigid, Hero of Kinsbaile", "expected_bracket": [2], "expected_band": "low", "notes": "Core, no GC, minimal interaction, tribal"}
+    ]
+  }
+}

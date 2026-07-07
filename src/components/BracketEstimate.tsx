@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function BracketEstimate({ bracketEstimate, targetBracket }: Props) {
-  const { bracket, gameChangersFound = [], reasons = [], combos = [], diagnostics } = bracketEstimate;
+  const { bracket, gameChangersFound = [], reasons = [], combos = [], diagnostics, bracketRestrictions = [] } = bracketEstimate;
 
   // Target vs generated comparison
   const hasTarget = targetBracket !== undefined && targetBracket !== null;
@@ -24,47 +24,42 @@ export default function BracketEstimate({ bracketEstimate, targetBracket }: Prop
   const belowTarget = hasTarget && bracket < targetBracket!;
   const aboveTarget = hasTarget && bracket > targetBracket!;
 
-  // Build detailed mismatch info for below-target
+  // Build detailed mismatch info for below-target using measured medians
   const buildMismatchDetails = (): string[] => {
     if (!belowTarget || !diagnostics) return [];
     const details: string[] = [];
     const target = targetBracket!;
+    const rockCount = diagnostics.fastManaRockCount ?? diagnostics.fastManaCount;
+    const freeCount = diagnostics.freeInteractionCount ?? 0;
 
     if (target >= 4) {
-      // Expected: 4+ Game Changers
+      // Measured B4/B5 medians: ~14 GC, ~12 fast rocks, ~4 free interaction
       if (diagnostics.gameChangerCount < 4) {
         details.push(`Game Changers: have ${diagnostics.gameChangerCount}, need 4+`);
       }
-      // Expected: fast mana density
-      if (diagnostics.fastManaCount < 4) {
-        details.push(`Fast mana: have ${diagnostics.fastManaCount}, need 4+`);
+      if (rockCount < 8) {
+        details.push(`Fast mana rocks: have ${rockCount}, need 8+`);
       }
-      // Expected: tutors
-      if (diagnostics.tutorCount < 2) {
-        details.push(`Tutors: have ${diagnostics.tutorCount}, need 2+`);
+      if (freeCount < 2) {
+        details.push(`Free interaction: have ${freeCount}, need 2+`);
       }
     }
 
     if (target >= 5) {
-      // Expected: 6+ Game Changers
-      if (diagnostics.gameChangerCount < 6) {
-        details.push(`Game Changers: have ${diagnostics.gameChangerCount}, need 6+`);
+      if (diagnostics.gameChangerCount < 10) {
+        details.push(`Game Changers: have ${diagnostics.gameChangerCount}, need 10+`);
       }
-      // Expected: avg CMC < 2.5
       if (diagnostics.averageCMC >= 2.5) {
         details.push(`Avg CMC: ${diagnostics.averageCMC.toFixed(2)}, need < 2.5`);
       }
-      // Expected: 8+ fast mana
-      if (diagnostics.fastManaCount < 8) {
-        details.push(`Fast mana: have ${diagnostics.fastManaCount}, need 8+`);
+      if (rockCount < 12) {
+        details.push(`Fast mana rocks: have ${rockCount}, need 12+`);
       }
-      // Expected: multiple combo lines
       if (diagnostics.infiniteComboCount < 2) {
         details.push(`Combo lines: have ${diagnostics.infiniteComboCount}, need 2+`);
       }
-      // Expected: 5+ tutors
-      if (diagnostics.tutorCount < 5) {
-        details.push(`Tutors: have ${diagnostics.tutorCount}, need 5+`);
+      if (freeCount < 4) {
+        details.push(`Free interaction: have ${freeCount}, need 4+`);
       }
     }
 
@@ -123,7 +118,15 @@ export default function BracketEstimate({ bracketEstimate, targetBracket }: Prop
                   {mismatchDetails.join(' | ')}
                 </div>
               )}
-              {mismatchDetails.length === 0 && (
+              {bracketRestrictions.length > 0 && (
+                <div className="mt-2 text-xs">
+                  <span className="font-medium">Why it fell short:</span>
+                  <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                    {bracketRestrictions.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              )}
+              {mismatchDetails.length === 0 && bracketRestrictions.length === 0 && (
                 <span className="block mt-1 text-xs">Budget or card pool may be limiting higher-power options</span>
               )}
             </div>
@@ -136,26 +139,30 @@ export default function BracketEstimate({ bracketEstimate, targetBracket }: Prop
 
       {/* Diagnostics summary */}
       {diagnostics && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
           <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
             <div className="font-medium text-gray-500">Avg CMC</div>
             <div className="text-gray-900 font-semibold">{diagnostics.averageCMC.toFixed(2)}</div>
           </div>
           <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
-            <div className="font-medium text-gray-500">Fast Mana</div>
-            <div className="text-gray-900 font-semibold">{diagnostics.fastManaCount}</div>
+            <div className="font-medium text-gray-500">Mana Rocks</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.fastManaRockCount ?? diagnostics.fastManaCount}</div>
           </div>
           <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
-            <div className="font-medium text-gray-500">Tutors</div>
-            <div className="text-gray-900 font-semibold">{diagnostics.tutorCount}</div>
+            <div className="font-medium text-gray-500">Free Intxn</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.freeInteractionCount ?? 0}</div>
           </div>
           <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
             <div className="font-medium text-gray-500">Game Ch.</div>
             <div className="text-gray-900 font-semibold">{diagnostics.gameChangerCount}</div>
           </div>
           <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
-            <div className="font-medium text-gray-500">Inf. Combos</div>
-            <div className="text-gray-900 font-semibold">{diagnostics.infiniteComboCount}</div>
+            <div className="font-medium text-gray-500">Combos</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.compactWinLines ?? diagnostics.infiniteComboCount}</div>
+          </div>
+          <div className="text-center px-2 py-1 bg-gray-50 rounded text-xs">
+            <div className="font-medium text-gray-500">Tutors</div>
+            <div className="text-gray-900 font-semibold">{diagnostics.tutorCount}</div>
           </div>
         </div>
       )}

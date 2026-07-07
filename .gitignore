@@ -42,6 +42,9 @@ next-env.d.ts
 # Database files (we'll keep the compressed versions in public/)
 data/
 !data/tagger-tags.json
+!data/game-changers-snapshot.json
+!data/fast-mana-lists.json
+!data/free-interaction-list.json
 
 # Large dev files and downloads
 mtgjson/

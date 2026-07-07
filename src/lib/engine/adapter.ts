@@ -16,11 +16,14 @@ import type {
   ScryfallCard as EngineScryfallCard,
   GeneratedDeck as EngineGeneratedDeck,
   Customization as EngineCustomization,
+  BracketGenerationTargets,
   DeckCategory,
   ThemeResult,
   BracketLevel,
   GameChangerLimit,
 } from './types';
+
+import { GENERATION_TARGETS, POSTURE_MAP, B4_B5_POLICY } from './bracketConfig';
 
 // ─── BDE constraints → 20q2 Customization ──────────────────────────────────
 
@@ -33,14 +36,50 @@ export function bdeToCustomization(
   let gcLimit: GameChangerLimit;
   if (bdeConstraints.gameChangerLimit !== undefined) {
     gcLimit = bdeConstraints.gameChangerLimit;
+  } else if (bracket === 3 && (bdeConstraints.b3SubTarget ?? 'high') === 'casual') {
+    gcLimit = 'none';
   } else {
     gcLimit = getGameChangerLimit(bracket);
   }
 
+  // T4: B4 and B5 use the SAME EDHREC bracket filter (4).
+  // The only differentiator is the metagame tuning flag.
+  const edhrecBracket = bracket === 5 ? 4 : bracket;
+  const isMetagameTuning = bracket === 5;
+
+  // Build bracket generation targets from engine-config.json
+  const genTarget = GENERATION_TARGETS[bracket];
+  const b3Sub = bdeConstraints.b3SubTarget ?? 'high';
+  let bracketTargets: BracketGenerationTargets | null = genTarget ? {
+    fastManaRocks: genTarget.fast_mana_rocks,
+    freeInteraction: genTarget.free_interaction,
+    compactWinLines: genTarget.compact_win_lines,
+    gameChangerCount: genTarget.game_changer_count,
+    avgManaValue: genTarget.avg_mana_value,
+    landCount: genTarget.land_count,
+    cardAdvantageEngines: genTarget.card_advantage_engines,
+    tutorCount: genTarget.tutor_count,
+  } : null;
+
+  // T7: B3 casual sub-target overrides — 0 rocks, 0 GC, higher avg MV
+  if (bracket === 3 && b3Sub === 'casual' && bracketTargets) {
+    bracketTargets = {
+      ...bracketTargets,
+      fastManaRocks: 0,
+      gameChangerCount: 0,
+      avgManaValue: 3.2,
+      landCount: 37,
+    };
+  }
+
+  // Posture: hidden at B1-B3, full selector at B4-B5
+  const postureConfig = POSTURE_MAP[bracket];
+  const defaultPosture = postureConfig?.posture_selector === 'full' ? 'adaptive' : undefined;
+
   const custom: EngineCustomization = {
     deckFormat: 99,
-    landCount: bdeConstraints.landCount ?? 36,
-    nonBasicLandCount: bdeConstraints.nonBasicLandCount ?? 20,
+    landCount: bdeConstraints.landCount ?? bracketTargets?.landCount ?? 36,
+    nonBasicLandCount: bdeConstraints.nonBasicLandCount ?? (bracket >= 4 ? 24 : 20),
     bannedCards: bdeConstraints.excludedCards || [],
     banLists: [{
       id: 'default',
@@ -56,7 +95,7 @@ export function bdeToCustomization(
     deckBudget: bdeConstraints.total_budget ?? null,
     budgetOption: 'any' as const,
     gameChangerLimit: gcLimit,
-    bracketLevel: (bracket <= 5 && bracket >= 1 ? bracket : 'all') as BracketLevel,
+    bracketLevel: (edhrecBracket <= 5 && edhrecBracket >= 1 ? edhrecBracket : 'all') as BracketLevel,
     maxRarity: bdeConstraints.maxRarity ?? null,
     tinyLeaders: false,
     collectionMode: false,
@@ -75,6 +114,10 @@ export function bdeToCustomization(
     advancedTargets: buildAdvancedTargets(bdeConstraints),
     tempoAutoDetect: !bdeConstraints.pacing,
     tempoPacing: bdeConstraints.pacing ?? 'balanced',
+    bracketTargets,
+    posture: bdeConstraints.posture ?? defaultPosture,
+    b3SubTarget: bracket === 3 ? b3Sub : undefined,
+    metagameTuning: isMetagameTuning,
   };
   return custom;
 }
@@ -230,19 +273,31 @@ export function engineDeckToBde(
 
     bracketEstimate = {
       bracket: be.bracket,
+      band: be.band,
       combos,
       gameChangersFound: gameChangersInDeck,
       gameChangerCount: gameChangersInDeck.length,
       reasons,
+      shapedBy: be.shapedBy,
+      confidenceNotes: be.confidenceNotes,
       diagnostics: {
         tutorCount: be.breakdown?.tutorCount ?? 0,
         fastManaCount: be.breakdown?.fastManaCount ?? 0,
+        fastManaRockCount: be.breakdown?.fastManaRockCount ?? 0,
+        manaDorkCount: be.breakdown?.manaDorkCount ?? 0,
+        freeInteractionCount: be.breakdown?.freeInteractionCount ?? 0,
+        compactWinLines: be.breakdown?.compactWinLines ?? 0,
         averageCMC: be.breakdown?.averageCmc ?? engineDeck.stats?.averageCmc ?? 0,
         infiniteComboCount: actualInfiniteComboCount,
         gameChangerCount: be.breakdown?.gameChangerCount ?? 0,
         tutorNames: be.breakdown?.tutorNames ?? [],
         fastManaNames: be.breakdown?.fastManaNames ?? [],
+        fastManaRockNames: be.breakdown?.fastManaRockNames ?? [],
+        manaDorkNames: be.breakdown?.manaDorkNames ?? [],
+        freeInteractionNames: be.breakdown?.freeInteractionNames ?? [],
       },
+      bracketRestrictions: engineDeck.bracketRestrictions,
+      snapshotVersion: be.snapshotVersion,
     };
   }
 

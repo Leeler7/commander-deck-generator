@@ -39,6 +39,7 @@
     "node_modules",
     "playwright.config.ts",
     "vitest.config.ts",
-    "src/test/**"
+    "src/test/**",
+    "src/**/__tests__/**"
   ]
 }

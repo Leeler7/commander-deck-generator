@@ -27,7 +27,10 @@ import {
   hasCurveRoom,
 } from './curveUtils';
 import { loadTaggerData, hasTaggerData, getCardRole, getCardSubtype, hasMultipleRoles, getRampSubtype, getRemovalSubtype, getBoardwipeSubtype, getCardDrawSubtype, isTapland, type RoleKey } from './tagger-client';
-import { estimateBracket } from './bracketEstimator';
+import { estimateBracket, FAST_MANA_ROCKS, FREE_INTERACTION, initBracketLists } from './bracketEstimator';
+import { getSnapshotVersion } from './card-snapshot';
+import { loadGameChangerList } from './curated-lists';
+import { computeTagRollup } from './tag-rollup';
 import { analyzeDeck, getDeckSummaryData, scoreRecommendation, type ScoringContext } from './deckAnalyzer';
 import { getDynamicRoleTargets, estimatePacingFromStats } from './roleTargets';
 import type { Pacing, RoleTargetBreakdown } from './types';
@@ -934,6 +937,131 @@ function computeRoleBoosts(
   return boosts;
 }
 
+// ── Bracket-aware card boosting ───────────────────────────────────────────
+// When a target bracket is set, boost cards that help reach the bracket's
+// measured metrics (game changers, fast mana rocks, free interaction).
+// Uses mutable counters so boosts decay as targets are met.
+
+interface BracketBoostCounters {
+  gameChangersPicked: number;
+  fastManaRocksPicked: number;
+  freeInteractionPicked: number;
+}
+
+function computeBracketBoosts(
+  candidates: string[],
+  gameChangerNames: Set<string>,
+  targets: { fastManaRocks: number; freeInteraction: number; gameChangerCount: number } | null,
+  counters: BracketBoostCounters,
+): Map<string, number> {
+  const boosts = new Map<string, number>();
+  if (!targets) return boosts;
+
+  for (const name of candidates) {
+    let boost = 0;
+
+    if (gameChangerNames.has(name)) {
+      const deficit = Math.max(0, targets.gameChangerCount - counters.gameChangersPicked);
+      if (deficit > 0) {
+        boost += Math.min(150, (deficit / Math.max(1, targets.gameChangerCount)) * 150);
+      }
+    }
+
+    if (FAST_MANA_ROCKS.has(name)) {
+      const deficit = Math.max(0, targets.fastManaRocks - counters.fastManaRocksPicked);
+      if (deficit > 0) {
+        boost += Math.min(120, (deficit / Math.max(1, targets.fastManaRocks)) * 120);
+      }
+    }
+
+    if (FREE_INTERACTION.has(name)) {
+      const deficit = Math.max(0, targets.freeInteraction - counters.freeInteractionPicked);
+      if (deficit > 0) {
+        boost += Math.min(100, (deficit / Math.max(1, targets.freeInteraction)) * 100);
+      }
+    }
+
+    if (boost > 0) boosts.set(name, boost);
+  }
+  return boosts;
+}
+
+function updateBracketCounters(
+  pickedCards: ScryfallCard[],
+  gameChangerNames: Set<string>,
+  counters: BracketBoostCounters,
+): void {
+  for (const card of pickedCards) {
+    if (gameChangerNames.has(card.name)) counters.gameChangersPicked++;
+    if (FAST_MANA_ROCKS.has(card.name)) counters.fastManaRocksPicked++;
+    if (FREE_INTERACTION.has(card.name)) counters.freeInteractionPicked++;
+  }
+}
+
+function analyzeBracketRestrictions(
+  targetBracket: number,
+  actualBracket: number,
+  breakdown: { gameChangerCount: number; fastManaRockCount: number; freeInteractionCount: number; compactWinLines: number; averageCmc: number },
+  targets: { fastManaRocks: number; freeInteraction: number; gameChangerCount: number; compactWinLines: number; avgManaValue: number } | null,
+  maxCardPrice: number | null,
+  deckBudget: number | null,
+  maxRarity: string | null,
+  arenaOnly: boolean,
+): string[] {
+  if (actualBracket >= targetBracket || !targets) return [];
+
+  const restrictions: string[] = [];
+
+  if (breakdown.gameChangerCount < targets.gameChangerCount) {
+    const gap = targets.gameChangerCount - breakdown.gameChangerCount;
+    if (maxCardPrice !== null && maxCardPrice < 30) {
+      restrictions.push(`Budget cap ($${maxCardPrice}/card) likely excluded ${gap} Game Changers — most cost $30+`);
+    } else if (deckBudget !== null && deckBudget < 300) {
+      restrictions.push(`Deck budget ($${deckBudget}) limits expensive Game Changers like Mana Crypt, Mox Diamond`);
+    } else {
+      restrictions.push(`Card pool only had ${breakdown.gameChangerCount} Game Changers available (need ${targets.gameChangerCount} for B${targetBracket})`);
+    }
+  }
+
+  if (breakdown.fastManaRockCount < targets.fastManaRocks) {
+    if (maxCardPrice !== null && maxCardPrice < 50) {
+      restrictions.push(`Price cap blocks premium fast mana (Mana Crypt $200+, Mox Diamond $500+)`);
+    } else {
+      restrictions.push(`Only ${breakdown.fastManaRockCount} fast mana rocks in deck (target: ${targets.fastManaRocks})`);
+    }
+  }
+
+  if (breakdown.freeInteractionCount < targets.freeInteraction) {
+    if (maxCardPrice !== null && maxCardPrice < 40) {
+      restrictions.push(`Price cap limits free interaction (Force of Will $80+, Fierce Guardianship $40+)`);
+    } else {
+      restrictions.push(`Only ${breakdown.freeInteractionCount} free interaction spells (target: ${targets.freeInteraction})`);
+    }
+  }
+
+  if (breakdown.averageCmc > targets.avgManaValue + 0.5) {
+    restrictions.push(`Avg mana value ${breakdown.averageCmc.toFixed(2)} is too high for B${targetBracket} (target: ≤${targets.avgManaValue})`);
+  }
+
+  if (breakdown.compactWinLines < targets.compactWinLines) {
+    restrictions.push(`Only ${breakdown.compactWinLines} compact win lines (target: ${targets.compactWinLines}) — commander may lack cEDH combo support`);
+  }
+
+  if (maxRarity === 'rare' || maxRarity === 'uncommon' || maxRarity === 'common') {
+    restrictions.push(`Max rarity set to ${maxRarity} — many high-power staples are mythic rare`);
+  }
+
+  if (arenaOnly) {
+    restrictions.push(`Arena-only mode excludes most cEDH staples not on MTG Arena`);
+  }
+
+  if (restrictions.length === 0) {
+    restrictions.push(`Commander's EDHREC card pool may not support B${targetBracket} — consider a more competitive commander`);
+  }
+
+  return restrictions;
+}
+
 // Fill remaining slots with Scryfall search (fallback)
 async function fillWithScryfall(
   query: string,
@@ -1624,6 +1752,15 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     : customization.gameChangerLimit === 'unlimited' ? Infinity
     : customization.gameChangerLimit;
   const gameChangerCount = { value: 0 };
+  const bracketTargets = customization.bracketTargets ?? null;
+  const userTargetBracket = typeof customization.bracketLevel === 'number'
+    ? (customization.metagameTuning && customization.bracketLevel === 4 ? 5 : customization.bracketLevel)
+    : undefined;
+  const bracketBoostCounters: BracketBoostCounters = {
+    gameChangersPicked: 0,
+    fastManaRocksPicked: 0,
+    freeInteractionPicked: 0,
+  };
   const deckBudget = customization.deckBudget ?? null;
   const currency = customization.currency ?? 'USD';
   const ignoreOwnedBudget = !!(customization.ignoreOwnedBudget && context.collectionNames);
@@ -1672,13 +1809,19 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     await loadTaggerData();
     onProgress?.('Card pools loaded from cache...', 12);
   } else {
-    // FULL PATH: Pre-fetch basic lands, game changer list, combo data, and tagger data in parallel
+    // FULL PATH: Pre-fetch basic lands, game changer list, combo data, tagger data, and curated lists in parallel
     onProgress?.('Shuffling the library...', 5);
     const [, fetchedGCNames, fetchedCombos] = await Promise.all([
       prefetchBasicLands(),
-      getGameChangerNames(),
+      getGameChangerNames().catch(async () => {
+        // D2: Fallback to frozen snapshot if live Scryfall is down
+        console.warn('[DeckGen] Live game changer fetch failed, falling back to snapshot');
+        const gcList = await loadGameChangerList();
+        return gcList.cards;
+      }),
       fetchCommanderCombos(commander.name).catch(() => [] as EDHRECCombo[]),
       loadTaggerData(),
+      initBracketLists(),
     ]);
     gameChangerNames = fetchedGCNames;
     combos = fetchedCombos;
@@ -2520,11 +2663,27 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     const strictCurve = !!customization.advancedTargets?.curvePercentages;
     const strictRoles = !!customization.advancedTargets?.roleTargets;
 
+    // Bracket boost helper — merges bracket-targeting boosts into a role boost map
+    const withBracketBoosts = (baseBoosts: Map<string, number>, pool: EDHRECCard[]): Map<string, number> => {
+      if (!bracketTargets) return baseBoosts;
+      const bracketBoosts = computeBracketBoosts(
+        pool.map(c => c.name),
+        gameChangerNames,
+        bracketTargets,
+        bracketBoostCounters,
+      );
+      const merged = new Map(baseBoosts);
+      for (const [name, boost] of bracketBoosts) {
+        merged.set(name, (merged.get(name) ?? 0) + boost);
+      }
+      return merged;
+    };
+
     // Now process each type synchronously using the pre-fetched cards
     // 1. Creatures
     console.log(`[DeckGen] Creatures: need ${creatureTarget}, pool has ${creaturePool.length} cards`);
     onProgress?.('Summoning creatures from the aether...', 35);
-    const creatureBoosts = roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts();
+    const creatureBoosts = withBracketBoosts(roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts(), creaturePool);
     const creatures = pickFromPrefetchedWithCurve(
       creaturePool,
       cardMap,
@@ -2553,6 +2712,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       ignoreOwnedRarity
     );
     categories.creatures.push(...creatures);
+    updateBracketCounters(creatures, gameChangerNames, bracketBoostCounters);
     for (const card of creatures) { const role = cardRoleMap.get(card.name); if (role) { currentRoleCounts[role]++; card.deckRole = role; stampRoleSubtypes(card); const st = cardSubtypeMap.get(card.name); if (st) currentSubtypeCounts[st] = (currentSubtypeCounts[st] ?? 0) + 1; } }
     console.log(`[DeckGen] Creatures: got ${creatures.length} from EDHREC`);
 
@@ -2589,7 +2749,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     // 2. Instants
     console.log(`[DeckGen] Instants: need ${instantTarget}, pool has ${instantPool.length} cards`);
     onProgress?.('Preparing instant-speed responses...', 45);
-    const instantBoosts = roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts();
+    const instantBoosts = withBracketBoosts(roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts(), instantPool);
     const instants = pickFromPrefetchedWithCurve(
       instantPool,
       cardMap,
@@ -2618,13 +2778,14 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       ignoreOwnedRarity
     );
     console.log(`[DeckGen] Instants: got ${instants.length} from EDHREC`);
+    updateBracketCounters(instants, gameChangerNames, bracketBoostCounters);
     categorizeCards(instants, categories);
     for (const card of instants) { const role = cardRoleMap.get(card.name); if (role) { currentRoleCounts[role]++; card.deckRole = role; stampRoleSubtypes(card); const st = cardSubtypeMap.get(card.name); if (st) currentSubtypeCounts[st] = (currentSubtypeCounts[st] ?? 0) + 1; } }
 
     // 3. Sorceries
     console.log(`[DeckGen] Sorceries: need ${sorceryTarget}, pool has ${sorceryPool.length} cards`);
     onProgress?.('Channeling sorcerous power...', 55);
-    const sorceryBoosts = roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts();
+    const sorceryBoosts = withBracketBoosts(roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts(), sorceryPool);
     const sorceries = pickFromPrefetchedWithCurve(
       sorceryPool,
       cardMap,
@@ -2653,13 +2814,14 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       ignoreOwnedRarity
     );
     console.log(`[DeckGen] Sorceries: got ${sorceries.length} from EDHREC`);
+    updateBracketCounters(sorceries, gameChangerNames, bracketBoostCounters);
     categorizeCards(sorceries, categories);
     for (const card of sorceries) { const role = cardRoleMap.get(card.name); if (role) { currentRoleCounts[role]++; card.deckRole = role; stampRoleSubtypes(card); const st = cardSubtypeMap.get(card.name); if (st) currentSubtypeCounts[st] = (currentSubtypeCounts[st] ?? 0) + 1; } }
 
     // 4. Artifacts
     console.log(`[DeckGen] Artifacts: need ${artifactTarget}, pool has ${artifactPool.length} cards`);
     onProgress?.('Forging powerful artifacts...', 62);
-    const artifactBoosts = roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts();
+    const artifactBoosts = withBracketBoosts(roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts(), artifactPool);
     const artifacts = pickFromPrefetchedWithCurve(
       artifactPool,
       cardMap,
@@ -2688,13 +2850,14 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       ignoreOwnedRarity
     );
     console.log(`[DeckGen] Artifacts: got ${artifacts.length} from EDHREC`);
+    updateBracketCounters(artifacts, gameChangerNames, bracketBoostCounters);
     categorizeCards(artifacts, categories);
     for (const card of artifacts) { const role = cardRoleMap.get(card.name); if (role) { currentRoleCounts[role]++; card.deckRole = role; stampRoleSubtypes(card); const st = cardSubtypeMap.get(card.name); if (st) currentSubtypeCounts[st] = (currentSubtypeCounts[st] ?? 0) + 1; } }
 
     // 5. Enchantments
     console.log(`[DeckGen] Enchantments: need ${enchantmentTarget}, pool has ${enchantmentPool.length} cards`);
     onProgress?.('Weaving magical enchantments...', 68);
-    const enchantmentBoosts = roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts();
+    const enchantmentBoosts = withBracketBoosts(roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts(), enchantmentPool);
     const enchantments = pickFromPrefetchedWithCurve(
       enchantmentPool,
       cardMap,
@@ -2723,6 +2886,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       ignoreOwnedRarity
     );
     console.log(`[DeckGen] Enchantments: got ${enchantments.length} from EDHREC`);
+    updateBracketCounters(enchantments, gameChangerNames, bracketBoostCounters);
     categorizeCards(enchantments, categories);
     for (const card of enchantments) { const role = cardRoleMap.get(card.name); if (role) { currentRoleCounts[role]++; card.deckRole = role; stampRoleSubtypes(card); const st = cardSubtypeMap.get(card.name); if (st) currentSubtypeCounts[st] = (currentSubtypeCounts[st] ?? 0) + 1; } }
 
@@ -2730,7 +2894,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     console.log(`[DeckGen] Planeswalkers: need ${planeswalkerTarget}, pool has ${planeswalkerPool.length} cards`);
     if (planeswalkerPool.length > 0 && planeswalkerTarget > 0) {
       onProgress?.('Calling upon planeswalker allies...', 72);
-      const planeswalkerBoosts = roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts();
+      const planeswalkerBoosts = withBracketBoosts(roleTargets ? computeRoleBoosts(cardRoleMap, roleTargets, currentRoleCounts, getComboBoosts(), cardCmcMap, cardSubtypeMap, currentSubtypeCounts, strictRoles) : getComboBoosts(), planeswalkerPool);
       const planeswalkers = pickFromPrefetchedWithCurve(
         planeswalkerPool,
         cardMap,
@@ -2759,6 +2923,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
         ignoreOwnedRarity
       );
       console.log(`[DeckGen] Planeswalkers: got ${planeswalkers.length} from EDHREC`);
+      updateBracketCounters(planeswalkers, gameChangerNames, bracketBoostCounters);
       categories.utility.push(...planeswalkers);
       for (const card of planeswalkers) { const role = cardRoleMap.get(card.name); if (role) { currentRoleCounts[role]++; card.deckRole = role; stampRoleSubtypes(card); const st = cardSubtypeMap.get(card.name); if (st) currentSubtypeCounts[st] = (currentSubtypeCounts[st] ?? 0) + 1; } }
     }
@@ -4290,6 +4455,8 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
   const allDeckCardNames = Object.values(categories).flat().map(c => c.name);
   if (commander) allDeckCardNames.push(commander.name);
   if (partnerCommander) allDeckCardNames.push(partnerCommander.name);
+  let snapshotVer: string | undefined;
+  try { snapshotVer = await getSnapshotVersion(); } catch { /* non-fatal */ }
   const bracketEstimation = estimateBracket(
     allDeckCardNames,
     detectedCombos,
@@ -4297,8 +4464,46 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     deckScore,
     roleTargets ? currentRoleCounts : undefined,
     gameChangerNames,
+    userTargetBracket,
+    snapshotVer,
   );
   console.log(`[DeckGen] Bracket estimation: ${bracketEstimation.bracket} (${bracketEstimation.label}), soft score: ${bracketEstimation.softScore}`);
+
+  // ── D8: Coverage guard — flag untagged cards ──
+  const tagRollup = computeTagRollup(allDeckCardNames);
+  if (tagRollup.coverageRatio < 0.80) {
+    console.warn(`[DeckGen] Coverage guard: ${tagRollup.untagged.length}/${allDeckCardNames.length} cards untagged (${(tagRollup.coverageRatio * 100).toFixed(0)}% coverage)`);
+    bracketEstimation.confidenceNotes = [
+      ...(bracketEstimation.confidenceNotes ?? []),
+      `${tagRollup.untagged.length} cards had no tagger tags — bracket estimate may be less reliable`,
+    ];
+  } else if (tagRollup.coverageRatio < 0.95) {
+    console.log(`[DeckGen] Coverage: ${(tagRollup.coverageRatio * 100).toFixed(0)}% (${tagRollup.untagged.length} untagged)`);
+  }
+
+  // ── Bracket restriction analysis ──
+  let bracketRestrictions: string[] | undefined;
+  if (userTargetBracket && bracketEstimation.bracket < userTargetBracket) {
+    bracketRestrictions = analyzeBracketRestrictions(
+      userTargetBracket,
+      bracketEstimation.bracket,
+      {
+        gameChangerCount: bracketEstimation.breakdown.gameChangerCount,
+        fastManaRockCount: bracketEstimation.breakdown.fastManaRockCount,
+        freeInteractionCount: bracketEstimation.breakdown.freeInteractionCount,
+        compactWinLines: bracketEstimation.breakdown.compactWinLines,
+        averageCmc: bracketEstimation.breakdown.averageCmc,
+      },
+      bracketTargets,
+      maxCardPrice,
+      deckBudget,
+      maxRarity,
+      arenaOnly,
+    );
+    if (bracketRestrictions.length > 0) {
+      console.log(`[DeckGen] Bracket restrictions for B${userTargetBracket}:`, bracketRestrictions);
+    }
+  }
 
   return {
     commander,
@@ -4342,6 +4547,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     detectedArchetype,
     detectedPacing,
     bracketEstimation,
+    bracketRestrictions,
     gameChangerNames: [...gameChangerNames],
     deckGrade: (() => {
       if (!edhrecData || !roleTargets) return undefined;
