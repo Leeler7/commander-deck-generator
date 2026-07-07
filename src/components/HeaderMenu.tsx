@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useTheme } from './ThemeProvider';
+import ManaPipBar from './ManaPipBar';
 
 const menuLinks = [
   { href: '/', label: 'HOME' },
@@ -13,7 +13,6 @@ const menuLinks = [
 export default function HeaderMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -26,7 +25,7 @@ export default function HeaderMenu() {
   }, []);
 
   return (
-    <div className="mt-3 inline-block relative" ref={menuRef}>
+    <div className="mt-3 inline-flex items-center gap-3 relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -52,16 +51,11 @@ export default function HeaderMenu() {
                 {label}
               </a>
             ))}
-            <button
-              onClick={toggleTheme}
-              className="block w-full px-4 py-2 text-sm text-center text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-              style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}
-            >
-              {theme === 'dark' ? 'LIGHT MODE' : 'DARK MODE'}
-            </button>
           </div>
         </div>
       )}
+
+      <ManaPipBar />
     </div>
   );
 }

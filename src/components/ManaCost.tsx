@@ -7,152 +7,73 @@ interface ManaCostProps {
   className?: string;
 }
 
-interface ManaSymbol {
-  type: 'generic' | 'colored' | 'hybrid' | 'phyrexian';
-  value: string;
-  colors: string[];
-}
-
+/**
+ * Renders a Scryfall mana cost string (e.g. "{2}{W/U}{G}") as real MTG mana
+ * symbols via mana-font (https://mana.andrewgioia.com/).
+ *
+ * Scryfall brace syntax maps to mana-font classes by lowercasing and
+ * dropping the slash: {W}→ms-w, {10}→ms-10, {W/U}→ms-wu, {2/W}→ms-2w,
+ * {W/P}→ms-wp, {X}→ms-x, {C}→ms-c, {S}→ms-s, {T}→ms-tap.
+ */
 export default function ManaCost({ manaCost, className = '' }: ManaCostProps) {
   if (!manaCost) return null;
 
   const symbols = parseManaCost(manaCost);
+  if (symbols.length === 0) return null;
 
   return (
-    <div className={`flex items-center space-x-1 ${className}`}>
+    <span className={`inline-flex items-center gap-0.5 ${className}`}>
       {symbols.map((symbol, index) => (
-        <ManaSymbolComponent key={`${symbol.type}-${symbol.value}-${index}`} symbol={symbol} />
+        <ManaSymbol key={`${symbol}-${index}`} symbol={symbol} />
       ))}
-    </div>
+    </span>
   );
 }
 
-function parseManaCost(manaCost: string): ManaSymbol[] {
-  const symbols: ManaSymbol[] = [];
+function parseManaCost(manaCost: string): string[] {
+  const symbols: string[] = [];
   const regex = /\{([^}]+)\}/g;
   let match;
 
   while ((match = regex.exec(manaCost)) !== null) {
-    const content = match[1];
-    symbols.push(parseManaSymbol(content));
+    symbols.push(match[1]);
   }
 
   return symbols;
 }
 
-function parseManaSymbol(content: string): ManaSymbol {
-  // Generic mana (numbers)
-  if (/^\d+$/.test(content)) {
-    return {
-      type: 'generic',
-      value: content,
-      colors: []
-    };
-  }
+const KNOWN_SYMBOLS = new Set([
+  'w', 'u', 'b', 'r', 'g', 'c', 'x', 'y', 'z', 's', 'e', 'tap', 'untap',
+  ...Array.from({ length: 21 }, (_, i) => String(i)),
+  // Hybrid
+  'wu', 'wb', 'ub', 'ur', 'br', 'bg', 'rg', 'rw', 'gw', 'gu',
+  // Two-brid
+  '2w', '2u', '2b', '2r', '2g',
+  // Phyrexian (incl. hybrid phyrexian)
+  'p', 'wp', 'up', 'bp', 'rp', 'gp',
+  'wup', 'wbp', 'ubp', 'urp', 'brp', 'bgp', 'rgp', 'rwp', 'gwp', 'gup',
+]);
 
-  // Colored mana
-  if (/^[WUBRG]$/.test(content)) {
-    return {
-      type: 'colored',
-      value: content,
-      colors: [content]
-    };
-  }
-
-  // Hybrid mana (e.g., W/U, 2/W)
-  if (content.includes('/')) {
-    const parts = content.split('/');
-    return {
-      type: 'hybrid',
-      value: content,
-      colors: parts.filter(p => /^[WUBRG]$/.test(p))
-    };
-  }
-
-  // Phyrexian mana (e.g., W/P)
-  if (content.includes('P')) {
-    return {
-      type: 'phyrexian',
-      value: content,
-      colors: [content.replace('/P', '')]
-    };
-  }
-
-  // Colorless or unknown
-  return {
-    type: 'generic',
-    value: content,
-    colors: []
-  };
+function scryfallToManaFont(content: string): string | null {
+  let cls = content.toLowerCase().replace(/\//g, '');
+  if (cls === 't') cls = 'tap';
+  if (cls === 'q') cls = 'untap';
+  return KNOWN_SYMBOLS.has(cls) ? cls : null;
 }
 
-function ManaSymbolComponent({ symbol }: { symbol: ManaSymbol }) {
-  const getColorClass = (color: string): string => {
-    switch (color) {
-      case 'W': return 'bg-gray-100 border-2 border-black text-black'; // White with black outline
-      case 'U': return 'bg-blue-500 text-white border border-blue-600';
-      case 'B': return 'bg-gray-900 text-white border border-gray-800';
-      case 'R': return 'bg-red-500 text-white border border-red-600';
-      case 'G': return 'bg-green-500 text-white border border-green-600';
-      default: return 'bg-gray-300 text-gray-700 border border-gray-400'; // Colorless
-    }
-  };
+function ManaSymbol({ symbol }: { symbol: string }) {
+  const cls = scryfallToManaFont(symbol);
 
-  const getHybridClass = (colors: string[]): string => {
-    if (colors.length === 2) {
-      // Create a gradient for hybrid mana
-      const color1 = colors[0];
-      const color2 = colors[1];
-      const gradientMap: Record<string, string> = {
-        'W': 'from-gray-100',
-        'U': 'from-blue-500',
-        'B': 'from-gray-900',
-        'R': 'from-red-500',
-        'G': 'from-green-500'
-      };
-      const gradientMap2: Record<string, string> = {
-        'W': 'to-gray-100',
-        'U': 'to-blue-500',
-        'B': 'to-gray-900',
-        'R': 'to-red-500',
-        'G': 'to-green-500'
-      };
-      return `bg-gradient-to-r ${gradientMap[color1]} ${gradientMap2[color2]} text-white border border-gray-400`;
-    }
-    return getColorClass(colors[0] || '');
-  };
-
-  if (symbol.type === 'generic') {
-    return (
-      <div className="w-5 h-5 rounded-full bg-gray-300 border border-gray-400 flex items-center justify-center text-xs font-medium" style={{ color: '#374151' }}>
-        {symbol.value}
-      </div>
-    );
+  if (!cls) {
+    // Unknown symbol — render the raw text rather than a wrong icon.
+    return <span className="text-xs font-medium text-gray-600">{`{${symbol}}`}</span>;
   }
 
-  if (symbol.type === 'colored') {
-    return (
-      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${getColorClass(symbol.value)}`}>
-        {symbol.value}
-      </div>
-    );
-  }
-
-  if (symbol.type === 'hybrid') {
-    return (
-      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${getHybridClass(symbol.colors)}`}>
-        <span className="text-[10px]">{symbol.value}</span>
-      </div>
-    );
-  }
-
-  if (symbol.type === 'phyrexian') {
-    return (
-      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold border-2 ${getColorClass(symbol.colors[0] || '')}`}>
-        <span className="text-[8px]">Φ</span>
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <i
+      className={`ms ms-cost ms-shadow ms-${cls}`}
+      title={`{${symbol.toUpperCase()}}`}
+      aria-label={`{${symbol.toUpperCase()}}`}
+    />
+  );
 }

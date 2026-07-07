@@ -2,109 +2,356 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ═══════════════════════════════════════════════════════════════════════════
+   MANA MODES — six themes keyed to Magic's color pie (see DESIGN.md)
+   One structure, six CSS-variable skins on html[data-theme].
+   White = light mode, Black = dark mode; the rest are first-class themes.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="white"] {              /* PLAINS — the light mode */
+  --bg: #F5F1E3;
+  --surface: #FDFBF2;
+  --frame: #EAE2C8;
+  --edge: #C9BFA0;
+  --text: #2A2620;
+  --muted: #7A7260;
+  --accent: #C9A227;
+  --accent-deep: #8A6D14;
+  --on-accent: #2A2620;
+  --success: #00733E;
+  --error: #B3261E;
+  --warn: #8A6D14;
+  --info: #0E68AB;
+  --shadow: 0 2px 10px rgba(42, 38, 32, 0.14);
+  color-scheme: light;
 }
 
-.dark {
-  --background: #111827;
-  --foreground: #f3f4f6;
+[data-theme="blue"] {               /* ISLAND */
+  --bg: #0B1D2E;
+  --surface: #132A40;
+  --frame: #1B3A57;
+  --edge: #0A2438;
+  --text: #D8E8F4;
+  --muted: #7FA3BD;
+  --accent: #3E9DD8;
+  --accent-deep: #7FC4EE;
+  --on-accent: #06121D;
+  --success: #7FD39F;
+  --error: #FF8A80;
+  --warn: #E8C56A;
+  --info: #7FC4EE;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+[data-theme="black"] {              /* SWAMP — the dark mode */
+  --bg: #121014;
+  --surface: #1C1820;
+  --frame: #2A2430;
+  --edge: #060508;
+  --text: #E2DCD4;
+  --muted: #8E8494;
+  --accent: #A08FB8;
+  --accent-deep: #C4B2DC;
+  --on-accent: #14101A;
+  --success: #7FD39F;
+  --error: #FF8A80;
+  --warn: #E8C56A;
+  --info: #7FC4EE;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+[data-theme="red"] {                /* MOUNTAIN */
+  --bg: #1E0F0C;
+  --surface: #2C1713;
+  --frame: #40201A;
+  --edge: #120704;
+  --text: #F2E2D8;
+  --muted: #B08D80;
+  --accent: #E04A38;
+  --accent-deep: #F9AA8F;
+  --on-accent: #1E0A07;
+  --success: #7FD39F;
+  --error: #FF8A80;
+  --warn: #E8C56A;
+  --info: #7FC4EE;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+[data-theme="green"] {              /* FOREST */
+  --bg: #0D1A12;
+  --surface: #14261A;
+  --frame: #1D3626;
+  --edge: #04110A;
+  --text: #DCEADD;
+  --muted: #86A78E;
+  --accent: #3FA867;
+  --accent-deep: #9BD3AE;
+  --on-accent: #06130B;
+  --success: #9BD3AE;
+  --error: #FF8A80;
+  --warn: #E8C56A;
+  --info: #7FC4EE;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+[data-theme="colorless"] {          /* WASTES */
+  --bg: #1A1B1D;
+  --surface: #242628;
+  --frame: #313436;
+  --edge: #0B0C0D;
+  --text: #DEE0E2;
+  --muted: #909498;
+  --accent: #A8ADB4;
+  --accent-deep: #CCD1D6;
+  --on-accent: #17181A;
+  --success: #7FD39F;
+  --error: #FF8A80;
+  --warn: #E8C56A;
+  --info: #7FC4EE;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+/* WUBRG data colors — constant across themes; they are data, not theme */
+:root {
+  --mana-w: #F8F6D8;
+  --mana-u: #0E68AB;
+  --mana-b: #2B253A;
+  --mana-r: #D3202A;
+  --mana-g: #00733E;
+  --mana-c: #B3AFA6;
+  --background: var(--bg);
+  --foreground: var(--text);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans-body);
+  --font-mono: var(--font-mono-data);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans-body), sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* ── Dark mode overrides ─────────────────────────────────────────────────────
-   These remap common Tailwind utility colors so every component gets dark mode
-   without needing dark: prefixes on every class. */
-
-.dark {
-  color-scheme: dark;
+/* ── Brand type ──────────────────────────────────────────────────────────────
+   Legacy markup sets Impact via inline styles; this catch-all reroutes every
+   one of them to the brand font without touching each component. */
+[style*="Impact"] {
+  font-family: var(--font-brand), serif !important;
+  letter-spacing: 0.02em;
 }
 
-/* Backgrounds */
-.dark .bg-white { background-color: #1f2937 !important; }
-.dark .bg-gray-50 { background-color: #111827 !important; }
-.dark .bg-gray-100 { background-color: #1f2937 !important; }
-
-/* Text colors */
-.dark .text-black { color: #f9fafb !important; }
-.dark .text-gray-900 { color: #f9fafb !important; }
-.dark .text-gray-800 { color: #f3f4f6 !important; }
-.dark .text-gray-700 { color: #d1d5db !important; }
-.dark .text-gray-600 { color: #9ca3af !important; }
-.dark .text-gray-500 { color: #9ca3af !important; }
-.dark .text-gray-400 { color: #6b7280 !important; }
-
-/* Borders */
-.dark .border-gray-200 { border-color: #374151 !important; }
-.dark .border-gray-300 { border-color: #4b5563 !important; }
-.dark .border-gray-100 { border-color: #374151 !important; }
-
-/* Inputs and selects */
-.dark input, .dark textarea, .dark select {
-  background-color: #374151 !important;
-  color: #f3f4f6 !important;
-  border-color: #4b5563 !important;
+.font-brand {
+  font-family: var(--font-brand), serif;
+  letter-spacing: 0.02em;
 }
-.dark input::placeholder, .dark textarea::placeholder {
-  color: #9ca3af !important;
+
+.font-flavor {
+  font-family: var(--font-flavor), serif;
+  font-style: italic;
 }
+
+.font-data {
+  font-family: var(--font-mono-data), monospace;
+}
+
+/* ── Theme remap layer ───────────────────────────────────────────────────────
+   The markup uses stock Tailwind utilities (bg-white, text-gray-900, ...).
+   This layer maps them to theme tokens so all six mana modes theme the whole
+   app without per-component edits. Replaces the old `.dark { !important }`
+   hack. New markup should prefer tokens directly (see DESIGN.md). */
+
+/* Page + surface backgrounds */
+.bg-gray-50 { background-color: var(--bg) !important; }
+.bg-white { background-color: var(--surface) !important; }
+.bg-gray-100, .bg-gray-200 { background-color: var(--frame) !important; }
+.bg-gray-800, .bg-gray-900 { background-color: var(--surface) !important; }
+
+/* Card-frame halo on surfaces — the outer frame of a Magic card */
+.bg-white.rounded-lg.border, .bg-white.rounded-lg.shadow-sm {
+  box-shadow: 0 0 0 4px var(--frame), var(--shadow) !important;
+  border-color: var(--edge) !important;
+}
+
+/* Text */
+.text-black, .text-gray-900, .text-gray-800, .text-gray-700 { color: var(--text) !important; }
+.text-gray-600, .text-gray-500, .text-gray-400 { color: var(--muted) !important; }
+.text-white { color: var(--on-accent) !important; }
+
+/* Borders + dividers */
+.border-gray-100, .border-gray-200, .border-gray-300 { border-color: var(--frame) !important; }
+.divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--frame) !important; }
 
 /* Shadows */
-.dark .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3) !important; }
-.dark .shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5) !important; }
+.shadow-sm, .shadow, .shadow-lg { box-shadow: var(--shadow) !important; }
 
-/* Hover states */
-.dark .hover\:bg-gray-50:hover { background-color: #374151 !important; }
-.dark .hover\:bg-gray-100:hover { background-color: #374151 !important; }
+/* Primary actions — blue and purple BUTTONS become the mode accent.
+   (Scoped to button/a so data-viz chips using the same classes keep their
+   own harmonized colors below.) */
+button.bg-blue-600, button.bg-purple-600, a.bg-blue-600, a.bg-purple-600 {
+  background-color: var(--accent) !important;
+  color: var(--on-accent) !important;
+}
+.hover\:bg-blue-700:hover, .hover\:bg-purple-700:hover {
+  background-color: color-mix(in srgb, var(--accent) 82%, var(--text)) !important;
+}
+button.bg-blue-600 .text-white, button.bg-purple-600 .text-white,
+button.bg-blue-600 span, button.bg-purple-600 span { color: var(--on-accent) !important; }
 
-/* Footer text */
-.dark .text-gray-700.mb-4, .dark p.text-gray-700 { color: #d1d5db !important; }
+/* Disabled buttons */
+.bg-gray-300 { background-color: var(--frame) !important; }
+.bg-gray-300.text-gray-500, .text-gray-500.cursor-not-allowed { color: var(--muted) !important; }
 
-/* Dividers */
-.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #374151 !important;
+/* Links */
+.text-blue-500, .text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900 {
+  color: var(--accent-deep) !important;
+}
+.hover\:text-blue-500:hover, .hover\:text-blue-600:hover, .hover\:text-blue-800:hover {
+  color: var(--accent) !important;
 }
 
-/* Blue text — softer/paler in dark mode */
-.dark .text-blue-600 { color: #93c5fd !important; }
-.dark .text-blue-500 { color: #93c5fd !important; }
-.dark .text-blue-700 { color: #93c5fd !important; }
-.dark .text-blue-800 { color: #93c5fd !important; }
-.dark .text-blue-900 { color: #bfdbfe !important; }
-.dark .hover\:text-blue-500:hover { color: #bfdbfe !important; }
-.dark .hover\:text-blue-600:hover { color: #bfdbfe !important; }
+/* Focus rings + accent-tinted controls */
+[class*="ring-blue"]:focus, [class*="ring-purple"]:focus { --tw-ring-color: var(--accent) !important; }
+.ring-blue-400, .ring-blue-500 { --tw-ring-color: var(--accent) !important; }
+[class*="focus:border-blue"]:focus { border-color: var(--accent) !important; }
+.accent-blue-600, input[type="range"] { accent-color: var(--accent); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 
-/* Blue buttons stay vibrant */
-.dark .bg-blue-600 { background-color: #2563eb !important; }
-.dark .hover\:bg-blue-700:hover { background-color: #1d4ed8 !important; }
+/* Inputs */
+input, textarea, select {
+  background-color: var(--surface);
+  color: var(--text);
+  border-color: var(--frame);
+}
+input::placeholder, textarea::placeholder { color: var(--muted); }
 
-/* Keep colored elements readable */
-.dark .bg-blue-50 { background-color: #1e3a5f !important; }
-.dark .bg-green-50 { background-color: #14532d !important; }
-.dark .bg-red-50 { background-color: #450a0a !important; }
-.dark .bg-yellow-50 { background-color: #422006 !important; }
-.dark .bg-purple-50 { background-color: #2e1065 !important; }
-.dark .bg-orange-50 { background-color: #431407 !important; }
-.dark .bg-amber-50 { background-color: #451a03 !important; }
-.dark .bg-indigo-50 { background-color: #1e1b4b !important; }
-.dark .bg-emerald-50 { background-color: #022c22 !important; }
-.dark .bg-pink-50 { background-color: #500724 !important; }
+/* Hover states on neutral surfaces */
+.hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover { background-color: var(--frame) !important; }
+.hover\:text-gray-900:hover { color: var(--text) !important; }
 
-/* Gradient backgrounds in dark mode */
-.dark .from-purple-50 { --tw-gradient-from: #2e1065 !important; }
-.dark .to-indigo-50 { --tw-gradient-to: #1e1b4b !important; }
-.dark .from-blue-50 { --tw-gradient-from: #1e3a5f !important; }
-.dark .to-blue-50 { --tw-gradient-to: #1e3a5f !important; }
+/* ── Semantic tints — mana-true status colors in every mode ────────────── */
+.bg-green-50, .bg-emerald-50 { background-color: color-mix(in srgb, var(--mana-g) 14%, var(--surface)) !important; }
+.bg-red-50 { background-color: color-mix(in srgb, var(--mana-r) 14%, var(--surface)) !important; }
+.bg-yellow-50, .bg-amber-50, .bg-orange-50 { background-color: color-mix(in srgb, #C9A227 16%, var(--surface)) !important; }
+.bg-blue-50, .bg-indigo-50 { background-color: color-mix(in srgb, var(--mana-u) 14%, var(--surface)) !important; }
+.bg-purple-50, .bg-pink-50 { background-color: color-mix(in srgb, #A08FB8 16%, var(--surface)) !important; }
+
+.text-green-600, .text-green-700, .text-green-800, .text-emerald-600, .text-emerald-800 { color: var(--success) !important; }
+.text-red-600, .text-red-700, .text-red-800 { color: var(--error) !important; }
+.text-amber-600, .text-amber-800, .text-yellow-800, .text-orange-800 { color: var(--warn) !important; }
+.text-indigo-800, .text-purple-800 { color: var(--accent-deep) !important; }
+
+.border-green-200, .border-emerald-200 { border-color: color-mix(in srgb, var(--mana-g) 35%, var(--surface)) !important; }
+.border-red-200 { border-color: color-mix(in srgb, var(--mana-r) 35%, var(--surface)) !important; }
+.border-amber-200, .border-yellow-200 { border-color: color-mix(in srgb, #C9A227 35%, var(--surface)) !important; }
+.border-blue-200, .border-indigo-200 { border-color: color-mix(in srgb, var(--mana-u) 35%, var(--surface)) !important; }
+
+/* Gradient sections (results page headers) — flatten to framed surface */
+.from-purple-50, .from-blue-50 { --tw-gradient-from: var(--frame) !important; }
+.to-indigo-50, .to-blue-50 { --tw-gradient-to: var(--surface) !important; }
+
+/* ── Tint chips (-100/-200 family) — theme keyword pills, game-changer and
+   bracket messages, combo tags, must-include/exclude chips. Distinct but
+   mixed from the theme surface so they sit inside every mana mode. ────── */
+.bg-green-100, .bg-emerald-100 { background-color: color-mix(in srgb, var(--mana-g) 22%, var(--surface)) !important; }
+.bg-green-200 { background-color: color-mix(in srgb, var(--mana-g) 32%, var(--surface)) !important; }
+.bg-red-100 { background-color: color-mix(in srgb, var(--mana-r) 22%, var(--surface)) !important; }
+.bg-blue-100, .bg-indigo-100 { background-color: color-mix(in srgb, var(--mana-u) 22%, var(--surface)) !important; }
+.bg-yellow-100, .bg-amber-100, .bg-orange-100 { background-color: color-mix(in srgb, #C9A227 24%, var(--surface)) !important; }
+.bg-purple-100, .bg-pink-100 { background-color: color-mix(in srgb, #A08FB8 24%, var(--surface)) !important; }
+
+/* Text companions for the tint chips */
+.text-orange-600, .text-orange-700, .text-orange-800,
+.text-amber-600, .text-amber-700,
+.text-yellow-600, .text-yellow-700 { color: var(--warn) !important; }
+.text-purple-600, .text-purple-700,
+.text-indigo-600, .text-indigo-700,
+.text-pink-600, .text-pink-700, .text-pink-800 { color: var(--accent-deep) !important; }
+.text-emerald-700, .text-emerald-800 { color: var(--success) !important; }
+
+/* Border companions */
+.border-green-300, .border-emerald-300 { border-color: color-mix(in srgb, var(--mana-g) 45%, var(--surface)) !important; }
+.border-red-300 { border-color: color-mix(in srgb, var(--mana-r) 45%, var(--surface)) !important; }
+.border-blue-300, .border-indigo-300 { border-color: color-mix(in srgb, var(--mana-u) 45%, var(--surface)) !important; }
+.border-orange-200, .border-orange-300, .border-amber-300, .border-yellow-300 { border-color: color-mix(in srgb, #C9A227 45%, var(--surface)) !important; }
+.border-purple-200, .border-purple-300, .border-pink-200 { border-color: color-mix(in srgb, #A08FB8 45%, var(--surface)) !important; }
+
+/* Inverted pill (e.g. "No theme" selected state) */
+.bg-gray-700 { background-color: color-mix(in srgb, var(--text) 88%, var(--bg)) !important; }
+.bg-gray-700.text-white, .bg-gray-700 span { color: var(--bg) !important; }
+.border-gray-700 { border-color: var(--text) !important; }
+
+/* Disabled state on colored buttons */
+.disabled\:bg-gray-400:disabled { background-color: var(--frame) !important; color: var(--muted) !important; }
+.bg-gray-400 { background-color: var(--muted) !important; }
+
+/* ── Data-viz chips (-400/-500/-600 on non-button elements) — constant
+   across themes like the WUBRG pips, but drawn from the mana palette so
+   charts stand out without clashing. ─────────────────────────────────── */
+div.bg-green-400, span.bg-green-400, div.bg-green-500, span.bg-green-500, div.bg-green-600, span.bg-green-600 { background-color: #3FA867 !important; }
+div.bg-emerald-500, span.bg-emerald-500, div.bg-emerald-600, span.bg-emerald-600 { background-color: #2E9E68 !important; }
+div.bg-blue-400, span.bg-blue-400, div.bg-blue-500, span.bg-blue-500, div.bg-blue-600, span.bg-blue-600 { background-color: #3E9DD8 !important; }
+div.bg-red-400, span.bg-red-400, div.bg-red-500, span.bg-red-500, div.bg-red-600, span.bg-red-600 { background-color: #E04A38 !important; }
+div.bg-yellow-400, span.bg-yellow-400, div.bg-yellow-500, span.bg-yellow-500 { background-color: #C9A227 !important; }
+div.bg-orange-400, span.bg-orange-400, div.bg-orange-500, span.bg-orange-500 { background-color: #D97B3F !important; }
+div.bg-purple-400, span.bg-purple-400, div.bg-purple-500, span.bg-purple-500, div.bg-purple-600, span.bg-purple-600 { background-color: #A08FB8 !important; }
+div.bg-indigo-500, span.bg-indigo-500, div.bg-indigo-600, span.bg-indigo-600 { background-color: #5E7BC7 !important; }
+div.bg-pink-500, span.bg-pink-500, div.bg-pink-600, span.bg-pink-600 { background-color: #C76A94 !important; }
+
+/* ── Scrollbars — themed (combo lists, deck list overflow areas) ──────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 55%, var(--frame)) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 55%, var(--frame));
+  border-radius: 8px;
+  border: 2px solid var(--surface);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Buttons feel physical: press into the page ────────────────────────── */
+button:not(:disabled):active { transform: translateY(2px); }
+
+/* ── Mana pip bar (theme switcher) ─────────────────────────────────────── */
+.pipbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--frame);
+  border-radius: 9999px;
+  box-shadow: var(--shadow);
+}
+.pipbar button {
+  font-size: 1.15rem;
+  line-height: 1;
+  border-radius: 9999px;
+  transition: transform 0.12s ease;
+  color: var(--muted);
+}
+.pipbar button:hover { transform: scale(1.22); }
+.pipbar button.pip-active {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* mana-font pips keep their true colors in every mode */
+.pipbar .ms-w { color: #C9BB77; }
+.pipbar .ms-u { color: #0E68AB; }
+.pipbar .ms-b { color: #6E6485; }
+.pipbar .ms-r { color: #D3202A; }
+.pipbar .ms-g { color: #00733E; }
+.pipbar .ms-c { color: #9C9890; }

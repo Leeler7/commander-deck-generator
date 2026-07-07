@@ -84,3 +84,4 @@ pids
 *.PNG
 *.sql
 *.bat
+.gstack/

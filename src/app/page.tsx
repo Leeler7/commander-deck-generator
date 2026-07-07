@@ -316,11 +316,11 @@ export default function Home() {
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center">
-            <h1 className="text-4xl text-black dark:text-white" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em'}}>
-              BIG DECK ENERGY
+            <h1 className="font-brand text-5xl text-black dark:text-white">
+              Big Deck Energy
             </h1>
-            <p className="mt-2 text-xl text-black dark:text-gray-200" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
-              BUILD A MEDIOCRE DECK FOR FREE AT INSTANT SPEED.
+            <p className="font-flavor mt-2 text-xl text-gray-600 dark:text-gray-200">
+              Build a mediocre deck for free at instant speed.
             </p>
 
             <HeaderMenu />
@@ -394,9 +394,9 @@ export default function Home() {
                           <span className="text-sm text-gray-600">CMC: {selectedCommander.cmc}</span>
                           <div className="flex space-x-1">
                             {selectedCommander.color_identity.map((color) => (
-                              <span
+                              <i
                                 key={color}
-                                className={`w-4 h-4 rounded-full border ${getColorClass(color)}`}
+                                className={`ms ms-cost ms-${color.toLowerCase()}`}
                                 title={getColorName(color)}
                               />
                             ))}
@@ -439,9 +439,60 @@ export default function Home() {
                 />
               </div>
 
-              {/* Random Commander Section */}
+              {/* Actions: generate with your settings, OR roll the dice */}
               <div className="pt-6 border-t border-gray-200">
-                <div className="flex items-center justify-center space-x-4 mb-4">
+                <div className="flex flex-col items-center gap-4">
+                  <button
+                    onClick={handleGenerate}
+                    disabled={!selectedCommander || isGenerating}
+                    title={!selectedCommander ? "You gotta pick a commander first." : "Generate a deck with your current settings."}
+                    className={`px-8 py-3 rounded-lg font-medium transition-colors ${
+                      !selectedCommander || isGenerating
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                    }`}
+                  >
+                    {isGenerating ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span className="font-brand uppercase">GENERATING DECK...</span>
+                      </div>
+                    ) : (
+                      <span className="font-brand text-lg">GENERATE DECK</span>
+                    )}
+                  </button>
+
+                  <div className="flex items-center gap-3 w-full max-w-xs">
+                    <span className="flex-1 border-t border-gray-300" />
+                    <span className="font-brand text-sm text-gray-500 tracking-widest">OR</span>
+                    <span className="flex-1 border-t border-gray-300" />
+                  </div>
+
+                  <button
+                    onClick={handleRandomCommander}
+                    disabled={isRandomizing || isGenerating}
+                    title="Roll the dice. Random commander with random settings."
+                    className={`px-8 py-3 rounded-lg font-medium transition-colors ${
+                      isRandomizing || isGenerating
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
+                    }`}
+                  >
+                    {isRandomizing || isGenerating ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span className="font-brand uppercase">
+                          {isRandomizing ? 'FINDING COMMANDER...' : 'GENERATING DECK...'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="font-brand text-lg">🎲 BIG DECK ENERGY</span>
+                    )}
+                  </button>
+                  <p className="text-sm text-gray-500 -mt-1">
+                    Random commander, random settings — no picking required.
+                  </p>
+
                   {constraints.card_type_weights && (
                     <label className="flex items-center">
                       <input
@@ -453,52 +504,7 @@ export default function Home() {
                       <span className="ml-2 text-sm text-gray-700">Randomize Type Balance?</span>
                     </label>
                   )}
-
-                  <button
-                    onClick={handleRandomCommander}
-                    disabled={isRandomizing || isGenerating}
-                    title="Roll the dice. Random commander with random settings."
-                    className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                      isRandomizing || isGenerating
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-purple-600 text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2'
-                    }`}
-                  >
-                    {isRandomizing || isGenerating ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
-                          {isRandomizing ? 'FINDING COMMANDER...' : 'GENERATING DECK...'}
-                        </span>
-                      </div>
-                    ) : (
-                      <span style={{fontFamily: 'Impact, "Arial Black", sans-serif'}}>🎲 BIG DECK ENERGY</span>
-                    )}
-                  </button>
                 </div>
-              </div>
-
-              {/* Generate Button */}
-              <div className="flex justify-center">
-                <button
-                  onClick={handleGenerate}
-                  disabled={!selectedCommander || isGenerating}
-                  title={!selectedCommander ? "You gotta pick a commander first." : "Generate a deck with your current settings."}
-                  className={`px-8 py-3 rounded-lg font-medium transition-colors ${
-                    !selectedCommander || isGenerating
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-                  }`}
-                >
-                  {isGenerating ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>GENERATING DECK...</span>
-                    </div>
-                  ) : (
-                    <span style={{fontFamily: 'Impact, "Arial Black", sans-serif'}}>GENERATE DECK</span>
-                  )}
-                </button>
               </div>
 
               {/* Error Display */}
@@ -590,14 +596,14 @@ export default function Home() {
                         <span className="text-xs font-medium text-gray-700">Colors:</span>
                         <div className="flex space-x-1">
                           {generatedDeck.commander.color_identity.map((color) => (
-                            <span
+                            <i
                               key={color}
-                              className={`w-4 h-4 rounded-full border-2 ${getColorClass(color)}`}
+                              className={`ms ms-cost ms-${color.toLowerCase()}`}
                               title={getColorName(color)}
                             />
                           ))}
                           {generatedDeck.commander.color_identity.length === 0 && (
-                            <span className="w-4 h-4 rounded-full border-2 border-gray-400 bg-gray-200" title="Colorless" />
+                            <i className="ms ms-cost ms-c" title="Colorless" />
                           )}
                         </div>
                       </div>
@@ -950,17 +956,6 @@ export default function Home() {
       </footer>
     </div>
   );
-}
-
-function getColorClass(color: string): string {
-  const colorMap: Record<string, string> = {
-    'W': 'bg-yellow-100 border-yellow-400',
-    'U': 'bg-blue-100 border-blue-400',
-    'B': 'bg-gray-800 border-gray-600',
-    'R': 'bg-red-100 border-red-400',
-    'G': 'bg-green-100 border-green-400'
-  };
-  return colorMap[color] || 'bg-gray-100 border-gray-400';
 }
 
 function getColorName(color: string): string {

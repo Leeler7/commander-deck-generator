@@ -1,16 +1,31 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Marcellus, Crimson_Pro, Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
 import Script from "next/script";
+import "mana-font/css/mana.css";
 import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const brandFont = Marcellus({
+  weight: "400",
+  variable: "--font-brand",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const flavorFont = Crimson_Pro({
+  style: ["normal", "italic"],
+  weight: ["400", "600"],
+  variable: "--font-flavor",
+  subsets: ["latin"],
+});
+
+const sansFont = Instrument_Sans({
+  variable: "--font-sans-body",
+  subsets: ["latin"],
+});
+
+const monoFont = IBM_Plex_Mono({
+  weight: ["400", "600"],
+  variable: "--font-mono-data",
   subsets: ["latin"],
 });
 
@@ -55,7 +70,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${brandFont.variable} ${flavorFont.variable} ${sansFont.variable} ${monoFont.variable} antialiased`}
       >
         <ThemeProvider>
           {children}

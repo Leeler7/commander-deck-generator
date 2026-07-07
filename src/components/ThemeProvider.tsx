@@ -2,13 +2,26 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'light' | 'dark';
+export type ManaMode = 'white' | 'blue' | 'black' | 'red' | 'green' | 'colorless';
+
+export const MANA_MODES: { mode: ManaMode; symbol: string; label: string }[] = [
+  { mode: 'white', symbol: 'w', label: 'White — Plains (light)' },
+  { mode: 'blue', symbol: 'u', label: 'Blue — Island' },
+  { mode: 'black', symbol: 'b', label: 'Black — Swamp (dark)' },
+  { mode: 'red', symbol: 'r', label: 'Red — Mountain' },
+  { mode: 'green', symbol: 'g', label: 'Green — Forest' },
+  { mode: 'colorless', symbol: 'c', label: 'Colorless — Wastes' },
+];
+
+const VALID_MODES: ManaMode[] = MANA_MODES.map(m => m.mode);
 
 const ThemeContext = createContext<{
-  theme: Theme;
+  theme: ManaMode;
+  setTheme: (mode: ManaMode) => void;
   toggleTheme: () => void;
 }>({
-  theme: 'light',
+  theme: 'white',
+  setTheme: () => {},
   toggleTheme: () => {},
 });
 
@@ -16,12 +29,20 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
+/** Migrate pre-mana-modes stored values. */
+function normalizeStoredTheme(stored: string | null): ManaMode | null {
+  if (!stored) return null;
+  if (stored === 'light') return 'white';
+  if (stored === 'dark') return 'black';
+  return VALID_MODES.includes(stored as ManaMode) ? (stored as ManaMode) : null;
+}
+
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<ManaMode>('white');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('bde-theme') as Theme | null;
+    const stored = normalizeStoredTheme(localStorage.getItem('bde-theme'));
     if (stored) {
       setTheme(stored);
     }
@@ -30,21 +51,17 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (!mounted) return;
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    document.documentElement.dataset.theme = theme;
     localStorage.setItem('bde-theme', theme);
   }, [theme, mounted]);
 
+  // Legacy API: cycles light-equivalent <-> dark-equivalent.
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme(prev => (prev === 'black' ? 'white' : 'black'));
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
