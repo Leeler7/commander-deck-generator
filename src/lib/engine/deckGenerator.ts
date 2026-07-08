@@ -2085,6 +2085,68 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     }
   }
 
+  // B4/B5: Pre-fill cEDH staples via criteria-driven Scryfall queries.
+  // Instead of hardcoding card names, we search for functional characteristics
+  // so new printings matching these criteria are automatically discovered.
+  if (typeof bracketLevel === 'number' && bracketLevel >= 4) {
+    onProgress?.('Searching for competitive staples...', 4);
+    const isCedh = bracketLevel === 5;
+    const producesAny = '(produces:w OR produces:u OR produces:b OR produces:r OR produces:g OR produces:c)';
+    const cEDHQueries = [
+      // 0-cost mana-producing artifacts (Moxen, Lotus Petal, LED, etc.)
+      { q: `t:artifact cmc=0 ${producesAny} -t:land -t:creature`, count: isCedh ? 8 : 4, label: 'zero-cost rocks' },
+      // 1-cost mana rocks (Sol Ring, Mana Vault, etc. — overlaps filter out cmc=0 already found)
+      { q: `t:artifact cmc<=1 ${producesAny} -t:land -t:creature`, count: isCedh ? 6 : 3, label: 'one-cost rocks' },
+      // Free interaction (Force of Will, Fierce Guardianship, Deflecting Swat, etc.)
+      { q: '(o:"without paying its mana cost" OR o:"rather than pay") (t:instant OR t:sorcery)', count: isCedh ? 6 : 3, label: 'free interaction' },
+      // Evoke elementals (Solitude, Subtlety, Endurance, etc.)
+      ...(isCedh ? [{ q: 'o:"evoke" t:creature cmc>=3', count: 3, label: 'evoke elementals' }] : []),
+    ];
+
+    const stapleResults = await Promise.all(
+      cEDHQueries.map(async ({ q, count, label }) => {
+        try {
+          const cards = await fillWithScryfall(
+            q, colorIdentity, count, usedNames, bannedCards,
+            maxCardPrice, maxRarity, maxCmc, null,
+            context.collectionNames, currency, arenaOnly, '',
+            collectionStrategy, ignoreOwnedBudget, ignoreOwnedRarity
+          );
+          return { label, cards };
+        } catch {
+          return { label, cards: [] as ScryfallCard[] };
+        }
+      })
+    );
+
+    let totalStaples = 0;
+    for (const { label, cards } of stapleResults) {
+      for (const card of cards) {
+        const typeLine = getFrontFaceTypeLine(card).toLowerCase();
+        if (typeLine.includes('creature')) {
+          categories.creatures.push(card);
+        } else if (typeLine.includes('artifact')) {
+          categories.ramp.push(card);
+        } else if (typeLine.includes('instant') || typeLine.includes('sorcery')) {
+          categories.singleRemoval.push(card);
+        } else {
+          categories.synergy.push(card);
+        }
+        const cmc = Math.min(Math.floor(card.cmc), 7);
+        currentCurveCounts[cmc] = (currentCurveCounts[cmc] ?? 0) + 1;
+        if (gameChangerNames.has(card.name)) {
+          card.isGameChanger = true;
+          gameChangerCount.value++;
+        }
+      }
+      if (cards.length > 0) {
+        console.log(`[DeckGen] B${userTargetBracket} staples [${label}]: ${cards.map(c => c.name).join(', ')}`);
+      }
+      totalStaples += cards.length;
+    }
+    console.log(`[DeckGen] B${userTargetBracket}: Added ${totalStaples} cEDH staples via criteria-driven search`);
+  }
+
   // Try to fetch EDHREC data (works for all formats) — skip on cache hit
   if (!usingCache && selectedThemesWithSlugs.length > 0) {
     // Fetch theme-specific data for all selected themes
@@ -3062,10 +3124,11 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     // Fallback to Scryfall-based generation (no EDHREC data available)
     console.warn('[DeckGen] FALLBACK: No EDHREC data — using Scryfall-only generation with fallback type targets');
     onProgress?.('Gathering mana accelerants...', 20);
-    categories.ramp = await fillWithScryfall(
+    const prefilled = categories.ramp.length;
+    categories.ramp.push(...await fillWithScryfall(
       '(t:artifact o:"add" OR o:"search your library" o:land t:sorcery cmc<=3)',
       colorIdentity,
-      targets.ramp,
+      Math.max(0, targets.ramp - prefilled),
       usedNames,
       bannedCards,
       maxCardPrice,
@@ -3079,13 +3142,13 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       collectionStrategy,
       ignoreOwnedBudget,
       ignoreOwnedRarity
-    );
+    ));
 
     onProgress?.('Seeking sources of knowledge...', 30);
-    categories.cardDraw = await fillWithScryfall(
+    categories.cardDraw.push(...await fillWithScryfall(
       'o:"draw" (t:instant OR t:sorcery OR t:enchantment)',
       colorIdentity,
-      targets.cardDraw,
+      Math.max(0, targets.cardDraw - categories.cardDraw.length),
       usedNames,
       bannedCards,
       maxCardPrice,
@@ -3099,13 +3162,13 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       collectionStrategy,
       ignoreOwnedBudget,
       ignoreOwnedRarity
-    );
+    ));
 
     onProgress?.('Arming with removal spells...', 40);
-    categories.singleRemoval = await fillWithScryfall(
+    categories.singleRemoval.push(...await fillWithScryfall(
       '(o:"destroy target" OR o:"exile target") (t:instant OR t:sorcery)',
       colorIdentity,
-      targets.singleRemoval,
+      Math.max(0, targets.singleRemoval - categories.singleRemoval.length),
       usedNames,
       bannedCards,
       maxCardPrice,
@@ -3119,13 +3182,13 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       collectionStrategy,
       ignoreOwnedBudget,
       ignoreOwnedRarity
-    );
+    ));
 
     onProgress?.('Preparing mass destruction...', 50);
-    categories.boardWipes = await fillWithScryfall(
+    categories.boardWipes.push(...await fillWithScryfall(
       '(o:"destroy all" OR o:"exile all") (t:instant OR t:sorcery)',
       colorIdentity,
-      targets.boardWipes,
+      Math.max(0, targets.boardWipes - categories.boardWipes.length),
       usedNames,
       bannedCards,
       maxCardPrice,
@@ -3139,7 +3202,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       collectionStrategy,
       ignoreOwnedBudget,
       ignoreOwnedRarity
-    );
+    ));
 
     // Use typeTargets for remaining slots to get a balanced type distribution
     const scryfallCreatureTarget = Math.max(0, (typeTargets.creature ?? 0) - (preFilledTypeCounts.creature ?? 0) - categories.creatures.length);

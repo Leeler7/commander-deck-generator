@@ -419,7 +419,7 @@ export default function BudgetPowerControls({ constraints, onChange, commanderCo
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-2">Game Changers Allowed</h3>
         <p className="text-xs text-gray-500 mb-3">
-          Game Changers are high-impact cards that define power level (Sol Ring, Mana Crypt, etc.)
+          Game Changers are high-impact cards that define power level (Rhystic Study, Cyclonic Rift, Demonic Tutor, etc.)
         </p>
         <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
           {[

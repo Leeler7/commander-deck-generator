@@ -42,9 +42,10 @@ export function bdeToCustomization(
     gcLimit = getGameChangerLimit(bracket);
   }
 
-  // T4: B4 and B5 use the SAME EDHREC bracket filter (4).
-  // The only differentiator is the metagame tuning flag.
-  const edhrecBracket = bracket === 5 ? 4 : bracket;
+  // B4 and B5 share generation targets but query different EDHREC pools:
+  // B4 → /optimized, B5 → /cedh. The metagame tuning flag is the only
+  // generation-profile differentiator.
+  const edhrecBracket = bracket;
   const isMetagameTuning = bracket === 5;
 
   // Build bracket generation targets from engine-config.json
