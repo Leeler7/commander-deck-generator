@@ -1092,9 +1092,13 @@ async function fillWithScryfall(
   if (maxCmc !== null) {
     fullQuery += ` cmc<=${maxCmc}`;
   }
-  // Restrict to Arena-available cards
+  // Restrict to correct game platform — paper printings have USD prices,
+  // digital-only printings (MTGO remaster sets) often lack them and get
+  // silently filtered out by the budget check.
   if (arenaOnly) {
     fullQuery += ` game:arena`;
+  } else {
+    fullQuery += ` game:paper`;
   }
   // Append user's additional Scryfall filters
   if (scryfallQuery.trim()) {
