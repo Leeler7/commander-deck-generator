@@ -26,6 +26,7 @@ const getCardImageUrl = (card: any): string | null => {
   return null;
 };
 import CommanderInput from '@/components/CommanderInput';
+import PartnerCommanderInput from '@/components/PartnerCommanderInput';
 import BudgetPowerControls from '@/components/BudgetPowerControls';
 import ThemeSelector from '@/components/ThemeSelector';
 import BracketEstimate from '@/components/BracketEstimate';
@@ -42,9 +43,32 @@ import ManaCost from '@/components/ManaCost';
 import BuyDeck from '@/components/BuyDeck';
 import HeaderMenu from '@/components/HeaderMenu';
 
+type PartnerType = 'none' | 'partner' | 'partner-with' | 'partner-named' | 'friends-forever' | 'choose-background' | 'background' | 'doctors-companion' | 'doctor';
+
+function getPartnerType(card: ScryfallCard): PartnerType {
+  const keywords = card.keywords || [];
+  const oracle = card.oracle_text || '';
+  const typeLine = card.type_line || '';
+
+  if (typeLine.includes('Background')) return 'background';
+  if (oracle.includes('Choose a Background')) return 'choose-background';
+  if (keywords.includes("Doctor's companion")) return 'doctors-companion';
+  if (typeLine.includes('—')) {
+    const subtypes = typeLine.split('—')[1] || '';
+    if (/\bDoctor\b/.test(subtypes)) return 'doctor';
+  }
+  if (oracle.includes('Friends forever')) return 'friends-forever';
+  // "Partner with X" is a tutor/search ETB effect, NOT a two-commander mechanic — skip it
+  if (/Partner with [A-Z]/.test(oracle)) return 'none';
+  if (/Partner—(?!Friends forever)/.test(oracle)) return 'partner-named';
+  if (keywords.includes('Partner')) return 'partner';
+  return 'none';
+}
+
 export default function Home() {
   const [commanderName, setCommanderName] = useState('');
   const [selectedCommander, setSelectedCommander] = useState<ScryfallCard | null>(null);
+  const [partnerCommander, setPartnerCommander] = useState<ScryfallCard | null>(null);
   
   const [constraints, setConstraints] = useState<GenerationConstraints>({
     total_budget: 100,
@@ -173,12 +197,13 @@ export default function Home() {
         },
         body: JSON.stringify({
           commander: selectedCommander.name,
+          ...(partnerCommander ? { partnerCommander: partnerCommander.name } : {}),
           constraints: finalConstraints
         })
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to generate deck');
       }
@@ -306,8 +331,8 @@ export default function Home() {
     }
   };
 
-  const allCards = generatedDeck 
-    ? [generatedDeck.commander, ...generatedDeck.nonland_cards, ...generatedDeck.lands]
+  const allCards = generatedDeck
+    ? [generatedDeck.commander, ...(generatedDeck.partnerCommander ? [generatedDeck.partnerCommander] : []), ...generatedDeck.nonland_cards, ...generatedDeck.lands]
     : [];
 
   return (
@@ -358,59 +383,80 @@ export default function Home() {
                   <CommanderInput
                     value={commanderName}
                     onChange={setCommanderName}
-                    onCommanderSelect={setSelectedCommander}
+                    onCommanderSelect={(cmdr) => {
+                      setSelectedCommander(cmdr);
+                      setPartnerCommander(null);
+                    }}
                     error={error && !selectedCommander ? 'Please select a valid commander' : undefined}
                     includeUnreleased={includeUnreleased}
                   />
                 </div>
 
                 {/* Selected Commander Display */}
-                {selectedCommander && (
-                  <div className="mb-8 p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      {getCardImageUrl(selectedCommander) && (
-                        <img
-                          src={getCardImageUrl(selectedCommander)!}
-                          alt={selectedCommander.name}
-                          className="w-16 h-16 rounded-lg object-cover"
-                        />
-                      )}
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">
-                          <a 
-                            href={getScryfallUrl(selectedCommander.name)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                            title={`View ${selectedCommander.name} on Scryfall`}
-                          >
-                            {selectedCommander.name}
-                          </a>
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {selectedCommander.type_line}
-                        </p>
-                        <div className="flex items-center space-x-2 mt-2">
-                          <span className="text-sm text-gray-600">CMC: {selectedCommander.cmc}</span>
-                          <div className="flex space-x-1">
-                            {selectedCommander.color_identity.map((color) => (
-                              <i
-                                key={color}
-                                className={`ms ms-cost ms-${color.toLowerCase()}`}
-                                title={getColorName(color)}
-                              />
-                            ))}
-                          </div>
-                          {selectedCommander.prices.usd && (
-                            <span className="text-sm text-green-600">
-                              ${selectedCommander.prices.usd}
-                            </span>
+                {selectedCommander && (() => {
+                  const pType = getPartnerType(selectedCommander);
+                  const mergedColors = partnerCommander
+                    ? [...new Set([...selectedCommander.color_identity, ...partnerCommander.color_identity])]
+                    : selectedCommander.color_identity;
+
+                  return (
+                    <div className="mb-8">
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-4">
+                          {getCardImageUrl(selectedCommander) && (
+                            <img
+                              src={getCardImageUrl(selectedCommander)!}
+                              alt={selectedCommander.name}
+                              className="w-16 h-16 rounded-lg object-cover"
+                            />
                           )}
+                          <div>
+                            <h3 className="text-lg font-medium text-gray-900">
+                              <a
+                                href={getScryfallUrl(selectedCommander.name)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                title={`View ${selectedCommander.name} on Scryfall`}
+                              >
+                                {selectedCommander.name}
+                              </a>
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {selectedCommander.type_line}
+                            </p>
+                            <div className="flex items-center space-x-2 mt-2">
+                              <span className="text-sm text-gray-600">CMC: {selectedCommander.cmc}</span>
+                              <div className="flex space-x-1">
+                                {mergedColors.map((color) => (
+                                  <i
+                                    key={color}
+                                    className={`ms ms-cost ms-${color.toLowerCase()}`}
+                                    title={getColorName(color)}
+                                  />
+                                ))}
+                              </div>
+                              {selectedCommander.prices.usd && (
+                                <span className="text-sm text-green-600">
+                                  ${selectedCommander.prices.usd}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
+
+                      {pType !== 'none' && (
+                        <PartnerCommanderInput
+                          commander={selectedCommander}
+                          partnerType={pType}
+                          onPartnerSelect={setPartnerCommander}
+                          selectedPartner={partnerCommander}
+                        />
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {!includeUnreleased && isUnreleasedCommander && (
                   <div className="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md">
@@ -550,7 +596,9 @@ export default function Home() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Commander Display (moved here) */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-2xl text-black mb-4" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>YOUR COMMANDER</h3>
+                <h3 className="text-2xl text-black mb-4" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>
+                  {generatedDeck.partnerCommander ? 'YOUR COMMANDERS' : 'YOUR COMMANDER'}
+                </h3>
                 <div className="flex flex-col lg:flex-row gap-6">
                   {/* Card Image */}
                   <div className="flex-shrink-0">
@@ -638,6 +686,52 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+
+                {/* Partner Commander Display */}
+                {generatedDeck.partnerCommander && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="text-lg text-black mb-3" style={{fontFamily: 'Impact, "Arial Black", sans-serif', textTransform: 'uppercase'}}>PARTNER COMMANDER</h4>
+                    <div className="flex flex-col lg:flex-row gap-4">
+                      <div className="flex-shrink-0">
+                        {getCardImageUrl(generatedDeck.partnerCommander) ? (
+                          <img
+                            src={getCardImageUrl(generatedDeck.partnerCommander)!}
+                            alt={generatedDeck.partnerCommander.name}
+                            className="w-36 h-auto rounded-lg shadow-md mx-auto lg:mx-0"
+                          />
+                        ) : (
+                          <div className="w-36 h-52 bg-gray-200 rounded-lg flex items-center justify-center mx-auto lg:mx-0">
+                            <span className="text-gray-500 text-xs">No image</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <h5 className="text-lg font-bold text-gray-900">
+                          <a
+                            href={getScryfallUrl(generatedDeck.partnerCommander.name)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                          >
+                            {generatedDeck.partnerCommander.name}
+                          </a>
+                        </h5>
+                        <p className="text-sm text-gray-600">{generatedDeck.partnerCommander.type_line}</p>
+                        <div className="flex items-center space-x-3">
+                          <ManaCost manaCost={generatedDeck.partnerCommander.mana_cost} />
+                          <div className="flex space-x-1">
+                            {generatedDeck.partnerCommander.color_identity.map((color) => (
+                              <i key={color} className={`ms ms-cost ms-${color.toLowerCase()}`} title={getColorName(color)} />
+                            ))}
+                          </div>
+                          <span className="text-sm text-green-600">
+                            ${(generatedDeck.partnerCommander.price_used || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Generation Settings */}

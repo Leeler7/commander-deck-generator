@@ -4,13 +4,14 @@ import { generateDeck } from '@/lib/engine/deckGenerator';
 import { getCardByName } from '@/lib/engine/scryfall-client';
 import { fetchCommanderThemes } from '@/lib/engine/edhrec-client';
 import { bdeToCustomization, buildGenerationContext, engineDeckToBde } from '@/lib/engine/adapter';
+import { areValidPartners } from '@/lib/engine/partnerUtils';
 import type { ThemeResult } from '@/lib/engine/types';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { commander, constraints } = body;
+    const { commander, partnerCommander: partnerName, constraints } = body;
 
     if (!commander || typeof commander !== 'string') {
       return NextResponse.json(
@@ -70,6 +71,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Step 1b: Fetch and validate partner commander if provided
+    let partnerCard = null;
+    if (partnerName && typeof partnerName === 'string') {
+      console.log(`[Generate] Fetching partner commander: ${partnerName.trim()}`);
+      partnerCard = await getCardByName(partnerName.trim());
+      if (!partnerCard) {
+        return NextResponse.json(
+          { error: `Could not find partner card: ${partnerName}` },
+          { status: 400 }
+        );
+      }
+      if (!areValidPartners(commanderCard, partnerCard)) {
+        return NextResponse.json(
+          { error: `${commanderCard.name} and ${partnerCard.name} are not a valid partner pair` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Step 2: Convert BDE constraints to 20q2 Customization
     const customization = bdeToCustomization(validatedConstraints);
 
@@ -115,12 +135,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 4: Build context and generate
-    console.log(`[Generate] Starting deck generation for ${commanderCard.name}`);
-    const context = buildGenerationContext(commanderCard, customization, selectedThemes);
+    console.log(`[Generate] Starting deck generation for ${commanderCard.name}${partnerCard ? ` + ${partnerCard.name}` : ''}`);
+    const context = buildGenerationContext(commanderCard, customization, selectedThemes, partnerCard);
     const engineDeck = await generateDeck(context);
 
     // Step 5: Convert engine output to BDE format
-    const bdeDeck = engineDeckToBde(engineDeck, commanderCard);
+    const bdeDeck = engineDeckToBde(engineDeck, commanderCard, partnerCard);
 
     console.log(`[Generate] Deck generated: ${bdeDeck.nonland_cards.length} nonland cards, ${bdeDeck.lands.length} lands, $${bdeDeck.total_price}`);
 

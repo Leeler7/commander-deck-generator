@@ -166,6 +166,7 @@ export interface DeckComposition {
 
 export interface GeneratedDeck {
   commander: DeckCard;
+  partnerCommander?: DeckCard;
   nonland_cards: DeckCard[];
   lands: DeckCard[];
   total_price: number;

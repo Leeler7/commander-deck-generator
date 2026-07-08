@@ -1,5 +1,5 @@
 import type { ScryfallCard, ScryfallSearchResponse } from './types';
-import { getPartnerType, getPartnerWithName } from './partnerUtils';
+import { getPartnerType, getPartnerWithName, getPartnerGroupName } from './partnerUtils';
 
 const BASE_URL = 'https://api.scryfall.com';
 const MIN_REQUEST_DELAY = 100; // 100ms between requests (Scryfall allows 10/sec)
@@ -781,9 +781,17 @@ export async function searchValidPartners(
   switch (partnerType) {
     case 'partner':
       // Generic Partner - find other commanders with Partner keyword
-      // Exclude "Partner with X" and "Friends forever" (Scryfall lumps them all under keyword:partner)
-      query = `is:commander f:commander keyword:partner -o:"Partner with" -o:"Friends forever"`;
+      // Exclude "Partner with X", "Friends forever", and named groups (Scryfall lumps them all under keyword:partner)
+      query = `is:commander f:commander keyword:partner -o:"Partner with" -o:"Friends forever" -o:/Partner—/`;
       break;
+
+    case 'partner-named': {
+      // Named partner group — find other commanders with the same "Partner—<Group>" text
+      const groupName = getPartnerGroupName(commander);
+      if (!groupName) return [];
+      query = `is:commander f:commander o:"Partner—${groupName}"`;
+      break;
+    }
 
     case 'partner-with': {
       // Partner with X - fetch the specific card

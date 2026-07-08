@@ -33,9 +33,12 @@ export default function DeckList({ deck }: DeckListProps) {
   const [sortBy, setSortBy] = useState<'name' | 'cmc' | 'price' | 'role'>('role');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-  // Separate commander from other cards
+  // Separate commander(s) from other cards
   const nonCommanderCards = [...deck.nonland_cards, ...deck.lands];
-  const allCards = [deck.commander, ...nonCommanderCards];
+  const commanders = deck.partnerCommander
+    ? [deck.commander, deck.partnerCommander]
+    : [deck.commander];
+  const allCards = [...commanders, ...nonCommanderCards];
 
   const filteredCards = selectedRole === 'all'
     ? nonCommanderCards
@@ -91,7 +94,7 @@ export default function DeckList({ deck }: DeckListProps) {
     return '';
   };
 
-  const uniqueCardCount = consolidatedCards.length + 1; // +1 for commander
+  const uniqueCardCount = consolidatedCards.length + commanders.length;
 
   return (
     <div className="space-y-4">
@@ -103,7 +106,7 @@ export default function DeckList({ deck }: DeckListProps) {
       >
         <div className="text-left">
           <h2 className="text-2xl font-bold text-gray-900">
-            {deck.commander.name} - Deck List
+            {deck.commander.name}{deck.partnerCommander ? ` & ${deck.partnerCommander.name}` : ''} - Deck List
           </h2>
           <p className="text-sm text-gray-600 mt-1">
             {allCards.length} cards ({uniqueCardCount} unique) &bull; ${deck.total_price.toFixed(2)} total
@@ -173,16 +176,22 @@ export default function DeckList({ deck }: DeckListProps) {
 
           {/* Commander Display */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Commander</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              {deck.partnerCommander ? 'Commanders' : 'Commander'}
+            </h3>
             {viewMode === 'list' ? (
               <div className="bg-white shadow overflow-hidden sm:rounded-md">
                 <ul className="divide-y divide-gray-200">
-                  <CardListItem card={deck.commander} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                  {commanders.map(c => (
+                    <CardListItem key={c.name} card={c} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                  ))}
                 </ul>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                <CardGridItem card={deck.commander} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                {commanders.map(c => (
+                  <CardGridItem key={c.name} card={c} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                ))}
               </div>
             )}
           </div>

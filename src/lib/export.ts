@@ -10,8 +10,11 @@ export class DeckExporter {
   exportToText(deck: GeneratedDeck): string {
     const lines: string[] = [];
 
-    // Commander first
+    // Commander(s) first
     lines.push(`1 ${frontFace(deck.commander.name)}`);
+    if (deck.partnerCommander) {
+      lines.push(`1 ${frontFace(deck.partnerCommander.name)}`);
+    }
 
     // Consolidate duplicates and sort alphabetically
     const consolidated = this.consolidateCards([...deck.nonland_cards, ...deck.lands]);
@@ -28,6 +31,9 @@ export class DeckExporter {
   exportForTCGPlayer(deck: GeneratedDeck): string {
     const parts: string[] = [];
     parts.push(`1 ${frontFace(deck.commander.name)}`);
+    if (deck.partnerCommander) {
+      parts.push(`1 ${frontFace(deck.partnerCommander.name)}`);
+    }
 
     const consolidated = this.consolidateCards([...deck.nonland_cards, ...deck.lands]);
     for (const { name, count } of consolidated) {
@@ -56,9 +62,12 @@ export class DeckExporter {
     // Header
     rows.push('Name,Quantity,Role,Mana Value,Price,Synergy Notes');
     
-    // Commander
-    rows.push(`"${deck.commander.name}",1,"Commander",${deck.commander.cmc},"$${(deck.commander.price_used || 0).toFixed(2)}","${deck.commander.synergy_notes || ''}"`); 
-    
+    // Commander(s)
+    rows.push(`"${deck.commander.name}",1,"Commander",${deck.commander.cmc},"$${(deck.commander.price_used || 0).toFixed(2)}","${deck.commander.synergy_notes || ''}"`);
+    if (deck.partnerCommander) {
+      rows.push(`"${deck.partnerCommander.name}",1,"Commander",${deck.partnerCommander.cmc},"$${(deck.partnerCommander.price_used || 0).toFixed(2)}","${deck.partnerCommander.synergy_notes || ''}"`);
+    }
+
     // All other cards
     const allCards = [...deck.nonland_cards, ...deck.lands];
     const sortedCards = allCards.sort((a, b) => a.name.localeCompare(b.name));
@@ -97,12 +106,18 @@ export class DeckExporter {
   }
 
   generateMoxfieldDeckData(deck: GeneratedDeck): any {
-    const commanders = {
+    const commanders: Record<string, any> = {
       [deck.commander.name]: {
         quantity: 1,
         boardType: 'commanders'
       }
     };
+    if (deck.partnerCommander) {
+      commanders[deck.partnerCommander.name] = {
+        quantity: 1,
+        boardType: 'commanders'
+      };
+    }
     
     const mainboard: Record<string, any> = {};
     
@@ -135,9 +150,12 @@ export class DeckExporter {
     lines.push(`// Total Price: $${deck.total_price.toFixed(2)}`);
     lines.push('');
     
-    // Commander
+    // Commander(s)
     lines.push('// Commander');
     lines.push(`1 ${deck.commander.name} *CMDR*`);
+    if (deck.partnerCommander) {
+      lines.push(`1 ${deck.partnerCommander.name} *CMDR*`);
+    }
     lines.push('');
     
     // Group by role and format
@@ -176,14 +194,14 @@ export class DeckExporter {
     price_breakdown: Record<string, number>;
     role_breakdown: Record<string, number>;
   } {
-    const allCards = [deck.commander, ...deck.nonland_cards, ...deck.lands];
-    
+    const allCards = [deck.commander, ...(deck.partnerCommander ? [deck.partnerCommander] : []), ...deck.nonland_cards, ...deck.lands];
+
     // Total cards and price
     const total_cards = allCards.length;
     const total_price = deck.total_price;
-    
+
     // Average CMC (excluding lands)
-    const nonLandCards = [deck.commander, ...deck.nonland_cards];
+    const nonLandCards = [deck.commander, ...(deck.partnerCommander ? [deck.partnerCommander] : []), ...deck.nonland_cards];
     const average_cmc = nonLandCards.reduce((sum, card) => sum + card.cmc, 0) / nonLandCards.length;
     
     // Color distribution
@@ -327,8 +345,8 @@ export class PurchaseUrlGenerator {
    * SCG uses their own deck builder format
    */
   generateStarCityGamesUrl(deck: GeneratedDeck): string {
-    const allCards = [deck.commander, ...deck.nonland_cards, ...deck.lands];
-    
+    const allCards = [deck.commander, ...(deck.partnerCommander ? [deck.partnerCommander] : []), ...deck.nonland_cards, ...deck.lands];
+
     // StarCityGames format - they accept a simple list
     const deckList = allCards.map(card => `1 ${card.name}`).join('\n');
     const encodedList = encodeURIComponent(deckList);
@@ -363,8 +381,8 @@ export class PurchaseUrlGenerator {
     estimated: number;
     disclaimer: string;
   } {
-    const allCards = [deck.commander, ...deck.nonland_cards, ...deck.lands];
-    
+    const allCards = [deck.commander, ...(deck.partnerCommander ? [deck.partnerCommander] : []), ...deck.nonland_cards, ...deck.lands];
+
     // Use the prices we already have from generation
     const totalPrice = allCards.reduce((sum, card) => sum + (card.price_used || 0), 0);
     

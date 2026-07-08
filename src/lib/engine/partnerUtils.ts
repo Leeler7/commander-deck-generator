@@ -4,6 +4,7 @@ export type PartnerType =
   | 'none'
   | 'partner'           // Generic "Partner" keyword
   | 'partner-with'      // "Partner with [Name]"
+  | 'partner-named'     // "Partner—<Group>" (e.g. "Father & son", "Survivors", "Character select")
   | 'friends-forever'   // "Friends forever" keyword
   | 'choose-background' // Commander that can choose a Background
   | 'background'        // Background enchantment (partner for choose-background commanders)
@@ -67,7 +68,13 @@ export function getPartnerType(card: ScryfallCard): PartnerType {
     return 'partner-with';
   }
 
-  // Check for generic "Partner" keyword (after excluding Friends forever and Partner with)
+  // Check for "Partner—<Group>" named variant (before generic Partner check)
+  // e.g. "Partner—Father & son", "Partner—Survivors", "Partner—Character select"
+  if (/Partner—(?!Friends forever)/.test(oracleText)) {
+    return 'partner-named';
+  }
+
+  // Check for generic "Partner" keyword (after excluding Friends forever, Partner with, and named groups)
   if (keywords.includes('Partner')) {
     return 'partner';
   }
@@ -90,6 +97,20 @@ export function getPartnerWithName(card: ScryfallCard): string | null {
     return match[1].trim();
   }
 
+  return null;
+}
+
+/**
+ * Extracts the named group from "Partner—<Group>" cards
+ * e.g. "Partner—Father & son" → "Father & son"
+ * Returns null if not a named partner card
+ */
+export function getPartnerGroupName(card: ScryfallCard): string | null {
+  const oracleText = getOracleText(card);
+  const match = oracleText.match(/Partner—([^()\n]+)/);
+  if (match) {
+    return match[1].trim();
+  }
   return null;
 }
 
@@ -128,6 +149,14 @@ export function areValidPartners(card1: ScryfallCard, card2: ScryfallCard): bool
     return partnerName === card1.name;
   }
 
+  // Named partner groups pair only within the same group
+  if (type1 === 'partner-named' || type2 === 'partner-named') {
+    if (type1 !== type2) return false;
+    const group1 = getPartnerGroupName(card1);
+    const group2 = getPartnerGroupName(card2);
+    return group1 !== null && group1 === group2;
+  }
+
   // Friends forever pairs with Friends forever
   if (type1 === 'friends-forever' && type2 === 'friends-forever') {
     return true;
@@ -161,6 +190,8 @@ export function getPartnerTypeLabel(partnerType: PartnerType): string {
       return 'Partner';
     case 'partner-with':
       return 'Partner with';
+    case 'partner-named':
+      return 'Partner';
     case 'friends-forever':
       return 'Friends forever';
     case 'choose-background':

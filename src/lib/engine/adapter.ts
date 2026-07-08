@@ -187,11 +187,16 @@ export function buildGenerationContext(
   commander: EngineScryfallCard,
   customization: EngineCustomization,
   themes?: ThemeResult[],
+  partnerCommander?: EngineScryfallCard | null,
 ) {
+  const mergedColors = partnerCommander
+    ? [...new Set([...commander.color_identity, ...partnerCommander.color_identity])]
+    : commander.color_identity;
+
   return {
     commander,
-    partnerCommander: null,
-    colorIdentity: commander.color_identity,
+    partnerCommander: partnerCommander ?? null,
+    colorIdentity: mergedColors,
     customization,
     selectedThemes: themes,
   };
@@ -201,7 +206,8 @@ export function buildGenerationContext(
 
 export function engineDeckToBde(
   engineDeck: EngineGeneratedDeck,
-  commanderCard: EngineScryfallCard
+  commanderCard: EngineScryfallCard,
+  partnerCard?: EngineScryfallCard | null,
 ): BDEGeneratedDeck {
   const nonLandCategories: DeckCategory[] = [
     'ramp', 'cardDraw', 'singleRemoval', 'boardWipes',
@@ -358,9 +364,11 @@ export function engineDeckToBde(
   }
 
   const commanderDeckCard = engineCardToBdeDeckCard(commanderCard, 'Commander');
+  const partnerDeckCard = partnerCard ? engineCardToBdeDeckCard(partnerCard, 'Commander') : undefined;
 
   return {
     commander: commanderDeckCard,
+    ...(partnerDeckCard ? { partnerCommander: partnerDeckCard } : {}),
     nonland_cards: nonlandCards,
     lands,
     total_price: Math.round(totalPrice * 100) / 100,
