@@ -27,9 +27,11 @@ export default function CardImageTooltip({ cardName, imageUri, cardId, children 
   const imageUrl = getImageUrl(imageUri, cardId);
   if (!imageUrl) return <>{children}</>;
 
-  const showTooltip = useCallback((e: React.MouseEvent) => {
+  const showTooltip = useCallback(() => {
     timerRef.current = setTimeout(() => {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
       const tooltipWidth = 244;
       const shouldFlip = rect.right + tooltipWidth + 16 > viewportWidth;
