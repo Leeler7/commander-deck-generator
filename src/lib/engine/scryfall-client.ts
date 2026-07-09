@@ -107,7 +107,7 @@ export async function searchCommanders(query: string): Promise<ScryfallCard[]> {
   if (!query.trim()) return [];
 
   try {
-    const encodedQuery = encodeURIComponent(`is:commander f:commander ${query}`);
+    const encodedQuery = encodeURIComponent(`is:commander f:commander -t:background ${query}`);
     const response = await scryfallFetch<ScryfallSearchResponse>(
       `/cards/search?q=${encodedQuery}&order=edhrec`
     );

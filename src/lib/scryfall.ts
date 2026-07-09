@@ -129,7 +129,9 @@ export class ScryfallClient {
   }
 
   async searchLegalCommanders(query = '', includeUnreleased = false): Promise<ScryfallCard[]> {
-    const baseQuery = includeUnreleased ? 'is:commander' : 'is:commander legal:commander';
+    const baseQuery = includeUnreleased
+      ? 'is:commander -t:background'
+      : 'is:commander legal:commander -t:background';
     const fullQuery = query ? `${baseQuery} ${query}` : baseQuery;
 
     try {
@@ -229,7 +231,7 @@ export class ScryfallClient {
       console.log('🎲 Fetching random commander from Scryfall...');
 
       const legalityFilter = includeUnreleased ? '' : '+legal%3Acommander';
-      const url = `${SCRYFALL_API_BASE}/cards/random?q=is%3Acommander${legalityFilter}`;
+      const url = `${SCRYFALL_API_BASE}/cards/random?q=is%3Acommander+-t%3Abackground${legalityFilter}`;
       const response = await fetchWithRetry(url);
       
       if (!response.ok) {
