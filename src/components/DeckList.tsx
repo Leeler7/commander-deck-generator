@@ -4,6 +4,7 @@ import { GeneratedDeck, DeckCard, CardRole } from '@/lib/types';
 import { buildTCGPlayerCardUrl } from '@/lib/export';
 import { useState } from 'react';
 import ManaCost from './ManaCost';
+import CardImageTooltip from './CardImageTooltip';
 
 interface DeckListProps {
   deck: GeneratedDeck;
@@ -254,15 +255,17 @@ function CardListItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2">
             <h3 className="text-sm font-medium text-gray-900 truncate">
-              <a
-                href={getScryfallUrl(card.name)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                title={`View ${card.name} on Scryfall`}
-              >
-                {card.name}
-              </a>
+              <CardImageTooltip cardName={card.name} imageUri={card.image_uris?.normal} cardId={card.id}>
+                <a
+                  href={getScryfallUrl(card.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                  title={`View ${card.name} on Scryfall`}
+                >
+                  {card.name}
+                </a>
+              </CardImageTooltip>
               {count > 1 && (
                 <span className="ml-1 text-gray-500 font-bold">x{count}</span>
               )}
@@ -347,15 +350,17 @@ function CardGridItem({
       <div className="p-4">
         <div className="flex items-start justify-between">
           <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
-            <a
-              href={getScryfallUrl(card.name)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-              title={`View ${card.name} on Scryfall`}
-            >
-              {card.name}
-            </a>
+            <CardImageTooltip cardName={card.name} imageUri={card.image_uris?.normal} cardId={card.id}>
+              <a
+                href={getScryfallUrl(card.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                title={`View ${card.name} on Scryfall`}
+              >
+                {card.name}
+              </a>
+            </CardImageTooltip>
             {count > 1 && (
               <span className="ml-1 text-gray-500 font-bold">x{count}</span>
             )}
