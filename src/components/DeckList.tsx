@@ -32,7 +32,7 @@ export default function DeckList({ deck }: DeckListProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedRole, setSelectedRole] = useState<CardRole | 'all'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'cmc' | 'price' | 'role'>('role');
-  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'images'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'fullcard'>('list');
 
   // Separate commander(s) from other cards
   const nonCommanderCards = [...deck.nonland_cards, ...deck.lands];
@@ -166,7 +166,7 @@ export default function DeckList({ deck }: DeckListProps) {
             </div>
 
             <div className="flex items-end gap-1">
-              {(['list', 'grid', 'images'] as const).map(mode => (
+              {(['list', 'fullcard'] as const).map(mode => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
@@ -176,7 +176,7 @@ export default function DeckList({ deck }: DeckListProps) {
                       : 'border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  {mode === 'list' ? 'List' : mode === 'grid' ? 'Grid' : 'Images'}
+                  {mode === 'list' ? 'List' : 'Full Card'}
                 </button>
               ))}
             </div>
@@ -195,16 +195,10 @@ export default function DeckList({ deck }: DeckListProps) {
                   ))}
                 </ul>
               </div>
-            ) : viewMode === 'images' ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                {commanders.map(c => (
-                  <CardImageItem key={c.name} card={c} count={1} getScryfallUrl={getScryfallUrl} />
-                ))}
-              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {commanders.map(c => (
-                  <CardGridItem key={c.name} card={c} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                  <CardFullItem key={c.name} card={c} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
                 ))}
               </div>
             )}
@@ -226,16 +220,10 @@ export default function DeckList({ deck }: DeckListProps) {
                     ))}
                   </ul>
                 </div>
-              ) : viewMode === 'images' ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                  {consolidatedCards.map(({ card, count }) => (
-                    <CardImageItem key={card.name} card={card} count={count} getScryfallUrl={getScryfallUrl} />
-                  ))}
-                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {consolidatedCards.map(({ card, count }) => (
-                    <CardGridItem key={card.name} card={card} count={count} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
+                    <CardFullItem key={card.name} card={card} count={count} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
                   ))}
                 </div>
               )
@@ -343,7 +331,7 @@ function CardListItem({
   );
 }
 
-function CardGridItem({
+function CardFullItem({
   card,
   count,
   roleColors,
@@ -356,49 +344,64 @@ function CardGridItem({
   getScryfallUrl: (cardName: string) => string;
   getSubtypes: (typeLine: string) => string;
 }) {
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-      {card.image_uris && (
-        <img
-          src={card.image_uris.normal}
-          alt={card.name}
-          className="w-full h-48 object-cover"
-        />
-      )}
+  const imageUrl = card.image_uris?.normal
+    || (card.id ? `https://cards.scryfall.io/normal/front/${card.id[0]}/${card.id[1]}/${card.id}.jpg` : null);
 
-      <div className="p-4">
-        <div className="flex items-start justify-between">
-          <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
-            <CardImageTooltip cardName={card.name} imageUri={card.image_uris?.normal} cardId={card.id}>
-              <a
-                href={getScryfallUrl(card.name)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                title={`View ${card.name} on Scryfall`}
-              >
-                {card.name}
-              </a>
-            </CardImageTooltip>
-            {count > 1 && (
-              <span className="ml-1 text-gray-500 font-bold">x{count}</span>
-            )}
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+      <a
+        href={getScryfallUrl(card.name)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block relative"
+        title={`View ${card.name} on Scryfall`}
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={card.name}
+            className="w-full h-auto"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full aspect-[488/680] bg-gray-200 flex items-center justify-center text-sm text-gray-500 p-2 text-center">
+            {card.name}
+          </div>
+        )}
+        {count > 1 && (
+          <span className="absolute top-2 right-2 bg-black/75 text-white text-xs font-bold px-1.5 py-0.5 rounded">
+            x{count}
+          </span>
+        )}
+      </a>
+
+      <div className="p-3 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm font-medium text-gray-900 flex-1">
+            <a
+              href={getScryfallUrl(card.name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+            >
+              {card.name}
+            </a>
           </h3>
-          <ManaCost manaCost={card.mana_cost} className="ml-2" />
+          <ManaCost manaCost={card.mana_cost} className="flex-shrink-0" />
         </div>
 
-        <div className="mt-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${roleColors[card.role]}`}>
             {card.role}
           </span>
           {getSubtypes(card.type_line) && (
-            <p className="text-xs text-gray-500 mt-1">
+            <span className="text-xs text-gray-500">
               {getSubtypes(card.type_line)}
-            </p>
+            </span>
           )}
         </div>
 
-        <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center justify-between">
           <div className="flex space-x-1">
             {card.color_identity.map((color) => (
               <span
@@ -426,53 +429,12 @@ function CardGridItem({
         </div>
 
         {card.synergy_notes && (
-          <p className="text-xs text-gray-500 mt-2 italic line-clamp-2">
+          <p className="text-xs text-gray-500 italic line-clamp-2">
             {card.synergy_notes}
           </p>
         )}
       </div>
     </div>
-  );
-}
-
-function CardImageItem({
-  card,
-  count,
-  getScryfallUrl
-}: {
-  card: DeckCard;
-  count: number;
-  getScryfallUrl: (cardName: string) => string;
-}) {
-  const imageUrl = card.image_uris?.normal
-    || (card.id ? `https://cards.scryfall.io/normal/front/${card.id[0]}/${card.id[1]}/${card.id}.jpg` : null);
-
-  return (
-    <a
-      href={getScryfallUrl(card.name)}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block relative group"
-      title={card.name}
-    >
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={card.name}
-          className="w-full rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-full aspect-[488/680] rounded-lg bg-gray-200 flex items-center justify-center text-sm text-gray-500">
-          {card.name}
-        </div>
-      )}
-      {count > 1 && (
-        <span className="absolute top-1 right-1 bg-black/75 text-white text-xs font-bold px-1.5 py-0.5 rounded">
-          x{count}
-        </span>
-      )}
-    </a>
   );
 }
 

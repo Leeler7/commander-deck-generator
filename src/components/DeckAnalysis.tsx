@@ -2,6 +2,7 @@
 
 import { GeneratedDeck, DeckCard } from '@/lib/types';
 import ManaCost from './ManaCost';
+import CardImageTooltip from './CardImageTooltip';
 
 interface DeckAnalysisProps {
   deck: GeneratedDeck;
@@ -56,14 +57,16 @@ export default function DeckAnalysis({ deck }: DeckAnalysisProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
                 {group.cardQuantities.map((cardQty, index) => (
                   <div key={`${cardQty.card.id}-${index}`} className="flex items-center justify-between">
-                    <a 
-                      href={getScryfallUrl(cardQty.card.name)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline truncate"
-                    >
-                      {getSubtypes(cardQty.card.type_line) ? `${getSubtypes(cardQty.card.type_line)} - ` : ''}{cardQty.card.name} x{cardQty.quantity}
-                    </a>
+                    <CardImageTooltip cardName={cardQty.card.name} imageUri={cardQty.card.image_uris?.normal} cardId={cardQty.card.id}>
+                      <a
+                        href={getScryfallUrl(cardQty.card.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline truncate"
+                      >
+                        {getSubtypes(cardQty.card.type_line) ? `${getSubtypes(cardQty.card.type_line)} - ` : ''}{cardQty.card.name} x{cardQty.quantity}
+                      </a>
+                    </CardImageTooltip>
                     <ManaCost manaCost={cardQty.card.mana_cost} className="ml-2" />
                   </div>
                 ))}
