@@ -7,6 +7,8 @@ interface CardImageTooltipProps {
   imageUri?: string;
   cardId?: string;
   children: ReactNode;
+  /** Extra classes for the wrapper span — e.g. `min-w-0 flex-1 truncate` to let it shrink and truncate inside a flex row. */
+  className?: string;
 }
 
 function getImageUrl(imageUri?: string, cardId?: string): string | null {
@@ -17,7 +19,7 @@ function getImageUrl(imageUri?: string, cardId?: string): string | null {
   return null;
 }
 
-export default function CardImageTooltip({ cardName, imageUri, cardId, children }: CardImageTooltipProps) {
+export default function CardImageTooltip({ cardName, imageUri, cardId, children, className }: CardImageTooltipProps) {
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [flipped, setFlipped] = useState(false);
@@ -55,7 +57,7 @@ export default function CardImageTooltip({ cardName, imageUri, cardId, children 
   return (
     <span
       ref={containerRef}
-      className="relative"
+      className={className ? `relative ${className}` : 'relative'}
       onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}
     >
