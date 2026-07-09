@@ -32,7 +32,7 @@ export default function DeckList({ deck }: DeckListProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedRole, setSelectedRole] = useState<CardRole | 'all'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'cmc' | 'price' | 'role'>('role');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid' | 'images'>('list');
 
   // Separate commander(s) from other cards
   const nonCommanderCards = [...deck.nonland_cards, ...deck.lands];
@@ -165,13 +165,20 @@ export default function DeckList({ deck }: DeckListProps) {
               </select>
             </div>
 
-            <div className="flex items-end">
-              <button
-                onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {viewMode === 'list' ? 'Grid View' : 'List View'}
-              </button>
+            <div className="flex items-end gap-1">
+              {(['list', 'grid', 'images'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    viewMode === mode
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {mode === 'list' ? 'List' : mode === 'grid' ? 'Grid' : 'Images'}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -187,6 +194,12 @@ export default function DeckList({ deck }: DeckListProps) {
                     <CardListItem key={c.name} card={c} count={1} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
                   ))}
                 </ul>
+              </div>
+            ) : viewMode === 'images' ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                {commanders.map(c => (
+                  <CardImageItem key={c.name} card={c} count={1} getScryfallUrl={getScryfallUrl} />
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -212,6 +225,12 @@ export default function DeckList({ deck }: DeckListProps) {
                       <CardListItem key={card.name} card={card} count={count} roleColors={roleColors} getScryfallUrl={getScryfallUrl} getSubtypes={getSubtypes} />
                     ))}
                   </ul>
+                </div>
+              ) : viewMode === 'images' ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                  {consolidatedCards.map(({ card, count }) => (
+                    <CardImageItem key={card.name} card={card} count={count} getScryfallUrl={getScryfallUrl} />
+                  ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -413,6 +432,47 @@ function CardGridItem({
         )}
       </div>
     </div>
+  );
+}
+
+function CardImageItem({
+  card,
+  count,
+  getScryfallUrl
+}: {
+  card: DeckCard;
+  count: number;
+  getScryfallUrl: (cardName: string) => string;
+}) {
+  const imageUrl = card.image_uris?.normal
+    || (card.id ? `https://cards.scryfall.io/normal/front/${card.id[0]}/${card.id[1]}/${card.id}.jpg` : null);
+
+  return (
+    <a
+      href={getScryfallUrl(card.name)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block relative group"
+      title={card.name}
+    >
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={card.name}
+          className="w-full rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
+          loading="lazy"
+        />
+      ) : (
+        <div className="w-full aspect-[488/680] rounded-lg bg-gray-200 flex items-center justify-center text-sm text-gray-500">
+          {card.name}
+        </div>
+      )}
+      {count > 1 && (
+        <span className="absolute top-1 right-1 bg-black/75 text-white text-xs font-bold px-1.5 py-0.5 rounded">
+          x{count}
+        </span>
+      )}
+    </a>
   );
 }
 
