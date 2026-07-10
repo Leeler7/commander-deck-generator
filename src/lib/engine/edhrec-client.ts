@@ -47,6 +47,7 @@ interface RawEDHRECCard {
   num_decks?: number;
   potential_decks?: number;
   synergy?: number;
+  lift?: number; // Card pages only: how many × more often this co-occurs than baseline predicts
   prices?: Record<string, { price: number }>;
   image_uris?: Array<{ normal: string; art_crop?: string }>;
   color_identity?: string[];
@@ -1233,4 +1234,76 @@ export async function fetchComboDetails(comboId: string): Promise<ComboDetails> 
 
   comboDetailsCache.set(comboId, details);
   return details;
+}
+
+// ─── Card-page lift pool ─────────────────────────────────────────────
+// Every card EDHREC lists as played alongside this one carries a numeric `lift` (how many × more
+// often it co-occurs than its baseline play rate predicts) plus num_decks / potential_decks. This
+// reads the whole card page so a caller can score the full on-color pool by lift + co-occurrence.
+// Ported from upstream (Manafoundry); co-occurrence is derived from num_decks/potential_decks since
+// current EDHREC card pages leave the `inclusion` field empty.
+
+export interface CardLiftEntry {
+  name: string;
+  lift: number;
+  coPct: number;      // num_decks / potential_decks, 0-100
+  numDecks: number;   // shared-deck count — strength/confidence of the pairing
+}
+
+// Meta lists on a card page that aren't "cards played alongside this one."
+const LIFT_POOL_SKIP_TAGS = new Set(['topcommanders', 'newcommanders', 'newcards']);
+// Lift from a handful of shared decks is noise: a near-unplayed card posts a lift of hundreds off a
+// few coincidental co-occurrences. The floor is ADAPTIVE — require co-occurrence in ~LIFT_MIN_FRACTION
+// of the seed's decks, clamped so mainstream seeds get the strict floor and niche seeds still show
+// something. Tunable.
+const LIFT_MIN_FRACTION = 0.02;
+const LIFT_MIN_FLOOR = 12;
+export const LIFT_STRICT_FLOOR = 50;
+
+function liftDeckFloor(potentialDecks: number): number {
+  return Math.min(LIFT_STRICT_FLOOR, Math.max(LIFT_MIN_FLOOR, Math.round(potentialDecks * LIFT_MIN_FRACTION)));
+}
+
+function liftCoPct(v: RawEDHRECCard): number {
+  const shared = v.num_decks ?? v.inclusion ?? 0;
+  return v.potential_decks && v.potential_decks > 0 ? Math.round((shared / v.potential_decks) * 100) : 0;
+}
+
+/** Pure: every cardview on a card page with a numeric lift backed by enough decks, deduped (max lift). */
+export function parseCardLiftPool(response: RawEDHRECResponse): CardLiftEntry[] {
+  const lists = response.container?.json_dict?.cardlists ?? [];
+  const best = new Map<string, CardLiftEntry>();
+  for (const list of lists) {
+    if (list.tag && LIFT_POOL_SKIP_TAGS.has(list.tag)) continue;
+    for (const v of list.cardviews ?? []) {
+      if (!v.name || typeof v.lift !== 'number') continue;
+      if (!v.potential_decks || v.potential_decks <= 0) continue;
+      const numDecks = v.num_decks ?? v.inclusion ?? 0;
+      if (numDecks < liftDeckFloor(v.potential_decks)) continue; // adaptive low-sample filter
+      const entry: CardLiftEntry = { name: v.name, lift: v.lift, coPct: liftCoPct(v), numDecks };
+      const prev = best.get(v.name);
+      if (!prev || entry.lift > prev.lift) best.set(v.name, entry);
+    }
+  }
+  return [...best.values()];
+}
+
+const cardLiftPoolCache = new Map<string, { data: CardLiftEntry[]; timestamp: number }>();
+const LIFT_POOL_CACHE_TTL = 60 * 60 * 1000; // 1 hour — lift stats move slowly
+
+/** Fetch the full lift pool for a card (every played-alongside card with its lift + co-occurrence %). [] on failure. */
+export async function fetchCardLiftPool(cardName: string): Promise<CardLiftEntry[]> {
+  const slug = formatCommanderNameForUrl(cardName);
+  const cached = cardLiftPoolCache.get(slug);
+  if (cached && Date.now() - cached.timestamp < LIFT_POOL_CACHE_TTL) return cached.data;
+  try {
+    const response = await edhrecFetch<RawEDHRECResponse>(`/pages/cards/${slug}.json`);
+    const data = parseCardLiftPool(response);
+    cardLiftPoolCache.set(slug, { data, timestamp: Date.now() });
+    return data;
+  } catch (error) {
+    console.warn(`[EDHREC] Failed to fetch card lift pool for "${cardName}":`, error);
+    cardLiftPoolCache.set(slug, { data: [], timestamp: Date.now() });
+    return [];
+  }
 }
