@@ -386,6 +386,7 @@ export function engineDeckToBde(
     bracketEstimate,
     functionalCoverage,
     subtypeCounts,
+    ...(engineDeck.trimCuts && engineDeck.trimCuts.length > 0 ? { trimCuts: engineDeck.trimCuts } : {}),
   };
 }
 

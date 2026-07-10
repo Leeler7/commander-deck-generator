@@ -838,6 +838,26 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* Trimmed cards — explain what was cut when the deck was over-full */}
+                  {generatedDeck.trimCuts && generatedDeck.trimCuts.length > 0 && (
+                    <details className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <summary className="text-sm font-medium text-gray-700 cursor-pointer">
+                        Trimmed to size — {generatedDeck.trimCuts.length} card{generatedDeck.trimCuts.length !== 1 ? 's' : ''} cut
+                      </summary>
+                      <ul className="mt-3 space-y-1.5">
+                        {generatedDeck.trimCuts.map((cut, i) => (
+                          <li key={`trim-${cut.name}-${i}`} className="flex items-start gap-2 text-xs">
+                            <span className="flex-shrink-0 px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-medium">
+                              {cut.reasonLabel}
+                            </span>
+                            <span className="text-gray-900 font-medium">{cut.name}</span>
+                            <span className="text-gray-500">— {cut.reasonText}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+
                   {/* Selected Keywords & Theme Tags */}
                   {((constraints.keyword_focus && constraints.keyword_focus.length > 0) ||
                     (constraints.keywords && constraints.keywords.length > 0)) && (

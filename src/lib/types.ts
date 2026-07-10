@@ -198,6 +198,13 @@ export interface GeneratedDeck {
     cardDraw?: Record<string, number>;
     protection?: Record<string, number>;
   };
+  /** Cards cut when the deck was over-full, each with an explainable reason. */
+  trimCuts?: {
+    name: string;
+    reasonKey: string;
+    reasonLabel: string;
+    reasonText: string;
+  }[];
 }
 
 export interface PowerLevelConfig {

@@ -27,6 +27,7 @@ import {
   hasCurveRoom,
 } from './curveUtils';
 import { loadTaggerData, hasTaggerData, getCardRole, getCardSubtype, hasMultipleRoles, getRampSubtype, getRemovalSubtype, getBoardwipeSubtype, getCardDrawSubtype, getProtectionSubtype, isTapland, type RoleKey } from './tagger-client';
+import { buildTrimCut, type TrimCut, type TrimReasonContext } from './trimReasons';
 import { estimateBracket, FAST_MANA_ROCKS, FREE_INTERACTION, initBracketLists } from './bracketEstimator';
 import { getSnapshotVersion } from './card-snapshot';
 import { loadGameChangerList } from './curated-lists';
@@ -3453,6 +3454,9 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
   const ROLE_DEFICIT_TRIM_BOOST = 50;
   const ROLE_SURPLUS_TRIM_PENALTY = -30;
 
+  // Explainable cuts — each trimmed (non-basic) card gets a typed reason.
+  const trimCuts: TrimCut[] = [];
+
   let currentCount = countAllCards();
   if (currentCount > targetDeckSize) {
     const trimCandidates: { card: ScryfallCard; category: DeckCategory; trimResistance: number }[] = [];
@@ -3518,6 +3522,44 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
         landsTrimmed++;
       }
       toRemove.push(candidate);
+    }
+
+    // Record an explainable reason for each cut, using deck state *before* removal
+    // (so "your X slot is full" reflects the over-full deck the user is trimming from).
+    const inclusionForReasons: Record<string, number> = {};
+    const synergyForReasons: Record<string, number> = {};
+    if (edhrecData?.cardlists?.allNonLand) {
+      for (const ec of edhrecData.cardlists.allNonLand) {
+        inclusionForReasons[ec.name] = ec.inclusion ?? 0;
+        synergyForReasons[ec.name] = ec.synergy ?? 0;
+      }
+    }
+    const typeCountsForReasons: Record<string, number> = {};
+    for (const c of Object.values(categories).flat()) {
+      const tl = getFrontFaceTypeLine(c).toLowerCase();
+      for (const k of ['creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker']) {
+        if (tl.includes(k)) { typeCountsForReasons[k] = (typeCountsForReasons[k] ?? 0) + 1; break; }
+      }
+    }
+    // Combos aren't detected until after the trim, so combo pieces are protected
+    // here via COMBO_TRIM_BOOST resistance rather than a per-cut combo reason.
+    const reasonCtx: TrimReasonContext = {
+      cmcBuckets: currentCurveCounts,
+      typeCounts: typeCountsForReasons,
+      edhrecCurve: curveTargets,
+      edhrecTypes: typeTargets,
+      roleCounts: currentRoleCounts,
+      roleTargets: roleTargets ?? {},
+      inclusionMap: inclusionForReasons,
+      synergyMap: synergyForReasons,
+    };
+    for (const { card } of toRemove) {
+      if (BASIC_LAND_NAMES.has(card.name)) continue; // fungible — not worth explaining
+      trimCuts.push(buildTrimCut(
+        { name: card.name, cmc: card.cmc ?? 0, typeLine: getFrontFaceTypeLine(card), role: getCardRole(card.name) ?? null },
+        reasonCtx,
+        false,
+      ));
     }
 
     // Build removal sets per category for efficient filtering
@@ -4618,6 +4660,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       };
     })() : {},
     swapCandidates,
+    trimCuts: trimCuts.length > 0 ? trimCuts : undefined,
     deckScore,
     cardInclusionMap,
     cardRelevancyMap,
