@@ -1320,6 +1320,27 @@ function countColorPips(cards: ScryfallCard[]): Record<string, number> {
 }
 
 // Generate lands from EDHREC data + basics
+const BASIC_TYPE_TO_COLOR: Record<string, string> = {
+  plains: 'W', island: 'U', swamp: 'B', mountain: 'R', forest: 'G',
+};
+
+/**
+ * A fetch land that searches for specific basic land TYPES (e.g. Arid Mesa → Mountain or Plains) is
+ * dead weight when the deck runs none of those types. A colorless deck runs only Wastes (no basic
+ * type), so every type-fetching land whiffs; a mono-red deck can't use a Plains/Island fetch. Lands
+ * that fetch "a basic land" generically (Prismatic Vista, Fabled Passage) name no type and stay in —
+ * they can always find Wastes.
+ */
+function isDeadFetchLand(card: ScryfallCard, colorIdentity: string[]): boolean {
+  const oracle = ((card.oracle_text ?? '') + ' ' + (card.card_faces?.map(f => f.oracle_text ?? '').join(' ') ?? '')).toLowerCase();
+  if (!oracle.includes('search your library')) return false;
+  const searchedColors = Object.entries(BASIC_TYPE_TO_COLOR)
+    .filter(([type]) => oracle.includes(type))
+    .map(([, color]) => color);
+  if (searchedColors.length === 0) return false; // generic "basic land" fetch — always viable
+  return !searchedColors.some(color => colorIdentity.includes(color));
+}
+
 async function generateLands(
   edhrecLands: EDHRECCard[],
   colorIdentity: string[],
@@ -1392,6 +1413,11 @@ async function generateLands(
     }
     await upgradeCardPrintings(landCardMap, scryfallQuery, true);
 
+    // Drop fetch lands that can't find a target in this deck's color identity.
+    for (const [name, card] of landCardMap) {
+      if (isDeadFetchLand(card, colorIdentity)) landCardMap.delete(name);
+    }
+
     // Build priority boost / penalty map for pacing-aware land selection
     const landPenalties = new Map<string, number>();
 
@@ -1435,7 +1461,8 @@ async function generateLands(
     const query = colorIdentity.length > 0
       ? `t:land (${colorIdentity.map((c) => `o:{${c}}`).join(' OR ')}) -t:basic`
       : `t:land id:c -t:basic`;
-    const moreLands = await fillWithScryfall(query, colorIdentity, nonBasicTarget - lands.length, usedNames, bannedCards, maxCardPrice, maxRarity, maxCmc, budgetTracker, collectionNames, currency, arenaOnly, scryfallQuery, collectionStrategy, ignoreOwnedBudget, ignoreOwnedRarity);
+    const moreLands = (await fillWithScryfall(query, colorIdentity, nonBasicTarget - lands.length, usedNames, bannedCards, maxCardPrice, maxRarity, maxCmc, budgetTracker, collectionNames, currency, arenaOnly, scryfallQuery, collectionStrategy, ignoreOwnedBudget, ignoreOwnedRarity))
+      .filter(c => !isDeadFetchLand(c, colorIdentity));
     lands.push(...moreLands);
   }
 
