@@ -1,8 +1,26 @@
 import type { ScryfallCard, GeneratedDeck, DeckCategory } from './types';
 import { calculateStats } from './deckGenerator';
-import { getCardRole, getRampSubtype, getRemovalSubtype, getBoardwipeSubtype, getCardDrawSubtype, type RoleKey } from './tagger-client';
+import { getCardRole, getRampSubtype, getRemovalSubtype, getBoardwipeSubtype, getCardDrawSubtype, getProtectionSubtype, type RoleKey } from './tagger-client';
 import { getFrontFaceTypeLine } from './scryfall-client';
 import { estimateBracket } from './bracketEstimator';
+import { scoreSimilarity } from './cardSimilarity';
+
+/**
+ * Rank swap candidates by how functionally similar they are to the card being
+ * replaced (same primary type, shared keywords, near mana value). Returns a new
+ * array, most-similar first. Used to order the alternatives shown for a specific
+ * card so a cut is swapped for something that plays like it, not just any
+ * same-role card. Falls back to the input order for ties.
+ */
+export function rankSwapCandidatesBySimilarity(
+  current: ScryfallCard,
+  candidates: ScryfallCard[],
+): ScryfallCard[] {
+  return candidates
+    .map((card, i) => ({ card, i, sim: scoreSimilarity(current, card) }))
+    .sort((a, b) => (b.sim - a.sim) || (a.i - b.i))
+    .map(x => x.card);
+}
 
 const ROLE_TO_CATEGORY: Record<RoleKey, DeckCategory> = {
   ramp: 'ramp',
@@ -77,6 +95,7 @@ export function swapCard(
     else if (newRole === 'removal') newCard.removalSubtype = getRemovalSubtype(newCard.name) ?? undefined;
     else if (newRole === 'boardwipe') newCard.boardwipeSubtype = getBoardwipeSubtype(newCard.name) ?? undefined;
     else if (newRole === 'cardDraw') newCard.cardDrawSubtype = getCardDrawSubtype(newCard.name) ?? undefined;
+    else if (newRole === 'protection') newCard.protectionSubtype = getProtectionSubtype(newCard.name) ?? undefined;
   }
 
   // Add new card
