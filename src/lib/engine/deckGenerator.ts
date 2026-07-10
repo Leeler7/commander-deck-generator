@@ -4466,6 +4466,8 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       curveAnalysis: relCurveAnalysis,
       typeAnalysis: relTypeAnalysis,
       currentSubtypeCounts,
+      detectedCombos,
+      roleCounts: currentRoleCounts,
     };
 
     const relMap: Record<string, number> = {};
@@ -4631,6 +4633,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
         const analysis = analyzeDeck(
           edhrecData, allCards, currentRoleCounts, roleTargets,
           format, cardInclusionMap, context.colorIdentity,
+          undefined, undefined, detectedCombos,
         );
         const summary = getDeckSummaryData(analysis);
         return { letter: summary.gradeLetter, headline: summary.headline };

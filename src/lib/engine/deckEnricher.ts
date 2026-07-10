@@ -240,6 +240,8 @@ export async function enrichDeckCards(
         curveAnalysis,
         typeAnalysis,
         currentSubtypeCounts,
+        detectedCombos,
+        roleCounts,
       };
 
       const relMap: Record<string, number> = {};

@@ -1371,6 +1371,12 @@ export interface ScoringContext {
   curveAnalysis: CurveSlot[];
   typeAnalysis: TypeSlot[];
   currentSubtypeCounts: Record<string, number>;
+  /** Combos detected in the current deck. Cards that appear in any combo get a
+   *  relevancy boost — complete combos boost more than near-misses. */
+  detectedCombos?: DetectedCombo[];
+  /** Current count of cards filling each role in the deck. Used by the scarcity
+   *  boost so a single critical card (e.g. the only boardwipe) is protected. */
+  roleCounts?: Record<string, number>;
 }
 
 /**
@@ -1460,7 +1466,57 @@ export function scoreRecommendation(
     }
   }
 
-  return basePriority + roleBoost + curveBonus + typeBonus;
+  // ── Component 5: Combo Membership Boost ──
+  // A card in a complete combo (every piece in deck) is near-uncuttable. A card
+  // in a near-miss (exactly one missing piece) is sticky but cuttable as a last
+  // resort. Cards in multiple combos take the highest tier (no stacking). Combo
+  // card names can use the DFC front-face form OR the full "A // B" form, so
+  // match against both variants.
+  let comboBoost = 0;
+  if (context.detectedCombos && context.detectedCombos.length > 0) {
+    const nameVariants = card.name.includes(' // ')
+      ? [card.name, card.name.split(' // ')[0]]
+      : [card.name];
+    let bestTier = 0;
+    for (const combo of context.detectedCombos) {
+      const isInCombo = combo.cards.some(cn => nameVariants.includes(cn));
+      if (!isInCombo) continue;
+      if (combo.isComplete) {
+        bestTier = Math.max(bestTier, 80);
+      } else if (combo.missingCards.length === 1) {
+        bestTier = Math.max(bestTier, 30);
+      }
+    }
+    comboBoost = bestTier;
+  }
+
+  // ── Component 6: Role Scarcity Boost ──
+  // Boost scales with how short of target cutting this card would leave you, not
+  // just current deficit. Cards at-target still get protected when cutting would
+  // drop the role below its target. The last copy of any role (count === 1) gets
+  // a floor boost regardless — even when the target says "1 is enough," cutting
+  // your sole boardwipe leaves you with zero.
+  //
+  // Worked examples (K=25):
+  //   count=1, target=1 → cutDeficit=1, base=25, floor=40 → +40
+  //   count=1, target=3 → cutDeficit=3, base=75            → +75
+  //   count=2, target=3 → cutDeficit=2, base=25            → +25
+  //   count=3, target=3 → cutDeficit=1, base=8.3           → +8
+  //   count=4, target=3 → cutDeficit=0                     → 0
+  let scarcityBoost = 0;
+  if (cardRole && context.roleCounts) {
+    const target = context.roleDeficits.find(r => r.role === cardRole)?.target ?? 0;
+    const count = context.roleCounts[cardRole] ?? 0;
+    if (target > 0 && count > 0) {
+      const cutDeficit = Math.max(0, target - (count - 1));
+      if (cutDeficit > 0) {
+        scarcityBoost = (cutDeficit / count) * 25;
+        if (count === 1) scarcityBoost = Math.max(scarcityBoost, 40);
+      }
+    }
+  }
+
+  return basePriority + roleBoost + curveBonus + typeBonus + comboBoost + scarcityBoost;
 }
 
 /**
@@ -1477,6 +1533,7 @@ export function analyzeDeck(
   colorIdentity?: string[],
   overridePacing?: Pacing,
   overrideLandTarget?: number,
+  detectedCombos?: DetectedCombo[],
 ): DeckAnalysis {
   // --- Role Deficits ---
   const roleDeficits: RoleDeficit[] = Object.entries(roleTargets).map(([role, target]) => {
@@ -1683,6 +1740,8 @@ export function analyzeDeck(
     curveAnalysis,
     typeAnalysis,
     currentSubtypeCounts,
+    detectedCombos,
+    roleCounts,
   };
 
   // --- Recommendations ---
