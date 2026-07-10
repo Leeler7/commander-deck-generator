@@ -124,6 +124,10 @@ export interface EDHRECCard {
   isThemeSynergyCard?: boolean; // true if from highsynergycards, topcards, gamechangers
   isNewCard?: boolean; // true if from the newcards list (gets a small relevancy boost)
   isGameChanger?: boolean; // true if from the gamechangers list specifically
+  // Archetype blend (backfill for thin/no-theme commanders)
+  archetypeOverlap?: boolean; // card is in BOTH the commander pool and the blended archetype — a priority signal
+  fromArchetype?: boolean; // card was injected from the archetype pool (not in the commander's own data)
+  archetypeSource?: string; // which archetype/theme it came from, for provenance
   prices?: {
     tcgplayer?: { price: number };
     cardkingdom?: { price: number };

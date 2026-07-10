@@ -1393,15 +1393,16 @@ export function scoreRecommendation(
   const inclusion = card.inclusion;
 
   // ── Component 1: Base Priority (ports calculateCardPriority) ──
+  const overlapBonus = card.archetypeOverlap ? 15 : 0;
   let basePriority: number;
   if (card.isThemeSynergyCard) {
-    basePriority = 100 + (synergy * 50) + inclusion;
+    basePriority = 100 + (synergy * 50) + inclusion + overlapBonus;
   } else if (synergy > 0.3) {
     const newCardBoost = card.isNewCard ? 25 : 0;
-    basePriority = (synergy * 100) + inclusion + newCardBoost;
+    basePriority = (synergy * 100) + inclusion + newCardBoost + overlapBonus;
   } else {
     const newCardBoost = card.isNewCard ? 25 : 0;
-    basePriority = inclusion + newCardBoost;
+    basePriority = inclusion + newCardBoost + overlapBonus;
   }
 
   // ── Component 2: Role Deficit Boost (ports computeRoleBoosts) ──

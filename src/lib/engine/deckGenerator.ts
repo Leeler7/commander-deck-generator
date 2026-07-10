@@ -20,7 +20,8 @@ import type {
   CollectionStrategy,
 } from './types';
 import { searchCards, getCardByName, getCardsByNames, prefetchBasicLands, getCachedCard, getGameChangerNames, getCardPrice, getFrontFaceTypeLine, fetchMultiCopyCardNames, parseSetFromQuery, upgradeCardPrintings, isMdfcLand, isChannelLand, CHANNEL_LANDS } from './scryfall-client';
-import { fetchCommanderData, fetchCommanderThemeData, fetchPartnerCommanderData, fetchPartnerThemeData, fetchAverageDeckMultiCopies, fetchCommanderCombos } from './edhrec-client';
+import { fetchCommanderData, fetchCommanderThemeData, fetchPartnerCommanderData, fetchPartnerThemeData, fetchAverageDeckMultiCopies, fetchCommanderCombos, fetchCommanderThemes } from './edhrec-client';
+import { blendArchetypeData, ARCHETYPE_POOL_THIN } from './archetypeBlend';
 import {
   calculateTypeTargets,
   calculateCurveTargets,
@@ -510,11 +511,15 @@ function calculateCardPriority(card: EDHRECCard): number {
   const synergy = card.synergy ?? 0;
   const inclusion = card.inclusion;
 
+  // A card the commander AND its archetype both play is corroborated — a modest nudge above a
+  // plain inclusion match, but well below a theme-synergy card.
+  const overlapBonus = card.archetypeOverlap ? 15 : 0;
+
   // Cards from theme synergy lists (highsynergycards, topcards, etc.) get top priority
   if (card.isThemeSynergyCard) {
     // Theme synergy cards get a big boost: 100 + synergy bonus + inclusion
     // This ensures they're prioritized over regular high-inclusion cards
-    return 100 + (synergy * 50) + inclusion;
+    return 100 + (synergy * 50) + inclusion + overlapBonus;
   }
 
   // New cards get a small relevancy boost to compensate for having fewer total decks,
@@ -523,11 +528,11 @@ function calculateCardPriority(card: EDHRECCard): number {
 
   // If synergy score is high (> 0.3), boost the card
   if (synergy > 0.3) {
-    return (synergy * 100) + inclusion + newCardBoost;
+    return (synergy * 100) + inclusion + newCardBoost + overlapBonus;
   }
 
   // For low/no synergy cards, just use inclusion
-  return inclusion + newCardBoost;
+  return inclusion + newCardBoost + overlapBonus;
 }
 
 // Pick cards with curve awareness from pre-fetched map (no API calls)
@@ -2285,6 +2290,38 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
       } else {
         console.warn('[DeckGen] FALLBACK: Base commander fetch failed — will use Scryfall-only generation');
         onProgress?.('The oracle is silent... searching the multiverse...', 12);
+      }
+    }
+  }
+
+  // Archetype backfill: when the commander's EDHREC pool is thin (off-meta commander, or a niche
+  // selected theme), blend in the commander's top non-selected theme with adaptive down-weighting so
+  // the engine has enough on-theme cards to recommend. Well-supported commanders return a large pool
+  // and are left alone. Pool size is the reliable signal — EDHREC's per-commander numDecks is often 0.
+  if (edhrecData && !usingCache) {
+    const commanderPoolSize = edhrecData.cardlists.allNonLand.length;
+    const numDecks = edhrecData.stats?.numDecks ?? 0;
+    if (commanderPoolSize < ARCHETYPE_POOL_THIN) {
+      try {
+        // The base-commander path populates edhrecData.themes; the theme path leaves it empty.
+        let themes = edhrecData.themes;
+        if (!themes || themes.length === 0) themes = await fetchCommanderThemes(commander.name);
+        const selectedSlugs = new Set(selectedThemesWithSlugs.map(t => t.slug));
+        const topTheme = themes.find(t => t.slug && !selectedSlugs.has(t.slug));
+        if (topTheme?.slug) {
+          const themePool = partnerCommander
+            ? await fetchPartnerThemeData(commander.name, partnerCommander.name, topTheme.slug, budgetOption, bracketLevel)
+            : await fetchCommanderThemeData(commander.name, topTheme.slug, budgetOption, bracketLevel);
+          const themeDecks = themePool.stats?.numDecks ?? topTheme.count ?? 0;
+          const { overlapCount, injectedCount } = blendArchetypeData(
+            edhrecData.cardlists,
+            [{ pool: themePool.cardlists, sourceLabel: `${topTheme.name} (${themeDecks.toLocaleString()} decks)` }],
+            numDecks,
+          );
+          console.log(`[DeckGen] Archetype blend from "${topTheme.name}": ${overlapCount} overlap, ${injectedCount} injected (commander pool=${commanderPoolSize}, numDecks=${numDecks})`);
+        }
+      } catch (err) {
+        console.warn('[DeckGen] Archetype blend skipped:', err);
       }
     }
   }
