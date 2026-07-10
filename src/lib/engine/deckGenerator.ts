@@ -28,6 +28,7 @@ import {
 } from './curveUtils';
 import { loadTaggerData, hasTaggerData, getCardRole, getCardSubtype, hasMultipleRoles, getRampSubtype, getRemovalSubtype, getBoardwipeSubtype, getCardDrawSubtype, getProtectionSubtype, isTapland, type RoleKey } from './tagger-client';
 import { buildTrimCut, type TrimCut, type TrimReasonContext } from './trimReasons';
+import { buildDashboardWarnings, type DashboardWarning } from './dashboardWarnings';
 import { estimateBracket, FAST_MANA_ROCKS, FREE_INTERACTION, initBracketLists } from './bracketEstimator';
 import { getSnapshotVersion } from './card-snapshot';
 import { loadGameChangerList } from './curated-lists';
@@ -4621,6 +4622,31 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     }
   }
 
+  // Compute the full deck analysis once — reused for the letter grade and the
+  // structured dashboard warnings (best-effort; requires EDHREC data + role targets).
+  let deckGradeResult: { letter: string; headline: string } | undefined;
+  let dashboardWarnings: DashboardWarning[] | undefined;
+  if (edhrecData && roleTargets) {
+    try {
+      const analysisCards = Object.values(categories).flat();
+      const analysis = analyzeDeck(
+        edhrecData, analysisCards, currentRoleCounts, roleTargets,
+        format, cardInclusionMap, context.colorIdentity,
+        undefined, undefined, detectedCombos,
+      );
+      const summary = getDeckSummaryData(analysis);
+      deckGradeResult = { letter: summary.gradeLetter, headline: summary.headline };
+      const numDecks = edhrecData.stats?.numDecks ?? 0;
+      const dw = buildDashboardWarnings({
+        analysis,
+        cardCount: analysisCards.length,
+        deckTarget: targetDeckSize,
+        limitedData: numDecks > 0 && numDecks < 100,
+      });
+      if (dw.length > 0) dashboardWarnings = dw;
+    } catch { /* analysis is best-effort */ }
+  }
+
   return {
     commander,
     partnerCommander,
@@ -4669,18 +4695,7 @@ export async function generateDeck(context: GenerationContext): Promise<Generate
     bracketEstimation,
     bracketRestrictions,
     gameChangerNames: [...gameChangerNames],
-    deckGrade: (() => {
-      if (!edhrecData || !roleTargets) return undefined;
-      try {
-        const allCards = Object.values(categories).flat();
-        const analysis = analyzeDeck(
-          edhrecData, allCards, currentRoleCounts, roleTargets,
-          format, cardInclusionMap, context.colorIdentity,
-          undefined, undefined, detectedCombos,
-        );
-        const summary = getDeckSummaryData(analysis);
-        return { letter: summary.gradeLetter, headline: summary.headline };
-      } catch { return undefined; }
-    })(),
+    deckGrade: deckGradeResult,
+    dashboardWarnings,
   };
 }

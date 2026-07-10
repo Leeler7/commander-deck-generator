@@ -1,19 +1,52 @@
 'use client';
 
+interface DashboardWarning {
+  id: string;
+  severity: 'info' | 'warn' | 'error';
+  message: string;
+}
+
 interface WarningsProps {
   warnings: string[];
   notes: string[];
+  dashboardWarnings?: DashboardWarning[];
 }
 
-export default function Warnings({ warnings, notes }: WarningsProps) {
-  // Only show warnings, skip notes entirely
-  if (warnings.length === 0) {
+// Per-severity styling. error = red, warn = amber, info = blue.
+const SEVERITY_STYLES: Record<DashboardWarning['severity'], { box: string; dot: string; label: string }> = {
+  error: { box: 'bg-red-50 border-red-200 text-red-800', dot: 'bg-red-500', label: 'Error' },
+  warn: { box: 'bg-amber-50 border-amber-200 text-amber-800', dot: 'bg-amber-500', label: 'Warning' },
+  info: { box: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-500', label: 'Note' },
+};
+
+const SEVERITY_ORDER: Record<DashboardWarning['severity'], number> = { error: 0, warn: 1, info: 2 };
+
+export default function Warnings({ warnings, notes, dashboardWarnings }: WarningsProps) {
+  void notes; // notes are intentionally not rendered here
+
+  const structured = (dashboardWarnings ?? [])
+    .slice()
+    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+
+  if (structured.length === 0 && warnings.length === 0) {
     return null;
   }
 
   return (
-    <div className="space-y-4">
-      {/* Warnings */}
+    <div className="space-y-3">
+      {/* Structured, severity-tagged deck-health warnings */}
+      {structured.map((w) => {
+        const s = SEVERITY_STYLES[w.severity];
+        return (
+          <div key={w.id} className={`flex items-center gap-3 rounded-lg border p-3 ${s.box}`}>
+            <span className={`flex-shrink-0 w-2 h-2 rounded-full ${s.dot}`} aria-hidden="true" />
+            <span className="text-xs font-semibold uppercase tracking-wide opacity-70 w-16 flex-shrink-0">{s.label}</span>
+            <span className="text-sm">{w.message}</span>
+          </div>
+        );
+      })}
+
+      {/* Flat generation warnings (legality, budget, gap messages) */}
       {warnings.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-start">

@@ -387,6 +387,7 @@ export function engineDeckToBde(
     functionalCoverage,
     subtypeCounts,
     ...(engineDeck.trimCuts && engineDeck.trimCuts.length > 0 ? { trimCuts: engineDeck.trimCuts } : {}),
+    ...(engineDeck.dashboardWarnings && engineDeck.dashboardWarnings.length > 0 ? { dashboardWarnings: engineDeck.dashboardWarnings } : {}),
   };
 }
 

@@ -587,8 +587,9 @@ export default function Home() {
 
             {/* Warnings and Notes */}
             <Warnings
-              warnings={generatedDeck.warnings} 
-              notes={generatedDeck.generation_notes} 
+              warnings={generatedDeck.warnings}
+              notes={generatedDeck.generation_notes}
+              dashboardWarnings={generatedDeck.dashboardWarnings}
             />
 
 

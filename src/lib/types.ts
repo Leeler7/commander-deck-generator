@@ -205,6 +205,12 @@ export interface GeneratedDeck {
     reasonLabel: string;
     reasonText: string;
   }[];
+  /** Structured deck-health warnings with a severity for ranking/colour. */
+  dashboardWarnings?: {
+    id: string;
+    severity: 'info' | 'warn' | 'error';
+    message: string;
+  }[];
 }
 
 export interface PowerLevelConfig {

@@ -1,4 +1,5 @@
 import type { TrimCut } from './trimReasons';
+import type { DashboardWarning } from './dashboardWarnings';
 
 // Scryfall Card type
 export interface ScryfallCard {
@@ -295,6 +296,7 @@ export interface GeneratedDeck {
   protectionSubtypeCounts?: Record<string, number>;
   swapCandidates?: Record<string, ScryfallCard[]>; // Keyed by RoleKey or 'type:{cardType}', top candidates per role/type for card swapping
   trimCuts?: TrimCut[]; // Cards cut when the deck was over-full, each with an explainable reason
+  dashboardWarnings?: DashboardWarning[]; // Structured deck-health warnings with severity
   removedFromDeck?: string[]; // Cards from original deck that were cut during build-from-deck optimization
   deckScore?: number; // Sum of EDHREC inclusion % for all non-land cards
   cardInclusionMap?: Record<string, number>; // cardName → EDHREC inclusion %
