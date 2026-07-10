@@ -226,15 +226,18 @@ export function engineDeckToBde(
     }
   }
 
-  // Build role breakdown
+  // Build role breakdown. Protection (counterspells + protection spells) shares the singleRemoval
+  // category bucket, so split it out by deckRole for an honest Removal vs Protection count.
+  const singleRemovalCards = engineDeck.categories.singleRemoval || [];
+  const protectionCount = singleRemovalCards.filter(c => c.deckRole === 'protection').length;
   const roleBreakdown: Record<BDECardRole, number> = {
     'Commander': 1,
     'Ramp': (engineDeck.categories.ramp || []).length,
     'Draw/Advantage': (engineDeck.categories.cardDraw || []).length,
-    'Removal/Interaction': (engineDeck.categories.singleRemoval || []).length,
+    'Removal/Interaction': singleRemovalCards.length - protectionCount,
     'Board Wipe': (engineDeck.categories.boardWipes || []).length,
     'Tutor': 0,
-    'Protection': 0,
+    'Protection': protectionCount,
     'Synergy/Wincon': (engineDeck.categories.synergy || []).length,
     'Creature': (engineDeck.categories.creatures || []).length,
     'Utility': (engineDeck.categories.utility || []).length,
@@ -318,11 +321,12 @@ export function engineDeckToBde(
     removal: engineDeck.roleCounts.removal || 0,
     board_wipe: engineDeck.roleCounts.boardwipe || 0,
     tutor: tutorCount,
+    protection: engineDeck.roleCounts.protection || 0,
   } : undefined;
 
   // Build subtype breakdowns from actual categorized cards (not enricher totals,
   // which overcount because creatures with roles get sorted into 'creatures' not the role category)
-  const countSubtypes = (cards: EngineScryfallCard[], field: 'rampSubtype' | 'removalSubtype' | 'boardwipeSubtype' | 'cardDrawSubtype') => {
+  const countSubtypes = (cards: EngineScryfallCard[], field: 'rampSubtype' | 'removalSubtype' | 'boardwipeSubtype' | 'cardDrawSubtype' | 'protectionSubtype') => {
     const counts: Record<string, number> = {};
     for (const card of cards) {
       const sub = card[field] as string | undefined;
@@ -335,6 +339,8 @@ export function engineDeckToBde(
     removal: countSubtypes(engineDeck.categories.singleRemoval || [], 'removalSubtype'),
     boardwipe: countSubtypes(engineDeck.categories.boardWipes || [], 'boardwipeSubtype'),
     cardDraw: countSubtypes(engineDeck.categories.cardDraw || [], 'cardDrawSubtype'),
+    // Protection cards share the singleRemoval category bucket; count them by their own field.
+    protection: countSubtypes(engineDeck.categories.singleRemoval || [], 'protectionSubtype'),
   };
 
   // Build warnings

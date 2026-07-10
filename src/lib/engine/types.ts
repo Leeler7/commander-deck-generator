@@ -63,9 +63,10 @@ export interface ScryfallCard {
   deckRole?: string; // Functional role detected by tagger/oracle text (e.g., 'ramp', 'removal')
   multiRole?: boolean; // True if card matches multiple role categories
   rampSubtype?: 'mana-producer' | 'mana-rock' | 'cost-reducer' | 'ramp';
-  removalSubtype?: 'counterspell' | 'bounce' | 'spot-removal' | 'removal';
+  removalSubtype?: 'bounce' | 'spot-removal' | 'removal';
   boardwipeSubtype?: 'bounce-wipe' | 'boardwipe';
   cardDrawSubtype?: 'tutor' | 'wheel' | 'cantrip' | 'card-draw' | 'card-advantage';
+  protectionSubtype?: 'counterspell' | 'protection';
   isMdfcLand?: boolean; // True if this is an MDFC with a land back face
   isChannelLand?: boolean; // True if this is a Kamigawa channel land
   isUtilityLand?: boolean; // True if this land has meaningful non-mana abilities (from otag:utility-land)
@@ -289,6 +290,7 @@ export interface GeneratedDeck {
   removalSubtypeCounts?: Record<string, number>;
   boardwipeSubtypeCounts?: Record<string, number>;
   cardDrawSubtypeCounts?: Record<string, number>;
+  protectionSubtypeCounts?: Record<string, number>;
   swapCandidates?: Record<string, ScryfallCard[]>; // Keyed by RoleKey or 'type:{cardType}', top candidates per role/type for card swapping
   removedFromDeck?: string[]; // Cards from original deck that were cut during build-from-deck optimization
   deckScore?: number; // Sum of EDHREC inclusion % for all non-land cards

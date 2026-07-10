@@ -182,6 +182,7 @@ export interface GeneratedDeck {
     removal: number;
     board_wipe: number;
     tutor: number;
+    protection: number;
   };
   /** Structured commander mechanical analysis — computed by parseCommanderMechanics */
   commanderAnalysis?: {
@@ -195,6 +196,7 @@ export interface GeneratedDeck {
     removal?: Record<string, number>;
     boardwipe?: Record<string, number>;
     cardDraw?: Record<string, number>;
+    protection?: Record<string, number>;
   };
 }
 

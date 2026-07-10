@@ -22,15 +22,15 @@ const path = require('path');
 // Resolve paths relative to project root (one level up from tools/)
 const projectRoot = path.resolve(__dirname, '..');
 
-// All 19 tags expected by tagger-client.ts
+// All 20 tags expected by tagger-client.ts
 const ALL_TAGS = [
   // Roles
-  'boardwipe', 'removal',
+  'boardwipe', 'removal', 'protection',
   // Ramp subtypes
   'ramp', 'cost-reducer', 'mana-dork', 'mana-rock',
   // Card draw subtypes
   'card-advantage', 'tutor', 'draw', 'wheel', 'looting', 'cantrip',
-  // Removal subtypes
+  // Protection / removal subtypes
   'counterspell', 'bounce', 'spot-removal',
   // Land tags
   'utility-land', 'tapland',

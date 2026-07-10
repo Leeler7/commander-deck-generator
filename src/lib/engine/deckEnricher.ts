@@ -1,5 +1,5 @@
 import type { ScryfallCard, DeckCategory, DetectedCombo, EDHRECCommanderData, EDHRECCard } from './types';
-import { loadTaggerData, getCardRole, hasMultipleRoles, getRampSubtype, getRemovalSubtype, getBoardwipeSubtype, getCardDrawSubtype, type RoleKey } from './tagger-client';
+import { loadTaggerData, getCardRole, hasMultipleRoles, getRampSubtype, getRemovalSubtype, getBoardwipeSubtype, getCardDrawSubtype, getProtectionSubtype, type RoleKey } from './tagger-client';
 import { getFrontFaceTypeLine, getGameChangerNames, isChannelLand, isMdfcLand } from './scryfall-client';
 import { CHANNEL_LAND_BOOST, MDFC_LAND_BOOST } from './deckGenerator';
 import { fetchCommanderData, fetchPartnerCommanderData } from './edhrec-client';
@@ -22,6 +22,7 @@ export interface EnrichResult {
   removalSubtypeCounts: Record<string, number>;
   boardwipeSubtypeCounts: Record<string, number>;
   cardDrawSubtypeCounts: Record<string, number>;
+  protectionSubtypeCounts: Record<string, number>;
   bracketEstimation?: BracketEstimation;
   gameChangerNames?: string[];
   cardInclusionMap?: Record<string, number>;
@@ -54,17 +55,19 @@ export async function enrichDeckCards(
     utility: [],
   };
 
-  const roleCounts: Record<string, number> = { ramp: 0, removal: 0, boardwipe: 0, cardDraw: 0 };
+  const roleCounts: Record<string, number> = { ramp: 0, removal: 0, boardwipe: 0, cardDraw: 0, protection: 0 };
   const rampSubtypeCounts: Record<string, number> = { 'mana-producer': 0, 'mana-rock': 0, 'cost-reducer': 0, ramp: 0 };
-  const removalSubtypeCounts: Record<string, number> = { counterspell: 0, bounce: 0, 'spot-removal': 0, removal: 0 };
+  const removalSubtypeCounts: Record<string, number> = { bounce: 0, 'spot-removal': 0, removal: 0 };
   const boardwipeSubtypeCounts: Record<string, number> = { 'bounce-wipe': 0, boardwipe: 0 };
   const cardDrawSubtypeCounts: Record<string, number> = { tutor: 0, wheel: 0, cantrip: 0, 'card-draw': 0, 'card-advantage': 0 };
+  const protectionSubtypeCounts: Record<string, number> = { counterspell: 0, protection: 0 };
 
   const ROLE_TO_CATEGORY: Record<string, DeckCategory> = {
     ramp: 'ramp',
     removal: 'singleRemoval',
     boardwipe: 'boardWipes',
     cardDraw: 'cardDraw',
+    protection: 'singleRemoval',
   };
 
   let cmcSum = 0;
@@ -90,6 +93,7 @@ export async function enrichDeckCards(
         case 'removal': card.removalSubtype = getRemovalSubtype(card.name) ?? undefined; break;
         case 'boardwipe': card.boardwipeSubtype = getBoardwipeSubtype(card.name) ?? undefined; break;
         case 'cardDraw': card.cardDrawSubtype = getCardDrawSubtype(card.name) ?? undefined; break;
+        case 'protection': card.protectionSubtype = getProtectionSubtype(card.name) ?? undefined; break;
       }
       // Don't count lands toward role totals — they occupy land slots, not spell slots
       if (!typeLine.includes('land')) roleCounts[role]++;
@@ -97,6 +101,7 @@ export async function enrichDeckCards(
       if (card.removalSubtype) removalSubtypeCounts[card.removalSubtype] = (removalSubtypeCounts[card.removalSubtype] || 0) + 1;
       if (card.boardwipeSubtype) boardwipeSubtypeCounts[card.boardwipeSubtype] = (boardwipeSubtypeCounts[card.boardwipeSubtype] || 0) + 1;
       if (card.cardDrawSubtype) cardDrawSubtypeCounts[card.cardDrawSubtype] = (cardDrawSubtypeCounts[card.cardDrawSubtype] || 0) + 1;
+      if (card.protectionSubtype) protectionSubtypeCounts[card.protectionSubtype] = (protectionSubtypeCounts[card.protectionSubtype] || 0) + 1;
     }
 
     // Track CMC for avg calculation
@@ -227,6 +232,7 @@ export async function enrichDeckCards(
         ...removalSubtypeCounts,
         ...boardwipeSubtypeCounts,
         ...cardDrawSubtypeCounts,
+        ...protectionSubtypeCounts,
       };
 
       const scoringCtx: ScoringContext = {
@@ -267,6 +273,7 @@ export async function enrichDeckCards(
     removalSubtypeCounts,
     boardwipeSubtypeCounts,
     cardDrawSubtypeCounts,
+    protectionSubtypeCounts,
     bracketEstimation,
     gameChangerNames: gcNames,
     cardInclusionMap,
